@@ -1,0 +1,68 @@
+﻿# ===========================
+# Python Backend
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+venv/
+ENV/
+env/
+.venv/
+.idea/
+.pytest_cache/
+.coverage
+.mypy_cache/
+
+# ===========================
+# Node.js Frontend
+# ===========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+frontend/dist/
+frontend/build/
+
+# ===========================
+# Editor and IDE
+# ===========================
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Project Specific
+# ===========================
+backend/uploads/datasets/*/
+backend/uploads/results/*/
+backend/uploads/cache/*/
+!backend/uploads/datasets/.gitkeep
+!backend/uploads/results/.gitkeep
+!backend/uploads/cache/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temp
+tmp/
+temp/
+*.tmp
