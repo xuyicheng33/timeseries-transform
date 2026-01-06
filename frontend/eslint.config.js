@@ -6,9 +6,10 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'node_modules', '*.config.js', '*.config.ts']),
+  globalIgnores(['dist', 'node_modules']),
   {
     files: ['**/*.{ts,tsx}'],
+    ignores: ['*.config.{js,ts}'],
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
@@ -23,7 +24,9 @@ export default defineConfig([
   // Node 配置文件单独处理
   {
     files: ['*.config.{js,ts}'],
+    extends: [js.configs.recommended],
     languageOptions: {
+      ecmaVersion: 2020,
       globals: globals.node,
     },
   },

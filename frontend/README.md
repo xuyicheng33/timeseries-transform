@@ -26,7 +26,7 @@ src/
 └── constants/          # 常量定义（待实现）
 ```
 
-**注意**: 当前为初始化阶段，上述目录结构已创建但内容待后续步骤实现。
+**注意**: 当前为初始化阶段，上述目录结构已创建（含 .gitkeep 占位文件），内容待后续步骤实现。
 
 ## 开发
 
@@ -46,11 +46,13 @@ npm run preview
 
 ## 环境变量
 
-- `.env.example` - 环境变量模板（提交到仓库）
-- `.env.development` - 开发环境（使用 Vite proxy，不提交）
-- `.env.production` - 生产环境（不提交）
+- `.env.example` - 环境变量模板（已提交到仓库）
+- `.env.development` - 开发环境（不提交，需手动创建）
+- `.env.production` - 生产环境（不提交，需手动创建）
 
 **首次使用**: 复制 `.env.example` 为 `.env.development` 和 `.env.production`，根据需要修改。
+
+**注意**: `.env.development` 和 `.env.production` 已添加到 `.gitignore`，不会被提交到仓库。
 
 ## 开发规范
 
