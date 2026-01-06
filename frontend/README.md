@@ -16,12 +16,28 @@
 
 ```
 src/
-├── api/                # API 封装（待实现）
+├── api/                # API 封装 ✅
+│   ├── index.ts        # 业务 Axios 实例
+│   ├── request.ts      # 原始 Axios 实例（Blob 下载）
+│   ├── datasets.ts     # 数据集 API
+│   ├── configurations.ts # 配置 API
+│   ├── results.ts      # 结果 API
+│   └── visualization.ts # 可视化 API
 ├── components/         # 通用组件（待实现）
 ├── pages/              # 页面组件（待实现）
 ├── hooks/              # 自定义 Hooks（待实现）
-├── types/              # TypeScript 类型定义（待实现）
-├── utils/              # 工具函数（待实现）
+├── types/              # TypeScript 类型定义 ✅
+│   ├── dataset.ts
+│   ├── configuration.ts
+│   ├── result.ts
+│   ├── visualization.ts
+│   ├── api.ts
+│   └── index.ts
+├── utils/              # 工具函数 ✅
+│   ├── error.ts        # 错误处理
+│   ├── download.ts     # 文件下载
+│   ├── format.ts       # 格式化工具
+│   └── index.ts
 ├── config/             # 配置文件（待实现）
 └── constants/          # 常量定义（待实现）
 ```
@@ -68,8 +84,10 @@ npm run preview
 - ✅ 项目初始化完成
 - ✅ 依赖安装完成
 - ✅ 开发环境配置完成
-- ⏳ 类型定义待实现
-- ⏳ API 封装待实现
+- ✅ 类型定义完成
+- ✅ API 封装完成
+- ✅ 工具函数完成
+- ⏳ 布局和路由待实现
 - ⏳ 页面组件待实现
 
 ## 浏览器支持

@@ -31,7 +31,7 @@ export function parseErrorDetail(detail: unknown): string {
 
   // 对象
   if (typeof detail === 'object') {
-    return (detail as any).msg || JSON.stringify(detail)
+    return (detail as Record<string, unknown>).msg as string || JSON.stringify(detail)
   }
 
   return String(detail)
@@ -40,19 +40,26 @@ export function parseErrorDetail(detail: unknown): string {
 /**
  * 获取错误消息
  */
-export function getErrorMessage(error: any): string {
+export function getErrorMessage(error: unknown): string {
   let message = '请求失败'
 
-  if (error.response) {
+  const err = error as {
+    response?: { data?: ApiError; status?: number }
+    request?: unknown
+    code?: string
+    message?: string
+  }
+
+  if (err.response) {
     // 服务器返回错误
-    const apiError = error.response.data as ApiError
-    message = parseErrorDetail(apiError?.detail) || `错误 ${error.response.status}`
-  } else if (error.request) {
+    const apiError = err.response.data
+    message = parseErrorDetail(apiError?.detail) || `错误 ${err.response.status}`
+  } else if (err.request) {
     // 请求已发出但无响应（断网/超时）
-    message = error.code === 'ECONNABORTED' ? '请求超时' : '网络连接失败'
+    message = err.code === 'ECONNABORTED' ? '请求超时' : '网络连接失败'
   } else {
     // 请求配置错误
-    message = error.message || '请求失败'
+    message = err.message || '请求失败'
   }
 
   return message

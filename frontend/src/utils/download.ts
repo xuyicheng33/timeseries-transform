@@ -5,8 +5,8 @@
 import { message } from 'antd'
 import rawRequest from '@/api/request'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
-const API_PREFIX = import.meta.env.VITE_API_PREFIX || '/api'
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const API_PREFIX = (import.meta.env.VITE_API_PREFIX || '/api').replace(/\/$/, '')
 
 /**
  * 获取完整 URL
@@ -27,7 +27,7 @@ function parseFilename(disposition: string | undefined): string | null {
     // 解码 URL 编码的文件名
     try {
       filename = decodeURIComponent(filename)
-    } catch (e) {
+    } catch {
       // 如果解码失败，使用原始文件名
     }
     return filename

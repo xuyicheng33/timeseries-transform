@@ -25,9 +25,6 @@ export async function uploadDataset(
   formData.append('file', file)
 
   return api.post('/datasets/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
     timeout: 300000, // 5分钟
     onUploadProgress: (progressEvent) => {
       if (onProgress && progressEvent.total) {

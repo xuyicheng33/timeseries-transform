@@ -39,9 +39,6 @@ export async function uploadResult(
   }
 
   return api.post('/results/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
     timeout: 300000, // 5分钟
     onUploadProgress: (progressEvent) => {
       if (onProgress && progressEvent.total) {
@@ -59,12 +56,11 @@ export async function getResults(
   datasetId?: number,
   modelName?: string
 ): Promise<Result[]> {
-  return api.get('/results', {
-    params: {
-      dataset_id: datasetId,
-      model_name: modelName,
-    },
-  })
+  const params: Record<string, number | string> = {}
+  if (datasetId !== undefined) params.dataset_id = datasetId
+  if (modelName !== undefined) params.model_name = modelName
+  
+  return api.get('/results', { params })
 }
 
 /**
