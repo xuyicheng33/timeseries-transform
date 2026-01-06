@@ -22,23 +22,23 @@ User workflow:
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React 18 + TypeScript + Vite + Ant Design 5 + ECharts 5 |
+| Frontend | React 19 + TypeScript + Vite + Ant Design 6 + ECharts 6 |
 | Backend | Python 3.10+ + FastAPI + SQLAlchemy + SQLite |
 | Deployment | Docker + Docker Compose (Phase 2) |
 
 ## Project Structure
 
 timeseries-platform/
- frontend/                # Frontend project
+ frontend/                # Frontend project (in development)
     src/
+       api/             # API services
        components/      # Common components
        pages/           # Page components
-       services/        # API services
        types/           # Type definitions
        utils/           # Utility functions
     package.json
 
- backend/                 # Backend project
+ backend/                 # Backend project (completed)
     app/
        api/             # API routes
        models/          # Database models
@@ -100,7 +100,7 @@ Access: http://localhost:5173
 
 ## Development Phases
 
-- [x] Phase 1: Standalone version (current)
+- [x] Phase 1: Standalone version (backend completed, frontend in development)
 - [ ] Phase 2: Deployment version (JWT + PostgreSQL + Docker)
 - [ ] Phase 3: Computing version (backend auto-run algorithms)
 

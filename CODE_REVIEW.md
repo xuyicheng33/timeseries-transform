@@ -4,7 +4,7 @@
 **时间序列分析与算法对比评估平台**
 
 ## 审查日期
-2026年1月6日
+2026年1月7日（更新）
 
 ---
 
@@ -22,7 +22,7 @@
 
 | 阶段 | 模式 | 状态 |
 |------|------|------|
-| 第一阶段（单机版） | 在线配置 + 离线计算 + 在线展示 | **当前开发中** |
+| 第一阶段（单机版） | 在线配置 + 离线计算 + 在线展示 | **后端已完成，前端开发中** |
 | 第二阶段（部署版） | JWT认证 + PostgreSQL + Docker | 待开发 |
 | 第三阶段（算力版） | 后台自动运行算法 | 待开发 |
 
@@ -41,9 +41,9 @@
 | 数据库 | SQLite (异步) | - |
 | ORM | SQLAlchemy | 2.0.25 |
 | 数据处理 | Pandas + NumPy | 2.1.4 / 1.26.3 |
-| 前端框架 | React + TypeScript | 18.x |
-| UI组件库 | Ant Design | 5.x |
-| 可视化 | ECharts | 5.x |
+| 前端框架 | React + TypeScript | 19.x |
+| UI组件库 | Ant Design | 6.x |
+| 可视化 | ECharts | 6.x |
 
 ### 2.2 项目结构
 
@@ -60,7 +60,17 @@
         uploads/                 # 文件存储
         requirements.txt         # Python依赖
     
-     frontend/                    # 前端项目 [待开发]
+     frontend/                    # 前端项目 [开发中]
+        src/
+           api/                 # API 封装 [已完成]
+           types/               # TypeScript 类型定义 [已完成]
+           utils/               # 工具函数 [已完成]
+           components/          # 通用组件 [待开发]
+           pages/               # 页面组件 [待开发]
+           hooks/               # 自定义 Hooks [待开发]
+           config/              # 配置文件 [待开发]
+           constants/           # 常量定义 [待开发]
+        package.json
      README.md
 
 ---
@@ -174,3 +184,4 @@ API文档地址：http://localhost:8000/docs
 ---
 
 文档生成时间：2026年1月6日
+文档更新时间：2026年1月7日
