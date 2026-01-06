@@ -22,10 +22,15 @@ executor = ThreadPoolExecutor(max_workers=4)
 REQUIRED_COLUMNS = {"true_value", "predicted_value"}
 
 
+def _write_file_sync(filepath: str, content: bytes):
+    """同步写文件 - 修复：使用 with 确保文件句柄关闭"""
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+
 def _parse_result_csv_sync(filepath: str):
     """同步解析结果CSV"""
-    df = pd.read_csv(filepath)
-    return df
+    return pd.read_csv(filepath)
 
 
 @router.post("/upload", response_model=ResultResponse)
@@ -44,7 +49,6 @@ async def upload_result(
     
     content = await file.read()
     
-    # 修复：添加文件大小限制
     if len(content) > settings.MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=400, detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // 1024 // 1024}MB")
     
@@ -66,7 +70,8 @@ async def upload_result(
     filepath = result_dir / "prediction.csv"
     
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(executor, lambda: open(filepath, "wb").write(content))
+    # 修复：使用封装函数确保文件句柄关闭
+    await loop.run_in_executor(executor, _write_file_sync, str(filepath), content)
     
     try:
         df = await loop.run_in_executor(executor, _parse_result_csv_sync, str(filepath))
@@ -75,7 +80,6 @@ async def upload_result(
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
     
-    # 修复：严格校验必需列
     missing_cols = REQUIRED_COLUMNS - set(df.columns)
     if missing_cols:
         shutil.rmtree(result_dir)
@@ -88,7 +92,6 @@ async def upload_result(
     result_obj.filepath = str(filepath)
     result_obj.row_count = len(df)
     
-    # 计算指标
     true_vals = df["true_value"].values.astype(float)
     pred_vals = df["predicted_value"].values.astype(float)
     result_obj.metrics = calculate_metrics(true_vals, pred_vals)
@@ -153,6 +156,7 @@ async def delete_result(result_id: int, db: AsyncSession = Depends(get_db)):
     if result_dir.exists():
         shutil.rmtree(result_dir)
     
-    await db.delete(result_obj)
+    # 修复：delete() 是同步方法，不需要 await
+    db.delete(result_obj)
     await db.commit()
     return {"message": "Result deleted"}

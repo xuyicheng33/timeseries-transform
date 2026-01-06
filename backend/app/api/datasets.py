@@ -18,12 +18,17 @@ from app.services.utils import count_csv_rows
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
-# 线程池用于执行阻塞IO
 executor = ThreadPoolExecutor(max_workers=4)
 
 
+def _write_file_sync(filepath: str, content: bytes):
+    """同步写文件 - 修复：使用 with 确保文件句柄关闭"""
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+
 def _parse_csv_sync(filepath: str, encoding: str):
-    """同步解析CSV - 在线程池中执行"""
+    """同步解析CSV"""
     df = pd.read_csv(filepath, encoding=encoding, nrows=100)
     row_count = count_csv_rows(filepath)
     return df, row_count
@@ -57,11 +62,10 @@ async def upload_dataset(
     dataset_dir.mkdir(parents=True, exist_ok=True)
     filepath = dataset_dir / "data.csv"
     
-    # 异步写文件
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(executor, lambda: open(filepath, "wb").write(content))
+    # 修复：使用封装函数确保文件句柄关闭
+    await loop.run_in_executor(executor, _write_file_sync, str(filepath), content)
     
-    # 在线程池中解析CSV，避免阻塞事件循环
     try:
         df, row_count = await loop.run_in_executor(executor, _parse_csv_sync, str(filepath), encoding)
     except Exception as e:
@@ -97,7 +101,6 @@ async def get_dataset(dataset_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/{dataset_id}/preview", response_model=DatasetPreview)
 async def preview_dataset(dataset_id: int, rows: int = 100, db: AsyncSession = Depends(get_db)):
-    # 修复：限制最大预览行数
     rows = min(rows, settings.PREVIEW_ROWS)
     
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
@@ -148,22 +151,26 @@ async def delete_dataset(dataset_id: int, db: AsyncSession = Depends(get_db)):
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     
-    # 修复：级联删除关联的配置和结果
+    # 级联删除关联的配置
     configs = await db.execute(select(Configuration).where(Configuration.dataset_id == dataset_id))
     for config in configs.scalars().all():
-        await db.delete(config)
+        # 修复：delete() 是同步方法，不需要 await
+        db.delete(config)
     
-    results = await db.execute(select(Result).where(Result.dataset_id == dataset_id))
-    for res in results.scalars().all():
+    # 级联删除关联的结果
+    results_query = await db.execute(select(Result).where(Result.dataset_id == dataset_id))
+    for res in results_query.scalars().all():
         result_dir = settings.RESULTS_DIR / str(dataset_id) / str(res.id)
         if result_dir.exists():
             shutil.rmtree(result_dir)
-        await db.delete(res)
+        # 修复：delete() 是同步方法，不需要 await
+        db.delete(res)
     
     dataset_dir = settings.DATASETS_DIR / str(dataset_id)
     if dataset_dir.exists():
         shutil.rmtree(dataset_dir)
     
-    await db.delete(dataset)
+    # 修复：delete() 是同步方法，不需要 await
+    db.delete(dataset)
     await db.commit()
     return {"message": "Dataset and related data deleted"}

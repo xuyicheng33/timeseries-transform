@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models import Result
 from app.schemas import CompareRequest, CompareResponse, ChartDataResponse, ChartDataSeries, MetricsResponse
 from app.config import settings
-from app.services.utils import lttb_downsample, calculate_metrics
+from app.services.utils import downsample, calculate_metrics
 
 router = APIRouter(prefix="/api/visualization", tags=["visualization"])
 
@@ -41,7 +41,6 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
     
     loop = asyncio.get_event_loop()
     
-    # 修复：按dataset_id分组，避免真实值重复
     dataset_true_added = set()
     
     for res in results:
@@ -59,10 +58,10 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
             
             if len(df) > data.max_points:
                 downsampled = True
-                true_data = lttb_downsample(true_data, data.max_points)
-                pred_data = lttb_downsample(pred_data, data.max_points)
+                # 修复：使用 algorithm 参数选择降采样算法
+                true_data = downsample(true_data, data.max_points, data.algorithm)
+                pred_data = downsample(pred_data, data.max_points, data.algorithm)
             
-            # 修复：每个dataset_id只添加一次真实值曲线
             if res.dataset_id not in dataset_true_added:
                 series_list.append(ChartDataSeries(
                     name=f"True (Dataset {res.dataset_id})", 

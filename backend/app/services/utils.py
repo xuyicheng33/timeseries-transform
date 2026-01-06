@@ -3,9 +3,9 @@ from typing import List, Tuple
 
 
 def lttb_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tuple[float, float]]:
-    """LTTB降采样算法 - 修复：添加边界检查防止除零"""
+    """LTTB降采样算法 - 保留视觉特征最优"""
     if threshold <= 2:
-        threshold = 3  # 最小采样点数
+        threshold = 3
     
     if len(data) <= threshold:
         return data
@@ -45,6 +45,81 @@ def lttb_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tup
     return sampled
 
 
+def minmax_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tuple[float, float]]:
+    """MinMax降采样算法 - 保留每个桶的最大最小值"""
+    if threshold <= 2:
+        threshold = 4
+    
+    if len(data) <= threshold:
+        return data
+    
+    # 每个桶保留2个点（min和max），所以桶数是 threshold/2
+    num_buckets = threshold // 2
+    bucket_size = len(data) / num_buckets
+    
+    sampled = []
+    for i in range(num_buckets):
+        start = int(i * bucket_size)
+        end = int((i + 1) * bucket_size)
+        end = min(end, len(data))
+        
+        if start >= end:
+            continue
+        
+        bucket = data[start:end]
+        min_point = min(bucket, key=lambda p: p[1])
+        max_point = max(bucket, key=lambda p: p[1])
+        
+        # 按x坐标顺序添加
+        if min_point[0] <= max_point[0]:
+            sampled.append(min_point)
+            if min_point != max_point:
+                sampled.append(max_point)
+        else:
+            sampled.append(max_point)
+            if min_point != max_point:
+                sampled.append(min_point)
+    
+    return sampled
+
+
+def average_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tuple[float, float]]:
+    """Average降采样算法 - 每个桶取平均值"""
+    if threshold <= 2:
+        threshold = 3
+    
+    if len(data) <= threshold:
+        return data
+    
+    bucket_size = len(data) / threshold
+    sampled = []
+    
+    for i in range(threshold):
+        start = int(i * bucket_size)
+        end = int((i + 1) * bucket_size)
+        end = min(end, len(data))
+        
+        if start >= end:
+            continue
+        
+        bucket = data[start:end]
+        avg_x = np.mean([p[0] for p in bucket])
+        avg_y = np.mean([p[1] for p in bucket])
+        sampled.append((avg_x, avg_y))
+    
+    return sampled
+
+
+def downsample(data: List[Tuple[float, float]], threshold: int, algorithm: str = "lttb") -> List[Tuple[float, float]]:
+    """统一降采样入口 - 根据算法选择"""
+    if algorithm == "minmax":
+        return minmax_downsample(data, threshold)
+    elif algorithm == "average":
+        return average_downsample(data, threshold)
+    else:  # 默认 lttb
+        return lttb_downsample(data, threshold)
+
+
 def calculate_metrics(true_values: np.ndarray, pred_values: np.ndarray) -> dict:
     """计算评估指标"""
     if len(true_values) == 0 or len(pred_values) == 0:
@@ -71,10 +146,9 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
                                anomaly_enabled: bool, anomaly_type: str, injection_algorithm: str,
                                sequence_logic: str, window_size: int, stride: int,
                                target_type: str, target_k: int = 1) -> str:
-    """生成标准文件名 - 修复：使用真实通道名而非索引"""
+    """生成标准文件名"""
     parts = [dataset_name]
     
-    # 修复：直接使用通道名，而非enumerate索引
     if channels:
         ch_str = "Ch_" + "-".join(channels)
         parts.append(ch_str)
@@ -100,7 +174,6 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
     target_map = {"next": "PredN", "kstep": f"PredK{target_k}", "reconstruct": "Recon"}
     parts.append(target_map.get(target_type, "PredN"))
     
-    # 过滤空字符串
     parts = [p for p in parts if p]
     
     return "_".join(parts) + ".csv"
@@ -112,4 +185,4 @@ def count_csv_rows(filepath: str) -> int:
     with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
         for _ in f:
             count += 1
-    return max(0, count - 1)  # 减去表头
+    return max(0, count - 1)

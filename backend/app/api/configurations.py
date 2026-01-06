@@ -80,7 +80,8 @@ async def delete_configuration(config_id: int, db: AsyncSession = Depends(get_db
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(status_code=404, detail="Configuration not found")
-    await db.delete(config)
+    # 修复：delete() 是同步方法，不需要 await
+    db.delete(config)
     await db.commit()
     return {"message": "Configuration deleted"}
 
