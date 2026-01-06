@@ -30,7 +30,7 @@ def _write_file_sync(filepath: str, content: bytes):
 def _parse_csv_sync(filepath: str, encoding: str):
     """同步解析CSV"""
     df = pd.read_csv(filepath, encoding=encoding, nrows=100)
-    row_count = count_csv_rows(filepath, encoding)  # 修复：传入编码参数
+    row_count = count_csv_rows(filepath)
     return df, row_count
 
 
@@ -41,8 +41,7 @@ async def upload_dataset(
     description: str = Form(""),
     db: AsyncSession = Depends(get_db)
 ):
-    # 修复：大小写不敏感的扩展名校验
-    if not file.filename.lower().endswith(".csv"):
+    if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
     
     content = await file.read()
@@ -63,7 +62,7 @@ async def upload_dataset(
     dataset_dir.mkdir(parents=True, exist_ok=True)
     filepath = dataset_dir / "data.csv"
     
-    loop = asyncio.get_running_loop()
+    loop = asyncio.get_event_loop()
     # 修复：使用封装函数确保文件句柄关闭
     await loop.run_in_executor(executor, _write_file_sync, str(filepath), content)
     
@@ -79,7 +78,6 @@ async def upload_dataset(
     dataset.row_count = row_count
     dataset.column_count = len(df.columns)
     dataset.columns = df.columns.tolist()
-    dataset.encoding = encoding  # 修复：保存检测到的编码
     
     await db.commit()
     await db.refresh(dataset)
@@ -103,16 +101,15 @@ async def get_dataset(dataset_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/{dataset_id}/preview", response_model=DatasetPreview)
 async def preview_dataset(dataset_id: int, rows: int = 100, db: AsyncSession = Depends(get_db)):
-    # 修复：防止 0/负数
-    rows = max(1, min(rows, settings.PREVIEW_ROWS))
+    rows = min(rows, settings.PREVIEW_ROWS)
     
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     
-    loop = asyncio.get_running_loop()
-    df = await loop.run_in_executor(executor, lambda: pd.read_csv(dataset.filepath, encoding=dataset.encoding or 'utf-8', nrows=rows))
+    loop = asyncio.get_event_loop()
+    df = await loop.run_in_executor(executor, lambda: pd.read_csv(dataset.filepath, nrows=rows))
     
     return DatasetPreview(
         columns=df.columns.tolist(),

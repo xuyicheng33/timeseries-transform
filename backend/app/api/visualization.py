@@ -39,7 +39,7 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
     total_points = 0
     downsampled = False
     
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     
     dataset_true_added = set()
     
@@ -47,14 +47,27 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
         df = await loop.run_in_executor(executor, _read_csv_sync, res.filepath)
         
         if "true_value" in df.columns and "predicted_value" in df.columns:
-            true_vals = df["true_value"].values.astype(float)
-            pred_vals = df["predicted_value"].values.astype(float)
-            indices = list(range(len(df)))
+            # 修复：使用 pd.to_numeric 安全转换，避免异常
+            try:
+                true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+                pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+                
+                # 过滤掉 NaN 值
+                valid_mask = ~(np.isnan(true_vals) | np.isnan(pred_vals))
+                if not valid_mask.any():
+                    continue  # 跳过没有有效数据的结果
+                
+                true_vals_clean = true_vals[valid_mask]
+                pred_vals_clean = pred_vals[valid_mask]
+                valid_indices = np.where(valid_mask)[0].tolist()
+            except Exception:
+                continue  # 跳过无法解析的结果
             
-            total_points = max(total_points, len(df))
+            indices = valid_indices
+            total_points = max(total_points, len(indices))
             
-            true_data = list(zip(indices, true_vals.tolist()))
-            pred_data = list(zip(indices, pred_vals.tolist()))
+            true_data = list(zip(indices, true_vals_clean.tolist()))
+            pred_data = list(zip(indices, pred_vals_clean.tolist()))
             
             if len(df) > data.max_points:
                 downsampled = True
@@ -74,7 +87,7 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
                 data=[[p[0], p[1]] for p in pred_data]
             ))
             
-            metrics = calculate_metrics(true_vals, pred_vals)
+            metrics = calculate_metrics(true_vals_clean, pred_vals_clean)
             metrics_dict[res.id] = MetricsResponse(**metrics)
     
     return CompareResponse(
@@ -93,14 +106,29 @@ async def get_metrics(result_id: int, db: AsyncSession = Depends(get_db)):
     if result_obj.metrics:
         return MetricsResponse(**result_obj.metrics)
     
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     df = await loop.run_in_executor(executor, _read_csv_sync, result_obj.filepath)
     
     if "true_value" not in df.columns or "predicted_value" not in df.columns:
         raise HTTPException(status_code=400, detail="Result file missing required columns")
     
-    true_vals = df["true_value"].values.astype(float)
-    pred_vals = df["predicted_value"].values.astype(float)
+    # 修复：使用 pd.to_numeric 安全转换
+    try:
+        true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+        pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+        
+        # 过滤掉 NaN 值
+        valid_mask = ~(np.isnan(true_vals) | np.isnan(pred_vals))
+        if not valid_mask.any():
+            raise HTTPException(status_code=400, detail="No valid numeric data found")
+        
+        true_vals = true_vals[valid_mask]
+        pred_vals = pred_vals[valid_mask]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid numeric data: {str(e)}")
+    
     metrics = calculate_metrics(true_vals, pred_vals)
     
     return MetricsResponse(**metrics)

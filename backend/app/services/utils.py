@@ -1,4 +1,5 @@
-﻿import numpy as np
+﻿import csv
+import numpy as np
 from typing import List, Tuple
 
 
@@ -179,10 +180,17 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
     return "_".join(parts) + ".csv"
 
 
-def count_csv_rows(filepath: str) -> int:
-    """高效统计CSV行数 - 不读入内存"""
+def count_csv_rows(filepath: str, encoding: str = 'utf-8') -> int:
+    """准确统计CSV行数 - 修复：使用 csv.reader 正确处理字段内换行"""
     count = 0
-    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-        for _ in f:
-            count += 1
-    return max(0, count - 1)
+    try:
+        with open(filepath, 'r', encoding=encoding, errors='ignore', newline='') as f:
+            reader = csv.reader(f)
+            next(reader, None)  # 跳过表头
+            for _ in reader:
+                count += 1
+    except Exception:
+        # 回退到简单计数
+        with open(filepath, 'r', encoding=encoding, errors='ignore') as f:
+            count = sum(1 for _ in f) - 1
+    return max(0, count)

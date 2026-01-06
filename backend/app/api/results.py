@@ -44,7 +44,8 @@ async def upload_result(
     description: str = Form(""),
     db: AsyncSession = Depends(get_db)
 ):
-    if not file.filename.endswith(".csv"):
+    # 修复：大小写不敏感的扩展名校验
+    if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
     
     content = await file.read()
@@ -69,7 +70,7 @@ async def upload_result(
     result_dir.mkdir(parents=True, exist_ok=True)
     filepath = result_dir / "prediction.csv"
     
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     # 修复：使用封装函数确保文件句柄关闭
     await loop.run_in_executor(executor, _write_file_sync, str(filepath), content)
     
@@ -92,9 +93,20 @@ async def upload_result(
     result_obj.filepath = str(filepath)
     result_obj.row_count = len(df)
     
-    true_vals = df["true_value"].values.astype(float)
-    pred_vals = df["predicted_value"].values.astype(float)
-    result_obj.metrics = calculate_metrics(true_vals, pred_vals)
+    # 修复：捕获类型转换异常，避免留下孤儿文件
+    try:
+        true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+        pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+        
+        # 检查是否有无法转换的值（NaN）
+        if np.isnan(true_vals).any() or np.isnan(pred_vals).any():
+            raise ValueError("Columns contain non-numeric values that cannot be converted to float")
+        
+        result_obj.metrics = calculate_metrics(true_vals, pred_vals)
+    except Exception as e:
+        shutil.rmtree(result_dir)
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Invalid numeric data: {str(e)}")
     
     await db.commit()
     await db.refresh(result_obj)

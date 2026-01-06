@@ -14,6 +14,7 @@ class Dataset(Base):
     row_count = Column(Integer, default=0)
     column_count = Column(Integer, default=0)
     columns = Column(JSON, default=list)
+    encoding = Column(String(50), default="utf-8")  # 修复：存储检测到的编码
     description = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
