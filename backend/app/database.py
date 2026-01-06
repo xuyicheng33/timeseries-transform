@@ -9,12 +9,11 @@ engine = create_async_engine(
     future=True
 )
 
+# 修复：移除 autocommit 和 autoflush 参数，SQLAlchemy 2.0 不再支持
 async_session = async_sessionmaker(
     engine,
     class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False
+    expire_on_commit=False
 )
 
 
@@ -23,21 +22,22 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
+    """获取数据库会话 - 修复：不自动提交，由路由自行控制"""
     async with async_session() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await session.close()
 
 
 async def init_db():
+    """初始化数据库表"""
+    from app.models import Dataset, Configuration, Result  # 确保模型已注册
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
 async def close_db():
+    """关闭数据库连接"""
     await engine.dispose()

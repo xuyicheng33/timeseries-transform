@@ -3,6 +3,10 @@ from typing import List, Tuple
 
 
 def lttb_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tuple[float, float]]:
+    """LTTB降采样算法 - 修复：添加边界检查防止除零"""
+    if threshold <= 2:
+        threshold = 3  # 最小采样点数
+    
     if len(data) <= threshold:
         return data
     
@@ -14,6 +18,9 @@ def lttb_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tup
         bucket_end = int((i + 2) * bucket_size) + 1
         bucket_end = min(bucket_end, len(data) - 1)
         
+        if bucket_start >= bucket_end:
+            continue
+            
         avg_x = np.mean([p[0] for p in data[bucket_start:bucket_end]])
         avg_y = np.mean([p[1] for p in data[bucket_start:bucket_end]])
         
@@ -39,32 +46,37 @@ def lttb_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tup
 
 
 def calculate_metrics(true_values: np.ndarray, pred_values: np.ndarray) -> dict:
-    n = len(true_values)
-    mse = np.mean((true_values - pred_values) ** 2)
-    rmse = np.sqrt(mse)
-    mae = np.mean(np.abs(true_values - pred_values))
+    """计算评估指标"""
+    if len(true_values) == 0 or len(pred_values) == 0:
+        return {"mse": 0.0, "rmse": 0.0, "mae": 0.0, "r2": 0.0, "mape": 0.0}
+    
+    mse = float(np.mean((true_values - pred_values) ** 2))
+    rmse = float(np.sqrt(mse))
+    mae = float(np.mean(np.abs(true_values - pred_values)))
     
     ss_res = np.sum((true_values - pred_values) ** 2)
     ss_tot = np.sum((true_values - np.mean(true_values)) ** 2)
-    r2 = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+    r2 = float(1 - (ss_res / ss_tot)) if ss_tot != 0 else 0.0
     
     mask = true_values != 0
     if np.any(mask):
-        mape = np.mean(np.abs((true_values[mask] - pred_values[mask]) / true_values[mask])) * 100
+        mape = float(np.mean(np.abs((true_values[mask] - pred_values[mask]) / true_values[mask])) * 100)
     else:
-        mape = 0
+        mape = 0.0
     
-    return {"mse": float(mse), "rmse": float(rmse), "mae": float(mae), "r2": float(r2), "mape": float(mape)}
+    return {"mse": mse, "rmse": rmse, "mae": mae, "r2": r2, "mape": mape}
 
 
 def generate_standard_filename(dataset_name: str, channels: List[str], normalization: str,
                                anomaly_enabled: bool, anomaly_type: str, injection_algorithm: str,
                                sequence_logic: str, window_size: int, stride: int,
                                target_type: str, target_k: int = 1) -> str:
+    """生成标准文件名 - 修复：使用真实通道名而非索引"""
     parts = [dataset_name]
     
+    # 修复：直接使用通道名，而非enumerate索引
     if channels:
-        ch_str = "Ch" + "-".join([str(i) for i, _ in enumerate(channels)])
+        ch_str = "Ch_" + "-".join(channels)
         parts.append(ch_str)
     
     parts.append(f"Win{window_size}")
@@ -88,4 +100,16 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
     target_map = {"next": "PredN", "kstep": f"PredK{target_k}", "reconstruct": "Recon"}
     parts.append(target_map.get(target_type, "PredN"))
     
+    # 过滤空字符串
+    parts = [p for p in parts if p]
+    
     return "_".join(parts) + ".csv"
+
+
+def count_csv_rows(filepath: str) -> int:
+    """高效统计CSV行数 - 不读入内存"""
+    count = 0
+    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+        for _ in f:
+            count += 1
+    return max(0, count - 1)  # 减去表头

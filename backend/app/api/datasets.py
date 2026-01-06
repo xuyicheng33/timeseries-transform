@@ -1,5 +1,6 @@
 ﻿import os
 import shutil
+import asyncio
 import pandas as pd
 import chardet
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -7,13 +8,25 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
 
 from app.database import get_db
-from app.models import Dataset
+from app.models import Dataset, Configuration, Result
 from app.schemas import DatasetCreate, DatasetUpdate, DatasetResponse, DatasetPreview
 from app.config import settings
+from app.services.utils import count_csv_rows
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
+
+# 线程池用于执行阻塞IO
+executor = ThreadPoolExecutor(max_workers=4)
+
+
+def _parse_csv_sync(filepath: str, encoding: str):
+    """同步解析CSV - 在线程池中执行"""
+    df = pd.read_csv(filepath, encoding=encoding, nrows=100)
+    row_count = count_csv_rows(filepath)
+    return df, row_count
 
 
 @router.post("/upload", response_model=DatasetResponse)
@@ -28,11 +41,11 @@ async def upload_dataset(
     
     content = await file.read()
     if len(content) > settings.MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=400, detail="File too large")
+        raise HTTPException(status_code=400, detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // 1024 // 1024}MB")
     
     try:
-        detected = chardet.detect(content)
-        encoding = detected.get("encoding", "utf-8")
+        detected = chardet.detect(content[:10000])
+        encoding = detected.get("encoding", "utf-8") or "utf-8"
     except:
         encoding = "utf-8"
     
@@ -44,15 +57,17 @@ async def upload_dataset(
     dataset_dir.mkdir(parents=True, exist_ok=True)
     filepath = dataset_dir / "data.csv"
     
-    with open(filepath, "wb") as f:
-        f.write(content)
+    # 异步写文件
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(executor, lambda: open(filepath, "wb").write(content))
     
+    # 在线程池中解析CSV，避免阻塞事件循环
     try:
-        df = pd.read_csv(filepath, encoding=encoding, nrows=1000)
-        row_count = len(pd.read_csv(filepath, encoding=encoding))
-    except:
-        df = pd.read_csv(filepath, nrows=1000)
-        row_count = len(pd.read_csv(filepath))
+        df, row_count = await loop.run_in_executor(executor, _parse_csv_sync, str(filepath), encoding)
+    except Exception as e:
+        shutil.rmtree(dataset_dir)
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
     
     dataset.filepath = str(filepath)
     dataset.file_size = len(content)
@@ -82,12 +97,17 @@ async def get_dataset(dataset_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/{dataset_id}/preview", response_model=DatasetPreview)
 async def preview_dataset(dataset_id: int, rows: int = 100, db: AsyncSession = Depends(get_db)):
+    # 修复：限制最大预览行数
+    rows = min(rows, settings.PREVIEW_ROWS)
+    
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     
-    df = pd.read_csv(dataset.filepath, nrows=rows)
+    loop = asyncio.get_event_loop()
+    df = await loop.run_in_executor(executor, lambda: pd.read_csv(dataset.filepath, nrows=rows))
+    
     return DatasetPreview(
         columns=df.columns.tolist(),
         data=df.to_dict(orient="records"),
@@ -128,10 +148,22 @@ async def delete_dataset(dataset_id: int, db: AsyncSession = Depends(get_db)):
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     
+    # 修复：级联删除关联的配置和结果
+    configs = await db.execute(select(Configuration).where(Configuration.dataset_id == dataset_id))
+    for config in configs.scalars().all():
+        await db.delete(config)
+    
+    results = await db.execute(select(Result).where(Result.dataset_id == dataset_id))
+    for res in results.scalars().all():
+        result_dir = settings.RESULTS_DIR / str(dataset_id) / str(res.id)
+        if result_dir.exists():
+            shutil.rmtree(result_dir)
+        await db.delete(res)
+    
     dataset_dir = settings.DATASETS_DIR / str(dataset_id)
     if dataset_dir.exists():
         shutil.rmtree(dataset_dir)
     
     await db.delete(dataset)
     await db.commit()
-    return {"message": "Dataset deleted"}
+    return {"message": "Dataset and related data deleted"}

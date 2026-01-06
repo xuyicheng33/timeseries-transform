@@ -1,9 +1,11 @@
-﻿import pandas as pd
+﻿import asyncio
+import pandas as pd
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
+from concurrent.futures import ThreadPoolExecutor
 
 from app.database import get_db
 from app.models import Result
@@ -12,6 +14,13 @@ from app.config import settings
 from app.services.utils import lttb_downsample, calculate_metrics
 
 router = APIRouter(prefix="/api/visualization", tags=["visualization"])
+
+executor = ThreadPoolExecutor(max_workers=4)
+
+
+def _read_csv_sync(filepath: str):
+    """同步读取CSV"""
+    return pd.read_csv(filepath)
 
 
 @router.post("/compare", response_model=CompareResponse)
@@ -30,8 +39,13 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
     total_points = 0
     downsampled = False
     
+    loop = asyncio.get_event_loop()
+    
+    # 修复：按dataset_id分组，避免真实值重复
+    dataset_true_added = set()
+    
     for res in results:
-        df = pd.read_csv(res.filepath)
+        df = await loop.run_in_executor(executor, _read_csv_sync, res.filepath)
         
         if "true_value" in df.columns and "predicted_value" in df.columns:
             true_vals = df["true_value"].values.astype(float)
@@ -48,11 +62,18 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
                 true_data = lttb_downsample(true_data, data.max_points)
                 pred_data = lttb_downsample(pred_data, data.max_points)
             
-            true_series_name = f"True ({res.name})"
-            if not any(s.name == true_series_name for s in series_list):
-                series_list.append(ChartDataSeries(name=true_series_name, data=[[p[0], p[1]] for p in true_data]))
+            # 修复：每个dataset_id只添加一次真实值曲线
+            if res.dataset_id not in dataset_true_added:
+                series_list.append(ChartDataSeries(
+                    name=f"True (Dataset {res.dataset_id})", 
+                    data=[[p[0], p[1]] for p in true_data]
+                ))
+                dataset_true_added.add(res.dataset_id)
             
-            series_list.append(ChartDataSeries(name=f"{res.model_name} ({res.name})", data=[[p[0], p[1]] for p in pred_data]))
+            series_list.append(ChartDataSeries(
+                name=f"{res.model_name}", 
+                data=[[p[0], p[1]] for p in pred_data]
+            ))
             
             metrics = calculate_metrics(true_vals, pred_vals)
             metrics_dict[res.id] = MetricsResponse(**metrics)
@@ -73,7 +94,9 @@ async def get_metrics(result_id: int, db: AsyncSession = Depends(get_db)):
     if result_obj.metrics:
         return MetricsResponse(**result_obj.metrics)
     
-    df = pd.read_csv(result_obj.filepath)
+    loop = asyncio.get_event_loop()
+    df = await loop.run_in_executor(executor, _read_csv_sync, result_obj.filepath)
+    
     if "true_value" not in df.columns or "predicted_value" not in df.columns:
         raise HTTPException(status_code=400, detail="Result file missing required columns")
     

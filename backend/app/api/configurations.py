@@ -86,7 +86,7 @@ async def delete_configuration(config_id: int, db: AsyncSession = Depends(get_db
 
 
 @router.post("/generate-name")
-async def generate_filename(data: GenerateFilenameRequest):
+async def generate_filename_api(data: GenerateFilenameRequest):
     filename = generate_standard_filename(
         dataset_name=data.dataset_name, channels=data.channels, normalization=data.normalization,
         anomaly_enabled=data.anomaly_enabled, anomaly_type=data.anomaly_type or "",

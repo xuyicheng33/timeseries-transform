@@ -1,11 +1,13 @@
 ﻿import os
 import shutil
+import asyncio
 import pandas as pd
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from concurrent.futures import ThreadPoolExecutor
 
 from app.database import get_db
 from app.models import Result, Dataset
@@ -14,6 +16,16 @@ from app.config import settings
 from app.services.utils import calculate_metrics
 
 router = APIRouter(prefix="/api/results", tags=["results"])
+
+executor = ThreadPoolExecutor(max_workers=4)
+
+REQUIRED_COLUMNS = {"true_value", "predicted_value"}
+
+
+def _parse_result_csv_sync(filepath: str):
+    """同步解析结果CSV"""
+    df = pd.read_csv(filepath)
+    return df
 
 
 @router.post("/upload", response_model=ResultResponse)
@@ -30,12 +42,16 @@ async def upload_result(
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
     
+    content = await file.read()
+    
+    # 修复：添加文件大小限制
+    if len(content) > settings.MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail=f"File too large. Max size: {settings.MAX_UPLOAD_SIZE // 1024 // 1024}MB")
+    
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    
-    content = await file.read()
     
     result_obj = Result(
         name=name, dataset_id=dataset_id, configuration_id=configuration_id,
@@ -49,17 +65,33 @@ async def upload_result(
     result_dir.mkdir(parents=True, exist_ok=True)
     filepath = result_dir / "prediction.csv"
     
-    with open(filepath, "wb") as f:
-        f.write(content)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(executor, lambda: open(filepath, "wb").write(content))
     
-    df = pd.read_csv(filepath)
+    try:
+        df = await loop.run_in_executor(executor, _parse_result_csv_sync, str(filepath))
+    except Exception as e:
+        shutil.rmtree(result_dir)
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
+    
+    # 修复：严格校验必需列
+    missing_cols = REQUIRED_COLUMNS - set(df.columns)
+    if missing_cols:
+        shutil.rmtree(result_dir)
+        await db.rollback()
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Missing required columns: {missing_cols}. File must contain 'true_value' and 'predicted_value' columns."
+        )
+    
     result_obj.filepath = str(filepath)
     result_obj.row_count = len(df)
     
-    if "true_value" in df.columns and "predicted_value" in df.columns:
-        true_vals = df["true_value"].values.astype(float)
-        pred_vals = df["predicted_value"].values.astype(float)
-        result_obj.metrics = calculate_metrics(true_vals, pred_vals)
+    # 计算指标
+    true_vals = df["true_value"].values.astype(float)
+    pred_vals = df["predicted_value"].values.astype(float)
+    result_obj.metrics = calculate_metrics(true_vals, pred_vals)
     
     await db.commit()
     await db.refresh(result_obj)

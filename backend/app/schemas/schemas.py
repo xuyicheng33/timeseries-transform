@@ -1,6 +1,6 @@
 ﻿from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ============ Dataset Schemas ============
@@ -21,7 +21,7 @@ class DatasetUpdate(BaseModel):
 class DatasetResponse(DatasetBase):
     id: int
     filename: str
-    filepath: str
+    # filepath: str  # 修复：移除，不暴露服务器路径
     file_size: int
     row_count: int
     column_count: int
@@ -121,10 +121,10 @@ class ResultUpdate(BaseModel):
 class ResultResponse(ResultBase):
     id: int
     filename: str
-    filepath: str
+    # filepath: str  # 修复：移除，不暴露服务器路径
     row_count: int
     metrics: Dict[str, float]
-    code_filepath: Optional[str] = ""
+    # code_filepath: Optional[str] = ""  # 修复：移除
     created_at: datetime
     updated_at: datetime
 
@@ -143,8 +143,17 @@ class MetricsResponse(BaseModel):
 
 class CompareRequest(BaseModel):
     result_ids: List[int]
-    max_points: int = 2000
-    algorithm: str = "lttb"
+    max_points: int = Field(default=2000, ge=10, le=50000)  # 修复：添加范围校验
+    algorithm: str = Field(default="lttb", pattern="^(lttb|minmax|average)$")  # 修复：添加算法校验
+
+    @field_validator('result_ids')
+    @classmethod
+    def validate_result_ids(cls, v):
+        if not v:
+            raise ValueError('result_ids cannot be empty')
+        if len(v) > 10:
+            raise ValueError('Cannot compare more than 10 results at once')
+        return v
 
 
 class ChartDataSeries(BaseModel):
