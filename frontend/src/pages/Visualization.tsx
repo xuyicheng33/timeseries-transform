@@ -3,7 +3,7 @@
  * 功能：多模型曲线对比和评估指标展示
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   Card,
   Select,
@@ -108,18 +108,26 @@ export default function Visualization() {
       return {}
     }
 
-    const series = compareData.chart_data.series.map((s, index) => ({
-      name: s.name,
-      type: 'line' as const,
-      data: s.data,
-      smooth: false,
-      symbol: 'none',
-      lineStyle: {
-        width: s.name.startsWith('True') ? 2 : 1.5,
-        type: s.name.startsWith('True') ? 'solid' as const : 'solid' as const,
-      },
-      color: s.name.startsWith('True') ? '#333' : CHART_COLORS[index % CHART_COLORS.length],
-    }))
+    const series = compareData.chart_data.series.map((s, index) => {
+      const isTrueLine = s.name.startsWith('True')
+      const seriesColor = isTrueLine ? '#333' : CHART_COLORS[index % CHART_COLORS.length]
+      
+      return {
+        name: s.name,
+        type: 'line' as const,
+        data: s.data,
+        smooth: false,
+        symbol: 'none',
+        lineStyle: {
+          width: isTrueLine ? 2 : 1.5,
+          type: 'solid' as const,
+          color: seriesColor,
+        },
+        itemStyle: {
+          color: seriesColor,
+        },
+      }
+    })
 
     return {
       title: {
@@ -216,7 +224,7 @@ export default function Visualization() {
     mape: number
   }
 
-  const getMetricsTableData = (): MetricsTableRow[] => {
+  const metricsTableData = useMemo((): MetricsTableRow[] => {
     if (!compareData?.metrics) return []
 
     return selectedResultIds
@@ -237,18 +245,17 @@ export default function Visualization() {
         }
       })
       .filter((item): item is MetricsTableRow => item !== null)
-  }
+  }, [compareData?.metrics, selectedResultIds, results])
 
-  // 找出每个指标的最优值
-  const getBestValues = () => {
-    const data = getMetricsTableData()
-    if (data.length === 0) return {}
+  // 找出每个指标的最优值（使用 useMemo 缓存，避免浮点精度问题）
+  const bestValues = useMemo(() => {
+    if (metricsTableData.length === 0) return {}
 
     const best: Record<string, number> = {}
     const metricKeys: (keyof Metrics)[] = ['mse', 'rmse', 'mae', 'r2', 'mape']
 
     metricKeys.forEach((key) => {
-      const values = data.map((d) => d[key]).filter((v) => v !== undefined)
+      const values = metricsTableData.map((d) => d[key]).filter((v) => v !== undefined)
       if (values.length > 0) {
         // R² 越大越好，其他越小越好
         best[key] = key === 'r2' ? Math.max(...values) : Math.min(...values)
@@ -256,6 +263,14 @@ export default function Visualization() {
     })
 
     return best
+  }, [metricsTableData])
+
+  // 判断是否为最优值（使用容差比较避免浮点精度问题）
+  const isBestValue = (key: keyof Metrics, value: number): boolean => {
+    const bestValue = bestValues[key]
+    if (bestValue === undefined) return false
+    // 使用相对容差 1e-10 进行比较
+    return Math.abs(value - bestValue) < Math.abs(bestValue) * 1e-10 + 1e-15
   }
 
   const metricsColumns: ColumnsType<MetricsTableRow> = [
@@ -279,8 +294,7 @@ export default function Visualization() {
       key,
       width: 120,
       render: (value: number) => {
-        const best = getBestValues()
-        const isBest = best[key] === value
+        const isBest = isBestValue(key, value)
         return (
           <Text
             strong={isBest}
@@ -455,7 +469,7 @@ export default function Visualization() {
           </Text>
           <Table<MetricsTableRow>
             columns={metricsColumns}
-            dataSource={getMetricsTableData()}
+            dataSource={metricsTableData}
             pagination={false}
             scroll={{ x: 900 }}
             size="middle"

@@ -295,9 +295,13 @@ export default function ConfigWizard() {
   }
 
   // ============ 复制文件名 ============
-  const handleCopyFilename = () => {
-    navigator.clipboard.writeText(generatedFilename)
-    message.success('文件名已复制到剪贴板')
+  const handleCopyFilename = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedFilename)
+      message.success('文件名已复制到剪贴板')
+    } catch {
+      message.error('复制失败，请手动复制')
+    }
   }
 
   // ============ 编辑配置 ============

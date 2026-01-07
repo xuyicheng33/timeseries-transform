@@ -551,7 +551,14 @@ export default function ResultRepo() {
                 label="关联数据集"
                 rules={[{ required: true, message: '请选择数据集' }]}
               >
-                <Select placeholder="请选择数据集" disabled={uploading}>
+                <Select
+                  placeholder="请选择数据集"
+                  disabled={uploading}
+                  onChange={() => {
+                    // 数据集变化时清空已选配置
+                    uploadForm.setFieldValue('configuration_id', undefined)
+                  }}
+                >
                   {datasets.map((dataset) => (
                     <Select.Option key={dataset.id} value={dataset.id}>
                       {dataset.name}
@@ -582,14 +589,31 @@ export default function ResultRepo() {
             </Col>
           </Row>
 
-          <Form.Item name="configuration_id" label="关联配置">
-            <Select placeholder="请选择配置（可选）" allowClear disabled={uploading}>
-              {configurations.map((config) => (
-                <Select.Option key={config.id} value={config.id}>
-                  {config.name}
-                </Select.Option>
-              ))}
-            </Select>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, curr) => prev.dataset_id !== curr.dataset_id}
+          >
+            {({ getFieldValue }) => {
+              const selectedDatasetId = getFieldValue('dataset_id')
+              const filteredConfigs = selectedDatasetId
+                ? configurations.filter((c) => c.dataset_id === selectedDatasetId)
+                : []
+              return (
+                <Form.Item name="configuration_id" label="关联配置">
+                  <Select
+                    placeholder={selectedDatasetId ? '请选择配置（可选）' : '请先选择数据集'}
+                    allowClear
+                    disabled={uploading || !selectedDatasetId}
+                  >
+                    {filteredConfigs.map((config) => (
+                      <Select.Option key={config.id} value={config.id}>
+                        {config.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              )
+            }}
           </Form.Item>
 
           <Form.Item
