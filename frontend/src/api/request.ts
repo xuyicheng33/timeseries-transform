@@ -3,7 +3,8 @@
  * 包含 Token 自动附加和刷新逻辑
  */
 
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import axios from 'axios'
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { message } from 'antd'
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
@@ -69,8 +70,12 @@ request.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
     
-    // 401 错误且不是刷新 Token 的请求
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 判断是否是认证相关接口（登录/注册）
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || 
+                           originalRequest?.url?.includes('/auth/register')
+    
+    // 401 错误处理
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
       
       // 如果没有 refresh token，直接清除登录状态
@@ -140,7 +145,7 @@ request.interceptors.response.use(
       }
     }
     
-    // 处理其他错误
+    // 处理其他错误（包括登录/注册的 401）
     const errorData = error.response?.data as { detail?: string | Array<{ msg: string; loc?: string[] }> } | undefined
     let errorMessage = '请求失败'
     
@@ -158,10 +163,8 @@ request.interceptors.response.use(
       errorMessage = error.message
     }
     
-    // 显示错误消息（排除 401，因为会自动处理）
-    if (error.response?.status !== 401) {
-      message.error(errorMessage)
-    }
+    // 显示错误消息
+    message.error(errorMessage)
     
     return Promise.reject(error)
   }
