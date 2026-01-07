@@ -101,6 +101,9 @@ export default function ConfigWizard() {
   // 提交状态
   const [submitting, setSubmitting] = useState(false)
 
+  // 步骤切换状态（防止连点跳步）
+  const [stepLoading, setStepLoading] = useState(false)
+
   // 编辑状态
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingConfig, setEditingConfig] = useState<Configuration | null>(null)
@@ -204,18 +207,26 @@ export default function ConfigWizard() {
   }
 
   const handleNext = async () => {
-    const valid = await validateCurrentStep()
-    if (!valid) return
+    if (stepLoading) return
+    setStepLoading(true)
 
-    if (currentStep === 4) {
-      // 进入预览步骤，生成文件名
-      await handleGenerateFilename()
+    try {
+      const valid = await validateCurrentStep()
+      if (!valid) return
+
+      if (currentStep === 4) {
+        // 进入预览步骤，生成文件名
+        await handleGenerateFilename()
+      }
+
+      setCurrentStep((s) => s + 1)
+    } finally {
+      setStepLoading(false)
     }
-
-    setCurrentStep((s) => s + 1)
   }
 
   const handlePrev = () => {
+    if (stepLoading) return
     setCurrentStep((s) => s - 1)
   }
 
@@ -782,12 +793,12 @@ export default function ConfigWizard() {
           </Button>
           <Space>
             {currentStep > 0 && (
-              <Button onClick={handlePrev} disabled={submitting}>
+              <Button onClick={handlePrev} disabled={submitting || stepLoading}>
                 上一步
               </Button>
             )}
             {currentStep < STEPS.length - 1 && (
-              <Button type="primary" onClick={handleNext}>
+              <Button type="primary" onClick={handleNext} loading={stepLoading} disabled={stepLoading}>
                 下一步
               </Button>
             )}
