@@ -1,28 +1,62 @@
-import { Suspense } from 'react'
-import { ConfigProvider, Spin } from 'antd'
+import { Suspense, lazy } from 'react'
+import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import MainLayout from '@/components/MainLayout'
-import { ROUTES } from '@/constants'
+import { MainLayout, ErrorBoundary, PageLoading } from '@/components'
+
+// 路由懒加载
+const DataHub = lazy(() => import('@/pages/DataHub'))
+const ConfigWizard = lazy(() => import('@/pages/ConfigWizard'))
+const ResultRepo = lazy(() => import('@/pages/ResultRepo'))
+const Visualization = lazy(() => import('@/pages/Visualization'))
 
 function App() {
   return (
-    <ConfigProvider locale={zhCN}>
-      <BrowserRouter>
-        <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><Spin size="large" /></div>}>
+    <ErrorBoundary>
+      <ConfigProvider locale={zhCN}>
+        <BrowserRouter>
           <Routes>
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Navigate to="/datasets" replace />} />
-              {ROUTES.map((route) => (
-                <Route key={route.path} path={route.path.slice(1)} element={<route.element />} />
-              ))}
+              <Route
+                path="datasets"
+                element={
+                  <Suspense fallback={<PageLoading tip="加载数据中心..." />}>
+                    <DataHub />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="configurations"
+                element={
+                  <Suspense fallback={<PageLoading tip="加载配置向导..." />}>
+                    <ConfigWizard />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="results"
+                element={
+                  <Suspense fallback={<PageLoading tip="加载结果仓库..." />}>
+                    <ResultRepo />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="visualization"
+                element={
+                  <Suspense fallback={<PageLoading tip="加载可视化..." />}>
+                    <Visualization />
+                  </Suspense>
+                }
+              />
               {/* 404 兜底路由 */}
               <Route path="*" element={<Navigate to="/datasets" replace />} />
             </Route>
           </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </ConfigProvider>
+        </BrowserRouter>
+      </ConfigProvider>
+    </ErrorBoundary>
   )
 }
 

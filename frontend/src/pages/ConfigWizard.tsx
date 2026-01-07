@@ -147,6 +147,7 @@ export default function ConfigWizard() {
     setSelectedDataset(null)
     setTargetKeys([])
     setGeneratedFilename('')
+    setStepLoading(false)
     form.resetFields()
     form.setFieldsValue({
       normalization: 'none',
@@ -159,12 +160,13 @@ export default function ConfigWizard() {
   }
 
   const handleWizardClose = () => {
-    if (submitting) return
+    if (submitting || stepLoading) return
     setWizardOpen(false)
     setCurrentStep(0)
     setSelectedDataset(null)
     setTargetKeys([])
     setGeneratedFilename('')
+    setStepLoading(false)
     form.resetFields()
   }
 
@@ -776,8 +778,8 @@ export default function ConfigWizard() {
         onCancel={handleWizardClose}
         width={700}
         footer={null}
-        maskClosable={!submitting}
-        closable={!submitting}
+        maskClosable={!submitting && !stepLoading}
+        closable={!submitting && !stepLoading}
       >
         <Steps current={currentStep} items={STEPS} size="small" style={{ marginBottom: 24 }} />
 
@@ -788,7 +790,7 @@ export default function ConfigWizard() {
         <Divider />
 
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button onClick={handleWizardClose} disabled={submitting}>
+          <Button onClick={handleWizardClose} disabled={submitting || stepLoading}>
             取消
           </Button>
           <Space>
