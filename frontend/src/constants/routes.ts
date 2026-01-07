@@ -2,6 +2,7 @@
  * 路由配置
  */
 
+import type { ReactNode } from 'react'
 import {
   DatabaseOutlined,
   SettingOutlined,
@@ -9,32 +10,45 @@ import {
   LineChartOutlined,
 } from '@ant-design/icons'
 
+// 懒加载页面组件
+import { lazy } from 'react'
+
+const DataHub = lazy(() => import('@/pages/DataHub'))
+const ConfigWizard = lazy(() => import('@/pages/ConfigWizard'))
+const ResultRepo = lazy(() => import('@/pages/ResultRepo'))
+const Visualization = lazy(() => import('@/pages/Visualization'))
+
 export interface RouteConfig {
   path: string
   name: string
-  icon: React.ComponentType
+  icon: ReactNode
+  element: React.LazyExoticComponent<() => JSX.Element>
 }
 
 export const ROUTES: RouteConfig[] = [
   {
     path: '/datasets',
     name: '数据中心',
-    icon: DatabaseOutlined,
+    icon: <DatabaseOutlined />,
+    element: DataHub,
   },
   {
     path: '/configurations',
     name: '配置向导',
-    icon: SettingOutlined,
+    icon: <SettingOutlined />,
+    element: ConfigWizard,
   },
   {
     path: '/results',
     name: '结果仓库',
-    icon: FolderOutlined,
+    icon: <FolderOutlined />,
+    element: ResultRepo,
   },
   {
     path: '/visualization',
     name: '可视化对比',
-    icon: LineChartOutlined,
+    icon: <LineChartOutlined />,
+    element: Visualization,
   },
 ]
 

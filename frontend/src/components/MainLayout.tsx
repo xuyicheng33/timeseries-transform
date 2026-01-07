@@ -16,7 +16,7 @@ export default function MainLayout() {
 
   const menuItems = ROUTES.map((route) => ({
     key: route.path,
-    icon: <route.icon />,
+    icon: route.icon,
     label: route.name,
   }))
 
