@@ -51,6 +51,16 @@ export async function uploadResult(
 }
 
 /**
+ * 获取所有不重复的模型名称（用于筛选下拉框）
+ */
+export async function getModelNames(datasetId?: number): Promise<string[]> {
+  const params: Record<string, number> = {}
+  if (datasetId !== undefined) params.dataset_id = datasetId
+  
+  return api.get('/results/model-names', { params })
+}
+
+/**
  * 获取结果列表（分页）
  */
 export async function getResults(
@@ -73,12 +83,11 @@ export async function getAllResults(
   datasetId?: number,
   modelName?: string
 ): Promise<Result[]> {
-  const params: Record<string, number | string> = { page: 1, page_size: 1000 }
+  const params: Record<string, number | string> = {}
   if (datasetId !== undefined) params.dataset_id = datasetId
   if (modelName !== undefined) params.algo_name = modelName
   
-  const response = await api.get<PaginatedResponse<Result>>('/results', { params })
-  return (response as unknown as PaginatedResponse<Result>).items
+  return api.get('/results/all', { params })
 }
 
 /**

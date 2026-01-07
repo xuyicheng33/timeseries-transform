@@ -42,11 +42,10 @@ export async function getConfigurations(
 export async function getAllConfigurations(
   datasetId?: number
 ): Promise<Configuration[]> {
-  const params: Record<string, number> = { page: 1, page_size: 1000 }
+  const params: Record<string, number> = {}
   if (datasetId !== undefined) params.dataset_id = datasetId
   
-  const response = await api.get<PaginatedResponse<Configuration>>('/configurations', { params })
-  return (response as unknown as PaginatedResponse<Configuration>).items
+  return api.get('/configurations/all', { params })
 }
 
 /**

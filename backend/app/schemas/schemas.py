@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from typing import Optional, List, Dict, Any, Generic, TypeVar
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
@@ -183,6 +183,14 @@ class ChartDataResponse(BaseModel):
     downsampled: bool
 
 
+class SkippedResult(BaseModel):
+    """跳过的结果信息"""
+    id: int
+    name: str
+    reason: str
+
+
 class CompareResponse(BaseModel):
     chart_data: ChartDataResponse
     metrics: Dict[int, MetricsResponse]
+    skipped: List[SkippedResult] = Field(default_factory=list)  # 跳过的结果列表

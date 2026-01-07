@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 import shutil
 import asyncio
@@ -8,7 +8,8 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, distinct
+from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
 from app.database import get_db
@@ -136,10 +137,43 @@ async def upload_result(
     return result_obj
 
 
+@router.get("/model-names", response_model=list[str])
+async def list_model_names(
+    dataset_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """获取所有不重复的模型名称（用于筛选下拉框）"""
+    query = select(distinct(Result.algo_name)).where(Result.algo_name.isnot(None))
+    if dataset_id is not None:
+        query = query.where(Result.dataset_id == dataset_id)
+    query = query.order_by(Result.algo_name)
+    
+    result = await db.execute(query)
+    return [row[0] for row in result.fetchall() if row[0]]
+
+
+@router.get("/all", response_model=list[ResultResponse])
+async def list_all_results(
+    dataset_id: Optional[int] = None,
+    algo_name: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """获取所有结果（不分页，用于下拉选择等场景，限制最多1000条）"""
+    query = select(Result).order_by(Result.created_at.desc())
+    if dataset_id is not None:
+        query = query.where(Result.dataset_id == dataset_id)
+    if algo_name is not None:
+        query = query.where(Result.algo_name == algo_name)
+    query = query.limit(1000)
+    
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
 @router.get("", response_model=PaginatedResponse[ResultResponse])
 async def list_results(
-    dataset_id: int = None,
-    algo_name: str = None,
+    dataset_id: Optional[int] = None,
+    algo_name: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db)
@@ -152,24 +186,22 @@ async def list_results(
     
     # 构建查询条件
     conditions = []
-    if dataset_id:
+    if dataset_id is not None:
         conditions.append(Result.dataset_id == dataset_id)
-    if algo_name:
+    if algo_name is not None:
         conditions.append(Result.algo_name == algo_name)
     
     # 查询总数
     count_query = select(func.count(Result.id))
-    if conditions:
-        for cond in conditions:
-            count_query = count_query.where(cond)
+    for cond in conditions:
+        count_query = count_query.where(cond)
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     
     # 查询分页数据
     query = select(Result).order_by(Result.created_at.desc())
-    if conditions:
-        for cond in conditions:
-            query = query.where(cond)
+    for cond in conditions:
+        query = query.where(cond)
     query = query.offset(offset).limit(page_size)
     
     result = await db.execute(query)

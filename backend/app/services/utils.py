@@ -1,4 +1,4 @@
-﻿import csv
+import csv
 import re
 import shutil
 import numpy as np

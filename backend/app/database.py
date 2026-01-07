@@ -1,4 +1,5 @@
-﻿from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy import event, text
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
@@ -9,7 +10,16 @@ engine = create_async_engine(
     future=True
 )
 
-# 修复：移除 autocommit 和 autoflush 参数，SQLAlchemy 2.0 不再支持
+
+# SQLite 外键支持：每次连接时开启 PRAGMA foreign_keys=ON
+@event.listens_for(engine.sync_engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    """SQLite 连接时开启外键约束"""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 async_session = async_sessionmaker(
     engine,
     class_=AsyncSession,
@@ -22,7 +32,7 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
-    """获取数据库会话 - 修复：不自动提交，由路由自行控制"""
+    """获取数据库会话"""
     async with async_session() as session:
         try:
             yield session

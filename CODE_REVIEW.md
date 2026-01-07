@@ -4,7 +4,7 @@
 **时间序列分析与算法对比评估平台**
 
 ## 审查日期
-2026年1月7日（更新）
+2026年1月8日（更新）
 
 ---
 
@@ -90,7 +90,8 @@
 
 #### 数据集接口 /api/datasets
 - POST /upload - 上传CSV数据集
-- GET / - 获取数据集列表
+- GET / - 获取数据集列表（分页，返回 `{items, total, page, page_size}`）
+- GET /all - 获取所有数据集（不分页，用于下拉选择，限制1000条）
 - GET /{id} - 获取数据集详情
 - GET /{id}/preview - 预览前100行数据
 - GET /{id}/download - 下载数据集文件
@@ -99,7 +100,8 @@
 
 #### 配置接口 /api/configurations
 - POST / - 创建参数配置
-- GET / - 获取配置列表
+- GET / - 获取配置列表（分页，支持 `dataset_id` 筛选）
+- GET /all - 获取所有配置（不分页，用于下拉选择，限制1000条）
 - GET /{id} - 获取配置详情
 - PUT /{id} - 更新配置
 - DELETE /{id} - 删除配置
@@ -107,15 +109,36 @@
 
 #### 结果接口 /api/results
 - POST /upload - 上传预测结果
-- GET / - 获取结果列表
+- GET / - 获取结果列表（分页，支持 `dataset_id` 和 `algo_name` 筛选）
+- GET /all - 获取所有结果（不分页，用于下拉选择，限制1000条）
+- GET /model-names - 获取所有不重复的模型名称（用于筛选下拉框）
 - GET /{id} - 获取结果详情
 - GET /{id}/download - 下载结果文件
 - PUT /{id} - 更新结果信息
 - DELETE /{id} - 删除结果
 
 #### 可视化接口 /api/visualization
-- POST /compare - 多结果对比（含降采样）
+- POST /compare - 多结果对比（含降采样，返回 `skipped` 列表标识跳过的结果）
 - GET /metrics/{id} - 获取单个结果的指标
+
+#### 分页响应格式
+```json
+{
+  "items": [...],
+  "total": 100,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+#### 对比响应格式（含跳过信息）
+```json
+{
+  "chart_data": { "series": [...], "total_points": 1000, "downsampled": false },
+  "metrics": { "1": { "mse": 0.01, ... } },
+  "skipped": [{ "id": 2, "name": "结果名", "reason": "文件不存在" }]
+}
+```
 
 ### 3.3 核心算法
 文件位置: backend/app/services/utils.py
@@ -184,4 +207,4 @@ API文档地址：http://localhost:8000/docs
 ---
 
 文档生成时间：2026年1月6日
-文档更新时间：2026年1月7日
+文档更新时间：2026年1月8日

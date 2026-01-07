@@ -52,10 +52,7 @@ export async function getDatasets(
  * 获取所有数据集（不分页，用于下拉选择等场景）
  */
 export async function getAllDatasets(): Promise<Dataset[]> {
-  const response = await api.get<PaginatedResponse<Dataset>>('/datasets', {
-    params: { page: 1, page_size: 1000 },
-  })
-  return (response as unknown as PaginatedResponse<Dataset>).items
+  return api.get('/datasets/all')
 }
 
 /**

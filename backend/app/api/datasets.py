@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 import shutil
 import asyncio
@@ -110,6 +110,17 @@ async def upload_dataset(
     await db.commit()
     await db.refresh(dataset)
     return dataset
+
+
+@router.get("/all", response_model=list[DatasetResponse])
+async def list_all_datasets(db: AsyncSession = Depends(get_db)):
+    """获取所有数据集（不分页，用于下拉选择等场景，限制最多1000条）"""
+    result = await db.execute(
+        select(Dataset)
+        .order_by(Dataset.created_at.desc())
+        .limit(1000)
+    )
+    return result.scalars().all()
 
 
 @router.get("", response_model=PaginatedResponse[DatasetResponse])

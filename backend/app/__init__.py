@@ -1,1 +1,1 @@
-﻿# Time Series Analysis Platform - Backend
+# Time Series Analysis Platform - Backend

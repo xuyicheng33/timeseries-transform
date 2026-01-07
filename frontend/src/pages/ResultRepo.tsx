@@ -39,6 +39,7 @@ import {
 import type { Dataset, Configuration, Result, ResultUpdate, Metrics } from '@/types'
 import {
   getResults,
+  getModelNames,
   uploadResult,
   updateResult,
   deleteResult,
@@ -64,6 +65,7 @@ export default function ResultRepo() {
   // 数据集和配置列表（用于筛选和关联）
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [configurations, setConfigurations] = useState<Configuration[]>([])
+  const [modelNames, setModelNames] = useState<string[]>([])
 
   // 筛选条件
   const [filterDatasetId, setFilterDatasetId] = useState<number | undefined>()
@@ -120,6 +122,15 @@ export default function ResultRepo() {
     }
   }, [])
 
+  const fetchModelNames = useCallback(async () => {
+    try {
+      const names = await getModelNames(filterDatasetId)
+      setModelNames(names)
+    } catch {
+      // 错误已在 API 层处理
+    }
+  }, [filterDatasetId])
+
   useEffect(() => {
     fetchResults()
   }, [fetchResults])
@@ -129,8 +140,9 @@ export default function ResultRepo() {
     fetchConfigurations()
   }, [fetchDatasets, fetchConfigurations])
 
-  // 获取唯一的模型名称列表
-  const modelNames = [...new Set(results.map((r) => r.model_name))].sort()
+  useEffect(() => {
+    fetchModelNames()
+  }, [fetchModelNames])
 
   // ============ 上传功能 ============
   const handleUploadModalOpen = () => {

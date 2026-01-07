@@ -1,6 +1,7 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from typing import Optional
 
 from app.database import get_db
 from app.models import Configuration, Dataset
@@ -31,9 +32,24 @@ async def create_configuration(data: ConfigurationCreate, db: AsyncSession = Dep
     return config
 
 
+@router.get("/all", response_model=list[ConfigurationResponse])
+async def list_all_configurations(
+    dataset_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """获取所有配置（不分页，用于下拉选择等场景，限制最多1000条）"""
+    query = select(Configuration).order_by(Configuration.created_at.desc())
+    if dataset_id is not None:
+        query = query.where(Configuration.dataset_id == dataset_id)
+    query = query.limit(1000)
+    
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
 @router.get("", response_model=PaginatedResponse[ConfigurationResponse])
 async def list_configurations(
-    dataset_id: int = None,
+    dataset_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db)
@@ -46,22 +62,20 @@ async def list_configurations(
     
     # 构建查询条件
     conditions = []
-    if dataset_id:
+    if dataset_id is not None:
         conditions.append(Configuration.dataset_id == dataset_id)
     
     # 查询总数
     count_query = select(func.count(Configuration.id))
-    if conditions:
-        for cond in conditions:
-            count_query = count_query.where(cond)
+    for cond in conditions:
+        count_query = count_query.where(cond)
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     
     # 查询分页数据
     query = select(Configuration).order_by(Configuration.created_at.desc())
-    if conditions:
-        for cond in conditions:
-            query = query.where(cond)
+    for cond in conditions:
+        query = query.where(cond)
     query = query.offset(offset).limit(page_size)
     
     result = await db.execute(query)
