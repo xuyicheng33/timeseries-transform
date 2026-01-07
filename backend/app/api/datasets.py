@@ -16,7 +16,7 @@ from app.database import get_db
 from app.models import Dataset, Configuration, Result
 from app.schemas import DatasetCreate, DatasetUpdate, DatasetResponse, DatasetPreview, PaginatedResponse
 from app.config import settings
-from app.services.utils import count_csv_rows, sanitize_filename, safe_rmtree
+from app.services.utils import count_csv_rows, sanitize_filename, safe_rmtree, validate_form_field, validate_description
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
@@ -48,6 +48,10 @@ async def upload_dataset(
     description: str = Form(""),
     db: AsyncSession = Depends(get_db)
 ):
+    # 表单字段校验
+    name = validate_form_field(name, "数据集名称", max_length=255, min_length=1)
+    description = validate_description(description, max_length=1000)
+    
     # 大小写不敏感的扩展名校验
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="仅支持 CSV 文件")
@@ -64,6 +68,8 @@ async def upload_dataset(
     dataset_dir.mkdir(parents=True, exist_ok=True)
     filepath = dataset_dir / "data.csv"
     
+    loop = asyncio.get_running_loop()
+    
     # 流式写入文件，边读边写边检查大小
     total_size = 0
     try:
@@ -71,9 +77,9 @@ async def upload_dataset(
             while chunk := await file.read(1024 * 1024):  # 每次读取1MB
                 total_size += len(chunk)
                 if total_size > settings.MAX_UPLOAD_SIZE:
-                    # 超过大小限制，清理并报错
+                    # 超过大小限制，清理并报错（异步删除）
                     await f.close()
-                    shutil.rmtree(dataset_dir, ignore_errors=True)
+                    await loop.run_in_executor(executor, safe_rmtree, str(dataset_dir))
                     await db.rollback()
                     raise HTTPException(
                         status_code=400, 
@@ -83,11 +89,9 @@ async def upload_dataset(
     except HTTPException:
         raise
     except Exception as e:
-        shutil.rmtree(dataset_dir, ignore_errors=True)
+        await loop.run_in_executor(executor, safe_rmtree, str(dataset_dir))
         await db.rollback()
         raise HTTPException(status_code=500, detail="文件上传失败")
-    
-    loop = asyncio.get_running_loop()
     
     # 检测编码
     encoding = await loop.run_in_executor(executor, _detect_encoding_sync, str(filepath))
@@ -96,7 +100,7 @@ async def upload_dataset(
     try:
         df, row_count = await loop.run_in_executor(executor, _parse_csv_sync, str(filepath), encoding)
     except Exception as e:
-        shutil.rmtree(dataset_dir, ignore_errors=True)
+        await loop.run_in_executor(executor, safe_rmtree, str(dataset_dir))
         await db.rollback()
         raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式")
     

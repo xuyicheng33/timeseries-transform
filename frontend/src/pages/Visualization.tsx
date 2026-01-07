@@ -18,6 +18,7 @@ import {
   Divider,
   Empty,
   Spin,
+  Alert,
   message,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -25,6 +26,7 @@ import {
   LineChartOutlined,
   DownloadOutlined,
   ReloadOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
@@ -441,6 +443,25 @@ export default function Visualization() {
           </div>
         ) : compareData?.chart_data?.series?.length ? (
           <div>
+            {/* 跳过的结果警告 */}
+            {compareData.skipped && compareData.skipped.length > 0 && (
+              <Alert
+                type="warning"
+                icon={<WarningOutlined />}
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={`${compareData.skipped.length} 个结果被跳过`}
+                description={
+                  <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
+                    {compareData.skipped.map((item) => (
+                      <li key={item.id}>
+                        <Text strong>{item.name}</Text>：{item.reason}
+                      </li>
+                    ))}
+                  </ul>
+                }
+              />
+            )}
             {compareData.chart_data.downsampled && (
               <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
                 数据已降采样（原始 {compareData.chart_data.total_points.toLocaleString()} 点 → {maxPoints} 点）

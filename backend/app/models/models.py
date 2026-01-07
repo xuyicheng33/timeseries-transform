@@ -4,6 +4,26 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+class User(Base):
+    """用户模型"""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(100), default="")
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+    
+    # 关系
+    datasets = relationship("Dataset", back_populates="user")
+    results = relationship("Result", back_populates="user")
+
+
 class Dataset(Base):
     __tablename__ = "datasets"
     
@@ -17,10 +37,14 @@ class Dataset(Base):
     columns = Column(JSON, default=list)
     encoding = Column(String(50), default="utf-8")
     description = Column(Text, default="")
+    # 用户关联（可选，用于数据隔离）
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    is_public = Column(Boolean, default=True)  # 是否公开（团队共享）
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # 关系
+    user = relationship("User", back_populates="datasets")
     configurations = relationship("Configuration", back_populates="dataset", cascade="all, delete-orphan")
     results = relationship("Result", back_populates="dataset", cascade="all, delete-orphan")
 
@@ -56,6 +80,8 @@ class Result(Base):
     name = Column(String(255), nullable=False)
     dataset_id = Column(Integer, ForeignKey('datasets.id', ondelete='CASCADE'), nullable=False, index=True)
     configuration_id = Column(Integer, ForeignKey('configurations.id', ondelete='SET NULL'), nullable=True, index=True)
+    # 用户关联（可选，用于数据隔离）
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
     filename = Column(String(255), nullable=False)
     filepath = Column(String(500), nullable=False)
     # 重命名：避免 Pydantic model_ 命名空间警告
@@ -69,5 +95,6 @@ class Result(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # 关系
+    user = relationship("User", back_populates="results")
     dataset = relationship("Dataset", back_populates="results")
     configuration = relationship("Configuration")

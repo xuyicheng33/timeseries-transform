@@ -27,9 +27,17 @@ export interface ChartData {
   downsampled: boolean
 }
 
+// 跳过的结果信息
+export interface SkippedResult {
+  id: number
+  name: string
+  reason: string
+}
+
 // 对比响应
 export interface CompareResponse {
   chart_data: ChartData
-  metrics: Record<string, Metrics>
+  metrics: Record<number, Metrics>  // 使用 number 作为索引类型（result_id）
+  skipped: SkippedResult[]  // 跳过的结果列表
 }
 

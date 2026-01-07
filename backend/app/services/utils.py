@@ -3,6 +3,57 @@ import re
 import shutil
 import numpy as np
 from typing import List, Tuple
+from fastapi import HTTPException
+
+
+def validate_form_field(value: str, field_name: str, max_length: int = 255, 
+                        min_length: int = 1, required: bool = True) -> str:
+    """
+    校验表单字段
+    
+    Args:
+        value: 字段值
+        field_name: 字段名称（用于错误提示）
+        max_length: 最大长度
+        min_length: 最小长度
+        required: 是否必填
+    
+    Returns:
+        清理后的字段值
+    
+    Raises:
+        HTTPException: 校验失败时抛出
+    """
+    # 去除首尾空白
+    value = value.strip() if value else ""
+    
+    # 必填校验
+    if required and not value:
+        raise HTTPException(status_code=400, detail=f"{field_name}不能为空")
+    
+    # 非必填且为空，直接返回
+    if not required and not value:
+        return value
+    
+    # 长度校验
+    if len(value) < min_length:
+        raise HTTPException(status_code=400, detail=f"{field_name}长度不能少于{min_length}个字符")
+    
+    if len(value) > max_length:
+        raise HTTPException(status_code=400, detail=f"{field_name}长度不能超过{max_length}个字符")
+    
+    # 危险字符校验（防止注入）
+    # 允许中文、字母、数字、常见标点
+    dangerous_pattern = r'[\x00-\x08\x0b\x0c\x0e-\x1f]'  # 控制字符
+    if re.search(dangerous_pattern, value):
+        raise HTTPException(status_code=400, detail=f"{field_name}包含非法字符")
+    
+    return value
+
+
+def validate_description(value: str, max_length: int = 1000) -> str:
+    """校验描述字段（允许为空，更长的长度限制）"""
+    return validate_form_field(value, "描述", max_length=max_length, min_length=0, required=False)
 
 
 def sanitize_filename(filename: str) -> str:

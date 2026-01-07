@@ -38,6 +38,7 @@ export type {
   CompareRequest,
   ChartSeries,
   ChartData,
+  SkippedResult,
   CompareResponse,
 } from './visualization'
 
@@ -49,4 +50,16 @@ export type {
   PaginationParams,
   PaginatedResponse,
 } from './api'
+
+// Auth
+export type {
+  User,
+  UserRegister,
+  UserLogin,
+  UserUpdate,
+  PasswordUpdate,
+  TokenResponse,
+  TokenRefresh,
+  AuthState,
+} from './auth'
 

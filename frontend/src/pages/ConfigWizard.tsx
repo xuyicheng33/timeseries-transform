@@ -559,7 +559,6 @@ export default function ConfigWizard() {
       case 5:
         // 使用 getFieldsValue(true) 获取所有字段值，包括未渲染的
         const formValues = form.getFieldsValue(true)
-        console.log('预览步骤 - formValues:', formValues) // 调试日志
         const normalizationValue = formValues.normalization
         const normalizationLabel = NORMALIZATION_OPTIONS.find((o) => o.value === normalizationValue)?.label || normalizationValue || '未设置'
         const targetTypeLabel = TARGET_TYPE_OPTIONS.find((o) => o.value === formValues.target_type)?.label || formValues.target_type || '未设置'

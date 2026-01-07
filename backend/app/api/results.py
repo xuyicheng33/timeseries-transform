@@ -16,7 +16,7 @@ from app.database import get_db
 from app.models import Result, Dataset, Configuration
 from app.schemas import ResultCreate, ResultUpdate, ResultResponse, PaginatedResponse
 from app.config import settings
-from app.services.utils import calculate_metrics, sanitize_filename, safe_rmtree
+from app.services.utils import calculate_metrics, sanitize_filename, safe_rmtree, validate_form_field, validate_description
 
 router = APIRouter(prefix="/api/results", tags=["results"])
 
@@ -41,6 +41,12 @@ async def upload_result(
     description: str = Form(""),
     db: AsyncSession = Depends(get_db)
 ):
+    # 表单字段校验
+    name = validate_form_field(name, "结果名称", max_length=255, min_length=1)
+    algo_name = validate_form_field(algo_name, "模型名称", max_length=100, min_length=1)
+    algo_version = validate_form_field(algo_version, "模型版本", max_length=50, min_length=0, required=False)
+    description = validate_description(description, max_length=1000)
+    
     # 大小写不敏感的扩展名校验
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="仅支持 CSV 文件")
@@ -74,6 +80,8 @@ async def upload_result(
     result_dir.mkdir(parents=True, exist_ok=True)
     filepath = result_dir / "prediction.csv"
     
+    loop = asyncio.get_running_loop()
+    
     # 流式写入文件
     total_size = 0
     try:
@@ -82,7 +90,7 @@ async def upload_result(
                 total_size += len(chunk)
                 if total_size > settings.MAX_UPLOAD_SIZE:
                     await f.close()
-                    shutil.rmtree(result_dir, ignore_errors=True)
+                    await loop.run_in_executor(executor, safe_rmtree, str(result_dir))
                     await db.rollback()
                     raise HTTPException(
                         status_code=400,
@@ -92,22 +100,20 @@ async def upload_result(
     except HTTPException:
         raise
     except Exception:
-        shutil.rmtree(result_dir, ignore_errors=True)
+        await loop.run_in_executor(executor, safe_rmtree, str(result_dir))
         await db.rollback()
         raise HTTPException(status_code=500, detail="文件上传失败")
-    
-    loop = asyncio.get_running_loop()
     
     try:
         df = await loop.run_in_executor(executor, _parse_result_csv_sync, str(filepath))
     except Exception:
-        shutil.rmtree(result_dir, ignore_errors=True)
+        await loop.run_in_executor(executor, safe_rmtree, str(result_dir))
         await db.rollback()
         raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式")
     
     missing_cols = REQUIRED_COLUMNS - set(df.columns)
     if missing_cols:
-        shutil.rmtree(result_dir, ignore_errors=True)
+        await loop.run_in_executor(executor, safe_rmtree, str(result_dir))
         await db.rollback()
         raise HTTPException(
             status_code=400, 
@@ -128,7 +134,7 @@ async def upload_result(
         
         result_obj.metrics = calculate_metrics(true_vals, pred_vals)
     except Exception:
-        shutil.rmtree(result_dir, ignore_errors=True)
+        await loop.run_in_executor(executor, safe_rmtree, str(result_dir))
         await db.rollback()
         raise HTTPException(status_code=400, detail="数据格式错误，true_value 和 predicted_value 必须为数值类型")
     

@@ -194,3 +194,72 @@ class CompareResponse(BaseModel):
     chart_data: ChartDataResponse
     metrics: Dict[int, MetricsResponse]
     skipped: List[SkippedResult] = Field(default_factory=list)  # 跳过的结果列表
+
+
+# ============ User & Auth Schemas ============
+class UserBase(BaseModel):
+    """用户基础信息"""
+    username: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-zA-Z0-9_]+$')
+    email: str = Field(..., max_length=255)
+    full_name: Optional[str] = Field(default="", max_length=100)
+
+
+class UserCreate(UserBase):
+    """用户注册"""
+    password: str = Field(..., min_length=6, max_length=100)
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('密码长度至少 6 位')
+        return v
+
+
+class UserUpdate(BaseModel):
+    """用户信息更新"""
+    full_name: Optional[str] = Field(default=None, max_length=100)
+    email: Optional[str] = Field(default=None, max_length=255)
+
+
+class UserPasswordUpdate(BaseModel):
+    """密码更新"""
+    old_password: str
+    new_password: str = Field(..., min_length=6, max_length=100)
+
+
+class UserResponse(BaseModel):
+    """用户响应（不包含密码）"""
+    id: int
+    username: str
+    email: str
+    full_name: str = ""
+    is_active: bool = True
+    is_admin: bool = False
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserLogin(BaseModel):
+    """用户登录"""
+    username: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
+
+
+class Token(BaseModel):
+    """Token 响应"""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class TokenRefresh(BaseModel):
+    """Token 刷新请求"""
+    refresh_token: str
+
+
+class TokenData(BaseModel):
+    """Token 数据"""
+    user_id: Optional[int] = None

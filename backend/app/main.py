@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db, close_db
-from app.api import datasets, configurations, results, visualization
+from app.api import datasets, configurations, results, visualization, auth
 
 
 @asynccontextmanager
@@ -34,6 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 注册路由
+app.include_router(auth.router)  # 认证路由
 app.include_router(datasets.router)
 app.include_router(configurations.router)
 app.include_router(results.router)
