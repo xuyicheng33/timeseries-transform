@@ -3,7 +3,8 @@
  * 提供全局的用户认证状态管理
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import type { ReactNode } from 'react'
 import type { User, UserLogin, UserRegister } from '@/types'
 import * as authApi from '@/api/auth'
 import { tokenManager } from '@/api/auth'

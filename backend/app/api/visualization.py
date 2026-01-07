@@ -1,11 +1,13 @@
 import os
 import asyncio
+import hashlib
+import json
 import pandas as pd
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
 
 from app.database import get_db
@@ -18,10 +20,53 @@ router = APIRouter(prefix="/api/visualization", tags=["visualization"])
 
 executor = ThreadPoolExecutor(max_workers=4)
 
+# 降采样结果缓存目录
+CACHE_DIR = os.path.join(settings.UPLOAD_DIR, "cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
 
-def _read_csv_sync(filepath: str):
-    """同步读取CSV"""
+
+def _read_csv_sync(filepath: str, columns: Optional[List[str]] = None):
+    """同步读取CSV，只读取指定列"""
+    if columns:
+        return pd.read_csv(filepath, usecols=columns)
     return pd.read_csv(filepath)
+
+
+def _get_cache_key(result_id: int, max_points: int, algorithm: str) -> str:
+    """生成缓存键"""
+    return f"{result_id}_{max_points}_{algorithm}"
+
+
+def _get_cache_path(cache_key: str) -> str:
+    """获取缓存文件路径"""
+    return os.path.join(CACHE_DIR, f"{cache_key}.json")
+
+
+def _load_from_cache(cache_key: str, filepath: str) -> Optional[dict]:
+    """从缓存加载降采样结果"""
+    cache_path = _get_cache_path(cache_key)
+    if not os.path.exists(cache_path):
+        return None
+    
+    try:
+        # 检查源文件是否比缓存新
+        if os.path.getmtime(filepath) > os.path.getmtime(cache_path):
+            return None
+        
+        with open(cache_path, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _save_to_cache(cache_key: str, data: dict):
+    """保存降采样结果到缓存"""
+    cache_path = _get_cache_path(cache_key)
+    try:
+        with open(cache_path, 'w') as f:
+            json.dump(data, f)
+    except Exception:
+        pass  # 缓存失败不影响主流程
 
 
 @router.post("/compare", response_model=CompareResponse)
@@ -56,43 +101,75 @@ async def compare_results(data: CompareRequest, db: AsyncSession = Depends(get_d
             skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件不存在"))
             continue
         
-        try:
-            df = await loop.run_in_executor(executor, _read_csv_sync, res.filepath)
-        except Exception as e:
-            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件读取失败"))
-            continue
+        # 尝试从缓存加载
+        cache_key = _get_cache_key(res.id, data.max_points, data.algorithm)
+        cached = _load_from_cache(cache_key, res.filepath)
         
-        if "true_value" not in df.columns or "predicted_value" not in df.columns:
-            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="缺少必需列"))
-            continue
-        
-        try:
-            true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
-            pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
-            
-            # 过滤掉 NaN 值
-            valid_mask = ~(np.isnan(true_vals) | np.isnan(pred_vals))
-            if not valid_mask.any():
-                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="无有效数值数据"))
+        if cached:
+            # 使用缓存的降采样数据
+            true_data = cached["true_data"]
+            pred_data = cached["pred_data"]
+            true_vals_clean = np.array(cached["true_vals"])
+            pred_vals_clean = np.array(cached["pred_vals"])
+            total_points = max(total_points, cached["total_points"])
+            if cached.get("downsampled"):
+                downsampled = True
+        else:
+            # 只读取必要的列
+            try:
+                df = await loop.run_in_executor(
+                    executor, 
+                    _read_csv_sync, 
+                    res.filepath, 
+                    ["true_value", "predicted_value"]
+                )
+            except Exception as e:
+                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件读取失败"))
                 continue
             
-            true_vals_clean = true_vals[valid_mask]
-            pred_vals_clean = pred_vals[valid_mask]
-            valid_indices = np.where(valid_mask)[0].tolist()
-        except Exception:
-            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="数据解析失败"))
-            continue
-        
-        indices = valid_indices
-        total_points = max(total_points, len(indices))
-        
-        true_data = list(zip(indices, true_vals_clean.tolist()))
-        pred_data = list(zip(indices, pred_vals_clean.tolist()))
-        
-        if len(df) > data.max_points:
-            downsampled = True
-            true_data = downsample(true_data, data.max_points, data.algorithm)
-            pred_data = downsample(pred_data, data.max_points, data.algorithm)
+            if "true_value" not in df.columns or "predicted_value" not in df.columns:
+                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="缺少必需列"))
+                continue
+            
+            try:
+                true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+                pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+                
+                # 过滤掉 NaN 值
+                valid_mask = ~(np.isnan(true_vals) | np.isnan(pred_vals))
+                if not valid_mask.any():
+                    skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="无有效数值数据"))
+                    continue
+                
+                true_vals_clean = true_vals[valid_mask]
+                pred_vals_clean = pred_vals[valid_mask]
+                valid_indices = np.where(valid_mask)[0].tolist()
+            except Exception:
+                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="数据解析失败"))
+                continue
+            
+            indices = valid_indices
+            total_points = max(total_points, len(indices))
+            
+            true_data = list(zip(indices, true_vals_clean.tolist()))
+            pred_data = list(zip(indices, pred_vals_clean.tolist()))
+            
+            is_downsampled = False
+            if len(df) > data.max_points:
+                is_downsampled = True
+                downsampled = True
+                true_data = downsample(true_data, data.max_points, data.algorithm)
+                pred_data = downsample(pred_data, data.max_points, data.algorithm)
+            
+            # 保存到缓存
+            _save_to_cache(cache_key, {
+                "true_data": true_data,
+                "pred_data": pred_data,
+                "true_vals": true_vals_clean.tolist(),
+                "pred_vals": pred_vals_clean.tolist(),
+                "total_points": len(indices),
+                "downsampled": is_downsampled
+            })
         
         if res.dataset_id not in dataset_true_added:
             series_list.append(ChartDataSeries(
@@ -132,7 +209,13 @@ async def get_metrics(result_id: int, db: AsyncSession = Depends(get_db)):
     
     loop = asyncio.get_running_loop()
     try:
-        df = await loop.run_in_executor(executor, _read_csv_sync, result_obj.filepath)
+        # 只读取必要的列
+        df = await loop.run_in_executor(
+            executor, 
+            _read_csv_sync, 
+            result_obj.filepath,
+            ["true_value", "predicted_value"]
+        )
     except Exception:
         raise HTTPException(status_code=500, detail="读取结果文件失败")
     

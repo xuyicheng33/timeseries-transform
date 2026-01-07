@@ -45,7 +45,8 @@ export async function register(data: UserRegister): Promise<User> {
  * 用户登录
  */
 export async function login(data: UserLogin): Promise<TokenResponse> {
-  const response = await request.post<TokenResponse>('/auth/login/json', data)
+  // request 拦截器已经解包了 response.data，所以这里直接就是 TokenResponse
+  const response = await request.post('/auth/login/json', data) as TokenResponse
   // 保存 Token
   tokenManager.setTokens(response.access_token, response.refresh_token)
   return response
@@ -61,7 +62,8 @@ export async function refreshToken(): Promise<TokenResponse> {
   }
   
   const data: TokenRefresh = { refresh_token }
-  const response = await request.post<TokenResponse>('/auth/refresh', data)
+  // request 拦截器已经解包了 response.data，所以这里直接就是 TokenResponse
+  const response = await request.post('/auth/refresh', data) as TokenResponse
   // 更新 Token
   tokenManager.setTokens(response.access_token, response.refresh_token)
   return response

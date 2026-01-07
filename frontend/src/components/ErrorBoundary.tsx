@@ -3,7 +3,8 @@
  * 捕获子组件的 JavaScript 错误，防止整个应用崩溃
  */
 
-import { Component, ErrorInfo, ReactNode } from 'react'
+import { Component } from 'react'
+import type { ErrorInfo, ReactNode } from 'react'
 import { Result, Button, Typography, Space } from 'antd'
 import { ReloadOutlined, HomeOutlined, BugOutlined } from '@ant-design/icons'
 
