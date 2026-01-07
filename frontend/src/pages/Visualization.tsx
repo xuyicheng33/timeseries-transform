@@ -30,7 +30,7 @@ import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 
 import type { Result, Metrics, CompareResponse, DownsampleAlgorithm } from '@/types'
-import { getResults } from '@/api/results'
+import { getAllResults } from '@/api/results'
 import { compareResults } from '@/api/visualization'
 import { formatMetric } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
@@ -67,7 +67,7 @@ export default function Visualization() {
   const fetchResults = useCallback(async () => {
     setResultsLoading(true)
     try {
-      const data = await getResults()
+      const data = await getAllResults()
       setResults(data)
     } catch {
       // 错误已在 API 层处理

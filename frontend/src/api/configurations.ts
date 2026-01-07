@@ -10,6 +10,7 @@ import type {
   GenerateFilenameRequest,
   GenerateFilenameResponse,
   DeleteResponse,
+  PaginatedResponse,
 } from '@/types'
 
 /**
@@ -22,14 +23,30 @@ export async function createConfiguration(
 }
 
 /**
- * 获取配置列表
+ * 获取配置列表（分页）
  */
 export async function getConfigurations(
+  datasetId?: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Configuration>> {
+  const params: Record<string, number> = { page, page_size: pageSize }
+  if (datasetId !== undefined) params.dataset_id = datasetId
+  
+  return api.get('/configurations', { params })
+}
+
+/**
+ * 获取所有配置（不分页，用于下拉选择等场景）
+ */
+export async function getAllConfigurations(
   datasetId?: number
 ): Promise<Configuration[]> {
-  return api.get('/configurations', {
-    params: datasetId ? { dataset_id: datasetId } : undefined,
-  })
+  const params: Record<string, number> = { page: 1, page_size: 1000 }
+  if (datasetId !== undefined) params.dataset_id = datasetId
+  
+  const response = await api.get<PaginatedResponse<Configuration>>('/configurations', { params })
+  return (response as unknown as PaginatedResponse<Configuration>).items
 }
 
 /**

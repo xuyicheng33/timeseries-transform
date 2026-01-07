@@ -1,6 +1,33 @@
 ﻿import csv
+import re
+import shutil
 import numpy as np
 from typing import List, Tuple
+
+
+def sanitize_filename(filename: str) -> str:
+    """清理文件名，移除非法字符"""
+    # 移除 Windows 和 Unix 不允许的字符
+    # Windows: \ / : * ? " < > |
+    # 保留中文、字母、数字、下划线、连字符、点
+    safe_name = re.sub(r'[\\/:*?"<>|]', '_', filename)
+    # 移除连续的下划线
+    safe_name = re.sub(r'_+', '_', safe_name)
+    # 移除首尾的下划线和空格
+    safe_name = safe_name.strip('_ ')
+    # 如果文件名为空，使用默认名
+    if not safe_name:
+        safe_name = "unnamed_file"
+    return safe_name
+
+
+def safe_rmtree(path: str) -> bool:
+    """安全删除目录，失败时不抛异常"""
+    try:
+        shutil.rmtree(path, ignore_errors=True)
+        return True
+    except Exception:
+        return False
 
 
 def lttb_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tuple[float, float]]:
@@ -132,7 +159,8 @@ def calculate_metrics(true_values: np.ndarray, pred_values: np.ndarray) -> dict:
     
     ss_res = np.sum((true_values - pred_values) ** 2)
     ss_tot = np.sum((true_values - np.mean(true_values)) ** 2)
-    r2 = float(1 - (ss_res / ss_tot)) if ss_tot != 0 else 0.0
+    # 当所有真实值相同时，R² 无意义，返回 NaN 或 0
+    r2 = float(1 - (ss_res / ss_tot)) if ss_tot > 1e-10 else 0.0
     
     mask = true_values != 0
     if np.any(mask):
@@ -148,10 +176,15 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
                                sequence_logic: str, window_size: int, stride: int,
                                target_type: str, target_k: int = 1) -> str:
     """生成标准文件名"""
-    parts = [dataset_name]
+    # 先清理数据集名称中的非法字符
+    safe_dataset_name = sanitize_filename(dataset_name).replace('.csv', '').replace('.CSV', '')
+    
+    parts = [safe_dataset_name]
     
     if channels:
-        ch_str = "Ch_" + "-".join(channels)
+        # 清理通道名中的非法字符
+        safe_channels = [re.sub(r'[\\/:*?"<>|\s]', '', ch) for ch in channels]
+        ch_str = "Ch_" + "-".join(safe_channels)
         parts.append(ch_str)
     
     parts.append(f"Win{window_size}")
@@ -181,7 +214,7 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
 
 
 def count_csv_rows(filepath: str, encoding: str = 'utf-8') -> int:
-    """准确统计CSV行数 - 修复：使用 csv.reader 正确处理字段内换行"""
+    """准确统计CSV行数 - 使用 csv.reader 正确处理字段内换行"""
     count = 0
     try:
         with open(filepath, 'r', encoding=encoding, errors='ignore', newline='') as f:
@@ -191,6 +224,9 @@ def count_csv_rows(filepath: str, encoding: str = 'utf-8') -> int:
                 count += 1
     except Exception:
         # 回退到简单计数
-        with open(filepath, 'r', encoding=encoding, errors='ignore') as f:
-            count = sum(1 for _ in f) - 1
+        try:
+            with open(filepath, 'r', encoding=encoding, errors='ignore') as f:
+                count = sum(1 for _ in f) - 1
+        except Exception:
+            count = 0
     return max(0, count)

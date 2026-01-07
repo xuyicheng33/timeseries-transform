@@ -12,7 +12,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 10;
 }
 
 .header-content {
@@ -41,14 +41,11 @@
   height: calc(100vh - 64px);
   position: sticky;
   top: 64px;
-  display: flex;
-  flex-direction: column;
 }
 
 .main-menu {
   border-right: none;
   padding: 16px 8px;
-  flex: 1;
 }
 
 .main-menu .ant-menu-item {
@@ -72,78 +69,3 @@
   overflow: auto;
 }
 
-/* 侧边栏折叠按钮 */
-.sider-collapse-btn {
-  padding: 8px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.sider-collapse-btn .ant-btn {
-  color: #666;
-}
-
-.sider-collapse-btn .ant-btn:hover {
-  color: #667eea;
-  background: #f5f7fa;
-}
-
-/* 移动端菜单按钮 */
-.mobile-menu-btn {
-  color: #fff !important;
-  font-size: 18px;
-  margin-right: 8px;
-}
-
-.mobile-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* 响应式适配 */
-@media screen and (max-width: 768px) {
-  .main-header {
-    padding: 0 12px;
-  }
-
-  .header-content {
-    gap: 8px;
-  }
-
-  .app-title {
-    font-size: 18px !important;
-  }
-
-  .main-content {
-    padding: 0;
-  }
-
-  /* 移动端页面内边距 */
-  .main-content > div {
-    padding: 12px !important;
-  }
-}
-
-/* 折叠状态下的菜单样式 */
-.ant-layout-sider-collapsed .main-menu {
-  padding: 16px 4px;
-}
-
-.ant-layout-sider-collapsed .main-menu .ant-menu-item {
-  padding-inline: 0;
-  text-align: center;
-}
-
-.ant-layout-sider-collapsed .main-menu .ant-menu-item .anticon {
-  margin-right: 0;
-  font-size: 18px;
-}
-
-/* 抽屉菜单样式 */
-.ant-drawer .main-menu {
-  padding: 8px;
-}
-
-.ant-drawer .main-menu .ant-menu-item {
-  height: 48px;
-  line-height: 48px;
-  font-size: 15px;
-}

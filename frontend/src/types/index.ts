@@ -47,6 +47,6 @@ export type {
   ApiError,
   DeleteResponse,
   PaginationParams,
-  PaginationResponse,
+  PaginatedResponse,
 } from './api'
 

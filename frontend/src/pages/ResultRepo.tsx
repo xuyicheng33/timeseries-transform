@@ -37,8 +37,6 @@ import {
 } from '@ant-design/icons'
 
 import type { Dataset, Configuration, Result, ResultUpdate, Metrics } from '@/types'
-import { getDatasets } from '@/api/datasets'
-import { getConfigurations } from '@/api/configurations'
 import {
   getResults,
   uploadResult,
@@ -59,6 +57,9 @@ export default function ResultRepo() {
   // ============ 状态定义 ============
   const [results, setResults] = useState<Result[]>([])
   const [loading, setLoading] = useState(false)
+  const [total, setTotal] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // 数据集和配置列表（用于筛选和关联）
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -71,7 +72,7 @@ export default function ResultRepo() {
   // 上传相关
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadForm] = Form.useForm()
-  const [uploadFile, setUploadFile] = useState<UploadFile | null>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
@@ -89,18 +90,20 @@ export default function ResultRepo() {
   const fetchResults = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getResults(filterDatasetId, filterModelName)
-      setResults(data)
+      const response = await getResults(filterDatasetId, filterModelName, currentPage, pageSize)
+      setResults(response.items)
+      setTotal(response.total)
     } catch {
       // 错误已在 API 层处理
     } finally {
       setLoading(false)
     }
-  }, [filterDatasetId, filterModelName])
+  }, [filterDatasetId, filterModelName, currentPage, pageSize])
 
   const fetchDatasets = useCallback(async () => {
     try {
-      const data = await getDatasets()
+      const { getAllDatasets } = await import('@/api/datasets')
+      const data = await getAllDatasets()
       setDatasets(data)
     } catch {
       // 错误已在 API 层处理
@@ -109,7 +112,8 @@ export default function ResultRepo() {
 
   const fetchConfigurations = useCallback(async () => {
     try {
-      const data = await getConfigurations()
+      const { getAllConfigurations } = await import('@/api/configurations')
+      const data = await getAllConfigurations()
       setConfigurations(data)
     } catch {
       // 错误已在 API 层处理
@@ -156,7 +160,8 @@ export default function ResultRepo() {
         message.error('只支持 CSV 文件')
         return Upload.LIST_IGNORE
       }
-      setUploadFile(file as unknown as UploadFile)
+      // 保存原始 File 对象
+      setUploadFile(file)
       // 自动填充名称
       const nameWithoutExt = file.name.replace(/\.csv$/i, '')
       uploadForm.setFieldValue('name', nameWithoutExt)
@@ -166,7 +171,7 @@ export default function ResultRepo() {
       setUploadFile(null)
       uploadForm.setFieldValue('name', '')
     },
-    fileList: uploadFile ? [uploadFile] : [],
+    fileList: uploadFile ? [{ uid: '-1', name: uploadFile.name, status: 'done' } as UploadFile] : [],
   }
 
   const handleUpload = async () => {
@@ -184,7 +189,7 @@ export default function ResultRepo() {
         values.name,
         values.dataset_id,
         values.model_name,
-        uploadFile as unknown as File,
+        uploadFile,
         values.configuration_id,
         values.model_version,
         values.description,
@@ -456,7 +461,10 @@ export default function ResultRepo() {
             allowClear
             style={{ width: 200 }}
             value={filterDatasetId}
-            onChange={setFilterDatasetId}
+            onChange={(value) => {
+              setFilterDatasetId(value)
+              setCurrentPage(1)  // 重置页码
+            }}
           >
             {datasets.map((dataset) => (
               <Select.Option key={dataset.id} value={dataset.id}>
@@ -469,7 +477,10 @@ export default function ResultRepo() {
             allowClear
             style={{ width: 150 }}
             value={filterModelName}
-            onChange={setFilterModelName}
+            onChange={(value) => {
+              setFilterModelName(value)
+              setCurrentPage(1)  // 重置页码
+            }}
           >
             {modelNames.map((name) => (
               <Select.Option key={name} value={name}>
@@ -489,11 +500,17 @@ export default function ResultRepo() {
           loading={loading}
           scroll={{ x: 1200 }}
           pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: total,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 个结果`,
-            defaultPageSize: 10,
+            showTotal: (t) => `共 ${t} 个结果`,
             pageSizeOptions: ['10', '20', '50'],
+            onChange: (page, size) => {
+              setCurrentPage(page)
+              setPageSize(size)
+            },
           }}
           locale={{
             emptyText: (

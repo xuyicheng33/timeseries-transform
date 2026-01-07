@@ -58,11 +58,14 @@ export default function DataHub() {
   // ============ 状态定义 ============
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(false)
+  const [total, setTotal] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // 上传相关
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadForm] = Form.useForm()
-  const [uploadFile, setUploadFile] = useState<UploadFile | null>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
@@ -82,14 +85,15 @@ export default function DataHub() {
   const fetchDatasets = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getDatasets()
-      setDatasets(data)
+      const response = await getDatasets(currentPage, pageSize)
+      setDatasets(response.items)
+      setTotal(response.total)
     } catch {
       // 错误已在 API 层处理
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentPage, pageSize])
 
   useEffect(() => {
     fetchDatasets()
@@ -125,7 +129,8 @@ export default function DataHub() {
         message.error('只支持 CSV 文件')
         return Upload.LIST_IGNORE
       }
-      setUploadFile(file as unknown as UploadFile)
+      // 保存原始 File 对象
+      setUploadFile(file)
       // 自动填充名称（去掉扩展名）
       const nameWithoutExt = file.name.replace(/\.csv$/i, '')
       uploadForm.setFieldValue('name', nameWithoutExt)
@@ -135,7 +140,7 @@ export default function DataHub() {
       setUploadFile(null)
       uploadForm.setFieldValue('name', '')
     },
-    fileList: uploadFile ? [uploadFile] : [],
+    fileList: uploadFile ? [{ uid: '-1', name: uploadFile.name, status: 'done' } as UploadFile] : [],
   }
 
   const handleUpload = async () => {
@@ -152,7 +157,7 @@ export default function DataHub() {
       await uploadDataset(
         values.name,
         values.description || '',
-        uploadFile as unknown as File,
+        uploadFile,
         (percent) => setUploadProgress(percent)
       )
 
@@ -438,11 +443,17 @@ export default function DataHub() {
           loading={loading}
           scroll={{ x: 1400 }}
           pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: total,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 个数据集`,
-            defaultPageSize: 10,
+            showTotal: (t) => `共 ${t} 个数据集`,
             pageSizeOptions: ['10', '20', '50'],
+            onChange: (page, size) => {
+              setCurrentPage(page)
+              setPageSize(size)
+            },
           }}
           locale={{
             emptyText: (

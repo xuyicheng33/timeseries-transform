@@ -8,6 +8,7 @@ import type {
   DatasetPreview,
   DatasetUpdate,
   DeleteResponse,
+  PaginatedResponse,
 } from '@/types'
 
 /**
@@ -36,10 +37,25 @@ export async function uploadDataset(
 }
 
 /**
- * 获取数据集列表
+ * 获取数据集列表（分页）
  */
-export async function getDatasets(): Promise<Dataset[]> {
-  return api.get('/datasets')
+export async function getDatasets(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Dataset>> {
+  return api.get('/datasets', {
+    params: { page, page_size: pageSize },
+  })
+}
+
+/**
+ * 获取所有数据集（不分页，用于下拉选择等场景）
+ */
+export async function getAllDatasets(): Promise<Dataset[]> {
+  const response = await api.get<PaginatedResponse<Dataset>>('/datasets', {
+    params: { page: 1, page_size: 1000 },
+  })
+  return (response as unknown as PaginatedResponse<Dataset>).items
 }
 
 /**

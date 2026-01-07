@@ -21,3 +21,6 @@ pydantic-settings==2.1.0
 # Utilities
 python-dateutil==2.8.2
 chardet==5.2.0
+
+# Note: 推荐使用 Python 3.11 或 3.12
+# Python 3.14 可能存在依赖兼容性问题

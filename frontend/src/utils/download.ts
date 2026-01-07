@@ -17,14 +17,29 @@ function getFullUrl(path: string): string {
 
 /**
  * 从 Content-Disposition 头解析文件名
+ * 支持 filename= 和 filename*= 两种格式
  */
 function parseFilename(disposition: string | undefined): string | null {
   if (!disposition) return null
 
-  const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition)
-  if (matches && matches[1]) {
-    let filename = matches[1].replace(/['"]/g, '')
-    // 解码 URL 编码的文件名
+  // 优先解析 filename*= 格式（RFC 5987，支持编码）
+  // 格式: filename*=UTF-8''%E6%96%87%E4%BB%B6%E5%90%8D.csv
+  const filenameStarMatch = /filename\*\s*=\s*(?:UTF-8|utf-8)?''(.+?)(?:;|$)/i.exec(disposition)
+  if (filenameStarMatch && filenameStarMatch[1]) {
+    try {
+      return decodeURIComponent(filenameStarMatch[1])
+    } catch {
+      // 解码失败，继续尝试其他格式
+    }
+  }
+
+  // 解析 filename= 格式
+  const filenameMatch = /filename\s*=\s*["']?([^"';\n]+)["']?/i.exec(disposition)
+  if (filenameMatch && filenameMatch[1]) {
+    let filename = filenameMatch[1].trim()
+    // 移除可能的引号
+    filename = filename.replace(/^["']|["']$/g, '')
+    // 尝试解码 URL 编码的文件名
     try {
       filename = decodeURIComponent(filename)
     } catch {

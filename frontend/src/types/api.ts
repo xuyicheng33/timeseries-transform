@@ -26,11 +26,10 @@ export interface PaginationParams {
 }
 
 // 分页响应
-export interface PaginationResponse<T> {
+export interface PaginatedResponse<T> {
   items: T[]
   total: number
   page: number
   page_size: number
-  total_pages: number
 }
 

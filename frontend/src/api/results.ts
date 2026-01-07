@@ -7,6 +7,7 @@ import type {
   Result,
   ResultUpdate,
   DeleteResponse,
+  PaginatedResponse,
 } from '@/types'
 
 /**
@@ -50,17 +51,34 @@ export async function uploadResult(
 }
 
 /**
- * 获取结果列表
+ * 获取结果列表（分页）
  */
 export async function getResults(
   datasetId?: number,
-  modelName?: string
-): Promise<Result[]> {
-  const params: Record<string, number | string> = {}
+  modelName?: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<Result>> {
+  const params: Record<string, number | string> = { page, page_size: pageSize }
   if (datasetId !== undefined) params.dataset_id = datasetId
-  if (modelName !== undefined) params.model_name = modelName
+  if (modelName !== undefined) params.algo_name = modelName
   
   return api.get('/results', { params })
+}
+
+/**
+ * 获取所有结果（不分页，用于下拉选择等场景）
+ */
+export async function getAllResults(
+  datasetId?: number,
+  modelName?: string
+): Promise<Result[]> {
+  const params: Record<string, number | string> = { page: 1, page_size: 1000 }
+  if (datasetId !== undefined) params.dataset_id = datasetId
+  if (modelName !== undefined) params.algo_name = modelName
+  
+  const response = await api.get<PaginatedResponse<Result>>('/results', { params })
+  return (response as unknown as PaginatedResponse<Result>).items
 }
 
 /**

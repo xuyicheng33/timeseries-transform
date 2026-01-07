@@ -38,7 +38,6 @@ import {
 } from '@ant-design/icons'
 
 import type { Dataset, Configuration, ConfigurationCreate, ConfigurationUpdate } from '@/types'
-import { getDatasets } from '@/api/datasets'
 import {
   getConfigurations,
   createConfiguration,
@@ -78,6 +77,9 @@ export default function ConfigWizard() {
   // 配置列表
   const [configurations, setConfigurations] = useState<Configuration[]>([])
   const [configLoading, setConfigLoading] = useState(false)
+  const [configTotal, setConfigTotal] = useState(0)
+  const [configPage, setConfigPage] = useState(1)
+  const [configPageSize, setConfigPageSize] = useState(10)
 
   // 数据集列表
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -114,19 +116,21 @@ export default function ConfigWizard() {
   const fetchConfigurations = useCallback(async () => {
     setConfigLoading(true)
     try {
-      const data = await getConfigurations()
-      setConfigurations(data)
+      const response = await getConfigurations(undefined, configPage, configPageSize)
+      setConfigurations(response.items)
+      setConfigTotal(response.total)
     } catch {
       // 错误已在 API 层处理
     } finally {
       setConfigLoading(false)
     }
-  }, [])
+  }, [configPage, configPageSize])
 
   const fetchDatasets = useCallback(async () => {
     setDatasetsLoading(true)
     try {
-      const data = await getDatasets()
+      const { getAllDatasets } = await import('@/api/datasets')
+      const data = await getAllDatasets()
       setDatasets(data)
     } catch {
       // 错误已在 API 层处理
@@ -147,7 +151,6 @@ export default function ConfigWizard() {
     setSelectedDataset(null)
     setTargetKeys([])
     setGeneratedFilename('')
-    setStepLoading(false)
     form.resetFields()
     form.setFieldsValue({
       normalization: 'none',
@@ -160,13 +163,12 @@ export default function ConfigWizard() {
   }
 
   const handleWizardClose = () => {
-    if (submitting || stepLoading) return
+    if (submitting) return
     setWizardOpen(false)
     setCurrentStep(0)
     setSelectedDataset(null)
     setTargetKeys([])
     setGeneratedFilename('')
-    setStepLoading(false)
     form.resetFields()
   }
 
@@ -258,15 +260,16 @@ export default function ConfigWizard() {
       const response = await generateFilename({
         dataset_name: selectedDataset.name,
         channels: targetKeys,
-        normalization: values.normalization,
-        anomaly_enabled: values.anomaly_enabled,
-        anomaly_type: values.anomaly_enabled ? values.anomaly_type : '',
-        injection_algorithm: values.anomaly_enabled ? values.injection_algorithm : '',
-        sequence_logic: values.anomaly_enabled ? values.sequence_logic : '',
-        window_size: values.window_size,
-        stride: values.stride,
-        target_type: values.target_type,
-        target_k: values.target_k,
+        // 确保必填字段有默认值，避免 undefined 被 axios 丢弃
+        normalization: values.normalization || 'none',
+        anomaly_enabled: values.anomaly_enabled ?? false,
+        anomaly_type: values.anomaly_enabled ? (values.anomaly_type || '') : '',
+        injection_algorithm: values.anomaly_enabled ? (values.injection_algorithm || '') : '',
+        sequence_logic: values.anomaly_enabled ? (values.sequence_logic || '') : '',
+        window_size: values.window_size || 100,
+        stride: values.stride || 1,
+        target_type: values.target_type || 'next',
+        target_k: values.target_k || 1,
       })
       setGeneratedFilename(response.filename)
     } catch {
@@ -290,15 +293,16 @@ export default function ConfigWizard() {
         name: values.name,
         dataset_id: selectedDataset.id,
         channels: targetKeys,
-        normalization: values.normalization,
-        anomaly_enabled: values.anomaly_enabled,
-        anomaly_type: values.anomaly_enabled ? values.anomaly_type : undefined,
-        injection_algorithm: values.anomaly_enabled ? values.injection_algorithm : undefined,
-        sequence_logic: values.anomaly_enabled ? values.sequence_logic : undefined,
-        window_size: values.window_size,
-        stride: values.stride,
-        target_type: values.target_type,
-        target_k: values.target_type === 'kstep' ? values.target_k : undefined,
+        // 确保必填字段有默认值
+        normalization: values.normalization || 'none',
+        anomaly_enabled: values.anomaly_enabled ?? false,
+        anomaly_type: values.anomaly_enabled ? (values.anomaly_type || '') : '',
+        injection_algorithm: values.anomaly_enabled ? (values.injection_algorithm || '') : '',
+        sequence_logic: values.anomaly_enabled ? (values.sequence_logic || '') : '',
+        window_size: values.window_size || 100,
+        stride: values.stride || 1,
+        target_type: values.target_type || 'next',
+        target_k: values.target_type === 'kstep' ? (values.target_k || 1) : 1,
       }
 
       await createConfiguration(configData)
@@ -753,11 +757,17 @@ export default function ConfigWizard() {
           loading={configLoading}
           scroll={{ x: 1300 }}
           pagination={{
+            current: configPage,
+            pageSize: configPageSize,
+            total: configTotal,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 个配置`,
-            defaultPageSize: 10,
+            showTotal: (t) => `共 ${t} 个配置`,
             pageSizeOptions: ['10', '20', '50'],
+            onChange: (page, size) => {
+              setConfigPage(page)
+              setConfigPageSize(size)
+            },
           }}
           locale={{
             emptyText: (
@@ -778,8 +788,8 @@ export default function ConfigWizard() {
         onCancel={handleWizardClose}
         width={700}
         footer={null}
-        maskClosable={!submitting && !stepLoading}
-        closable={!submitting && !stepLoading}
+        maskClosable={!submitting}
+        closable={!submitting}
       >
         <Steps current={currentStep} items={STEPS} size="small" style={{ marginBottom: 24 }} />
 
@@ -790,7 +800,7 @@ export default function ConfigWizard() {
         <Divider />
 
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button onClick={handleWizardClose} disabled={submitting || stepLoading}>
+          <Button onClick={handleWizardClose} disabled={submitting}>
             取消
           </Button>
           <Space>

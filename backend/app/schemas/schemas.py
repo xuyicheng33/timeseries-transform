@@ -1,6 +1,18 @@
 ﻿from datetime import datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Dict, Any, Generic, TypeVar
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+
+
+T = TypeVar('T')
+
+
+# ============ 分页响应 ============
+class PaginatedResponse(BaseModel, Generic[T]):
+    """分页响应"""
+    items: List[T]
+    total: int
+    page: int
+    page_size: int
 
 
 # ============ Dataset Schemas ============
@@ -21,7 +33,6 @@ class DatasetUpdate(BaseModel):
 class DatasetResponse(DatasetBase):
     id: int
     filename: str
-    # filepath: str  # 修复：移除，不暴露服务器路径
     file_size: int
     row_count: int
     column_count: int
@@ -29,8 +40,7 @@ class DatasetResponse(DatasetBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DatasetPreview(BaseModel):
@@ -43,7 +53,7 @@ class DatasetPreview(BaseModel):
 class ConfigurationBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     dataset_id: int
-    channels: List[str] = []
+    channels: List[str] = Field(default_factory=list)
     normalization: str = "none"
     anomaly_enabled: bool = False
     anomaly_type: Optional[str] = ""
@@ -79,21 +89,20 @@ class ConfigurationResponse(ConfigurationBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GenerateFilenameRequest(BaseModel):
     dataset_name: str
-    channels: List[str]
-    normalization: str
-    anomaly_enabled: bool
+    channels: List[str] = Field(default_factory=list)
+    normalization: str = "none"
+    anomaly_enabled: bool = False
     anomaly_type: Optional[str] = ""
     injection_algorithm: Optional[str] = ""
     sequence_logic: Optional[str] = ""
-    window_size: int
-    stride: int
-    target_type: str
+    window_size: int = 100
+    stride: int = 1
+    target_type: str = "next"
     target_k: int = 1
 
 
@@ -102,9 +111,11 @@ class ResultBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     dataset_id: int
     configuration_id: Optional[int] = None
-    model_name: str = Field(..., min_length=1, max_length=100)
-    model_version: Optional[str] = ""
+    algo_name: str = Field(..., min_length=1, max_length=100, alias="model_name")
+    algo_version: Optional[str] = Field(default="", alias="model_version")
     description: Optional[str] = ""
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ResultCreate(ResultBase):
@@ -113,23 +124,28 @@ class ResultCreate(ResultBase):
 
 class ResultUpdate(BaseModel):
     name: Optional[str] = None
-    model_name: Optional[str] = None
-    model_version: Optional[str] = None
+    algo_name: Optional[str] = Field(default=None, alias="model_name")
+    algo_version: Optional[str] = Field(default=None, alias="model_version")
     description: Optional[str] = None
 
+    model_config = ConfigDict(populate_by_name=True)
 
-class ResultResponse(ResultBase):
+
+class ResultResponse(BaseModel):
     id: int
+    name: str
+    dataset_id: int
+    configuration_id: Optional[int] = None
     filename: str
-    # filepath: str  # 修复：移除，不暴露服务器路径
     row_count: int
-    metrics: Dict[str, float]
-    # code_filepath: Optional[str] = ""  # 修复：移除
+    algo_name: str = Field(..., serialization_alias="model_name")
+    algo_version: str = Field(default="", serialization_alias="model_version")
+    description: str = ""
+    metrics: Dict[str, float] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 # ============ Visualization Schemas ============
@@ -142,17 +158,17 @@ class MetricsResponse(BaseModel):
 
 
 class CompareRequest(BaseModel):
-    result_ids: List[int]
-    max_points: int = Field(default=2000, ge=10, le=50000)  # 修复：添加范围校验
-    algorithm: str = Field(default="lttb", pattern="^(lttb|minmax|average)$")  # 修复：添加算法校验
+    result_ids: List[int] = Field(default_factory=list)
+    max_points: int = Field(default=2000, ge=10, le=50000)
+    algorithm: str = Field(default="lttb", pattern="^(lttb|minmax|average)$")
 
     @field_validator('result_ids')
     @classmethod
     def validate_result_ids(cls, v):
         if not v:
-            raise ValueError('result_ids cannot be empty')
+            raise ValueError('result_ids 不能为空')
         if len(v) > 10:
-            raise ValueError('Cannot compare more than 10 results at once')
+            raise ValueError('最多同时对比 10 个结果')
         return v
 
 
