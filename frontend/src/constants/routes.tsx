@@ -2,7 +2,7 @@
  * 路由配置
  */
 
-import type { ReactNode } from 'react'
+import type { ReactNode, LazyExoticComponent, ComponentType } from 'react'
 import {
   DatabaseOutlined,
   SettingOutlined,
@@ -22,7 +22,7 @@ export interface RouteConfig {
   path: string
   name: string
   icon: ReactNode
-  element: React.LazyExoticComponent<React.ComponentType>
+  element: LazyExoticComponent<ComponentType>
 }
 
 export const ROUTES: RouteConfig[] = [

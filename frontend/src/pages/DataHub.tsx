@@ -104,7 +104,6 @@ export default function DataHub() {
   }
 
   const handleUploadModalClose = () => {
-    if (uploading) return
     setUploadModalOpen(false)
     setUploadFile(null)
     setUploadProgress(0)
@@ -158,11 +157,11 @@ export default function DataHub() {
       )
 
       message.success('上传成功')
+      setUploading(false)
       handleUploadModalClose()
       fetchDatasets()
     } catch {
       // 错误已在 API 层处理
-    } finally {
       setUploading(false)
     }
   }
@@ -208,8 +207,12 @@ export default function DataHub() {
 
   // ============ 下载功能 ============
   const handleDownload = async (dataset: Dataset) => {
-    const path = getDatasetDownloadPath(dataset.id)
-    await download(path, dataset.filename)
+    try {
+      const path = getDatasetDownloadPath(dataset.id)
+      await download(path, dataset.filename)
+    } catch {
+      // 错误已在 download 函数中处理
+    }
   }
 
   // ============ 编辑功能 ============
@@ -223,7 +226,6 @@ export default function DataHub() {
   }
 
   const handleEditModalClose = () => {
-    if (editLoading) return
     setEditModalOpen(false)
     setEditingDataset(null)
     editForm.resetFields()
@@ -252,11 +254,11 @@ export default function DataHub() {
 
       await updateDataset(editingDataset.id, updateData)
       message.success('更新成功')
+      setEditLoading(false)
       handleEditModalClose()
       fetchDatasets()
     } catch {
       // 错误已在 API 层处理
-    } finally {
       setEditLoading(false)
     }
   }
