@@ -21,16 +21,28 @@ const request = axios.create({
 // 是否正在刷新 Token
 let isRefreshing = false
 // 等待刷新的请求队列
-let refreshSubscribers: ((token: string) => void)[] = []
+let refreshSubscribers: Array<{
+  resolve: (token: string) => void
+  reject: (error: unknown) => void
+}> = []
 
 // 添加请求到等待队列
-function subscribeTokenRefresh(callback: (token: string) => void) {
-  refreshSubscribers.push(callback)
+function subscribeTokenRefresh(
+  resolve: (token: string) => void,
+  reject: (error: unknown) => void
+) {
+  refreshSubscribers.push({ resolve, reject })
 }
 
-// 通知所有等待的请求
+// 通知所有等待的请求（成功）
 function onTokenRefreshed(token: string) {
-  refreshSubscribers.forEach((callback) => callback(token))
+  refreshSubscribers.forEach(({ resolve }) => resolve(token))
+  refreshSubscribers = []
+}
+
+// 通知所有等待的请求（失败）
+function onTokenRefreshFailed(error: unknown) {
+  refreshSubscribers.forEach(({ reject }) => reject(error))
   refreshSubscribers = []
 }
 
@@ -71,13 +83,18 @@ request.interceptors.response.use(
       
       // 如果正在刷新，将请求加入队列
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((token: string) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh(
+            (token: string) => {
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`
+              }
+              resolve(request(originalRequest))
+            },
+            (err: unknown) => {
+              reject(err)
             }
-            resolve(request(originalRequest))
-          })
+          )
         })
       }
       
@@ -108,7 +125,9 @@ request.interceptors.response.use(
         // 刷新失败，清除登录状态
         localStorage.removeItem(TOKEN_KEY)
         localStorage.removeItem(REFRESH_TOKEN_KEY)
-        refreshSubscribers = []
+        
+        // 通知所有等待的请求失败
+        onTokenRefreshFailed(refreshError)
         
         // 跳转到登录页
         if (window.location.pathname !== '/login') {
@@ -122,8 +141,22 @@ request.interceptors.response.use(
     }
     
     // 处理其他错误
-    const errorData = error.response?.data as { detail?: string } | undefined
-    const errorMessage = errorData?.detail || error.message || '请求失败'
+    const errorData = error.response?.data as { detail?: string | Array<{ msg: string; loc?: string[] }> } | undefined
+    let errorMessage = '请求失败'
+    
+    if (errorData?.detail) {
+      if (typeof errorData.detail === 'string') {
+        // 简单字符串错误
+        errorMessage = errorData.detail
+      } else if (Array.isArray(errorData.detail)) {
+        // FastAPI 验证错误数组
+        errorMessage = errorData.detail
+          .map((err) => err.msg || JSON.stringify(err))
+          .join('; ')
+      }
+    } else if (error.message) {
+      errorMessage = error.message
+    }
     
     // 显示错误消息（排除 401，因为会自动处理）
     if (error.response?.status !== 401) {
