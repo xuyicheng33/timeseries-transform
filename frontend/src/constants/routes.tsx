@@ -22,7 +22,7 @@ export interface RouteConfig {
   path: string
   name: string
   icon: ReactNode
-  element: React.LazyExoticComponent<() => JSX.Element>
+  element: React.LazyExoticComponent<React.ComponentType>
 }
 
 export const ROUTES: RouteConfig[] = [
