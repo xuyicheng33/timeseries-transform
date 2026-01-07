@@ -244,6 +244,7 @@ export default function ResultRepo() {
 
       if (Object.keys(updateData).length === 0) {
         message.info('没有修改')
+        setEditLoading(false)
         handleEditModalClose()
         return
       }

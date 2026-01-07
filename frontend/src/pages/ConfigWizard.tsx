@@ -188,7 +188,12 @@ export default function ConfigWizard() {
           }
           return true
         case 4: // 窗口参数
-          await form.validateFields(['window_size', 'stride', 'target_type', 'target_k'])
+          const targetType = form.getFieldValue('target_type')
+          const fieldsToValidate = ['window_size', 'stride', 'target_type']
+          if (targetType === 'kstep') {
+            fieldsToValidate.push('target_k')
+          }
+          await form.validateFields(fieldsToValidate)
           return true
         default:
           return true
@@ -207,11 +212,11 @@ export default function ConfigWizard() {
       await handleGenerateFilename()
     }
 
-    setCurrentStep(currentStep + 1)
+    setCurrentStep((s) => s + 1)
   }
 
   const handlePrev = () => {
-    setCurrentStep(currentStep - 1)
+    setCurrentStep((s) => s - 1)
   }
 
   // ============ 数据集选择 ============
@@ -333,6 +338,7 @@ export default function ConfigWizard() {
 
       if (Object.keys(updateData).length === 0) {
         message.info('没有修改')
+        setEditLoading(false)
         handleEditClose()
         return
       }

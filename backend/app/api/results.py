@@ -10,7 +10,7 @@ from sqlalchemy import select
 from concurrent.futures import ThreadPoolExecutor
 
 from app.database import get_db
-from app.models import Result, Dataset
+from app.models import Result, Dataset, Configuration
 from app.schemas import ResultCreate, ResultUpdate, ResultResponse
 from app.config import settings
 from app.services.utils import calculate_metrics
@@ -57,6 +57,15 @@ async def upload_result(
     dataset = dataset_result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    # 校验 configuration_id 归属
+    if configuration_id is not None:
+        config_result = await db.execute(select(Configuration).where(Configuration.id == configuration_id))
+        config = config_result.scalar_one_or_none()
+        if not config:
+            raise HTTPException(status_code=404, detail="Configuration not found")
+        if config.dataset_id != dataset_id:
+            raise HTTPException(status_code=400, detail="Configuration does not belong to the specified dataset")
     
     result_obj = Result(
         name=name, dataset_id=dataset_id, configuration_id=configuration_id,
