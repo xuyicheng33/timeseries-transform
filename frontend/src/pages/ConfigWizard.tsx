@@ -436,6 +436,7 @@ export default function ConfigWizard() {
             name="normalization"
             label="归一化方式"
             rules={[{ required: true, message: '请选择归一化方式' }]}
+            initialValue="none"
           >
             <Radio.Group>
               {NORMALIZATION_OPTIONS.map((opt) => (
@@ -556,7 +557,12 @@ export default function ConfigWizard() {
         )
 
       case 5:
-        const formValues = form.getFieldsValue()
+        // 使用 getFieldsValue(true) 获取所有字段值，包括未渲染的
+        const formValues = form.getFieldsValue(true)
+        console.log('预览步骤 - formValues:', formValues) // 调试日志
+        const normalizationValue = formValues.normalization
+        const normalizationLabel = NORMALIZATION_OPTIONS.find((o) => o.value === normalizationValue)?.label || normalizationValue || '未设置'
+        const targetTypeLabel = TARGET_TYPE_OPTIONS.find((o) => o.value === formValues.target_type)?.label || formValues.target_type || '未设置'
         return (
           <div>
             <Alert
@@ -578,28 +584,26 @@ export default function ConfigWizard() {
                 ))}
               </Paragraph>
               <Paragraph>
-                <Text strong>归一化：</Text>{' '}
-                {NORMALIZATION_OPTIONS.find((o) => o.value === formValues.normalization)?.label}
+                <Text strong>归一化：</Text> {normalizationLabel}
               </Paragraph>
               <Paragraph>
                 <Text strong>异常注入：</Text>{' '}
                 {formValues.anomaly_enabled ? (
                   <>
-                    {ANOMALY_TYPE_OPTIONS.find((o) => o.value === formValues.anomaly_type)?.label} /{' '}
-                    {INJECTION_ALGORITHM_OPTIONS.find((o) => o.value === formValues.injection_algorithm)?.label} /{' '}
-                    {SEQUENCE_LOGIC_OPTIONS.find((o) => o.value === formValues.sequence_logic)?.label}
+                    {ANOMALY_TYPE_OPTIONS.find((o) => o.value === formValues.anomaly_type)?.label || formValues.anomaly_type} /{' '}
+                    {INJECTION_ALGORITHM_OPTIONS.find((o) => o.value === formValues.injection_algorithm)?.label || formValues.injection_algorithm} /{' '}
+                    {SEQUENCE_LOGIC_OPTIONS.find((o) => o.value === formValues.sequence_logic)?.label || formValues.sequence_logic}
                   </>
                 ) : (
                   '未启用'
                 )}
               </Paragraph>
               <Paragraph>
-                <Text strong>窗口参数：</Text> 窗口大小 {formValues.window_size}，步长 {formValues.stride}
+                <Text strong>窗口参数：</Text> 窗口大小 {formValues.window_size || 100}，步长 {formValues.stride || 1}
               </Paragraph>
               <Paragraph>
-                <Text strong>目标类型：</Text>{' '}
-                {TARGET_TYPE_OPTIONS.find((o) => o.value === formValues.target_type)?.label}
-                {formValues.target_type === 'kstep' && ` (K=${formValues.target_k})`}
+                <Text strong>目标类型：</Text> {targetTypeLabel}
+                {formValues.target_type === 'kstep' && ` (K=${formValues.target_k || 1})`}
               </Paragraph>
             </Card>
 
@@ -793,7 +797,7 @@ export default function ConfigWizard() {
       >
         <Steps current={currentStep} items={STEPS} size="small" style={{ marginBottom: 24 }} />
 
-        <Form form={form} layout="vertical" style={{ minHeight: 300 }}>
+        <Form form={form} layout="vertical" style={{ minHeight: 300 }} preserve={true}>
           {renderStepContent()}
         </Form>
 
