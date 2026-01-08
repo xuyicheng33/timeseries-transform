@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios'
-import type { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import type { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { message } from 'antd'
 import { tokenManager } from './token'
 
