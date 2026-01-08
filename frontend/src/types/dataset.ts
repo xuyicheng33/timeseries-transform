@@ -12,6 +12,8 @@ export interface Dataset {
   column_count: number
   columns: string[]
   description: string
+  user_id: number | null
+  is_public: boolean
   created_at: string
   updated_at: string
 }
@@ -27,6 +29,7 @@ export interface DatasetPreview {
 export interface DatasetCreate {
   name: string
   description?: string
+  is_public?: boolean
   file: File
 }
 
@@ -34,5 +37,6 @@ export interface DatasetCreate {
 export interface DatasetUpdate {
   name?: string
   description?: string
+  is_public?: boolean
 }
 

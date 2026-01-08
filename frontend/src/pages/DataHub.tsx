@@ -33,6 +33,8 @@ import {
   DeleteOutlined,
   InboxOutlined,
   FileTextOutlined,
+  GlobalOutlined,
+  LockOutlined,
 } from '@ant-design/icons'
 
 import type { Dataset, DatasetPreview, DatasetUpdate } from '@/types'
@@ -317,10 +319,19 @@ export default function DataHub() {
       key: 'name',
       width: 200,
       ellipsis: true,
-      render: (name: string) => (
+      render: (name: string, record: Dataset) => (
         <Space>
           <FileTextOutlined style={{ color: '#1890ff' }} />
           <Text strong>{name}</Text>
+          {record.is_public ? (
+            <Tooltip title="公开数据集">
+              <GlobalOutlined style={{ color: '#52c41a', fontSize: 12 }} />
+            </Tooltip>
+          ) : (
+            <Tooltip title="私有数据集">
+              <LockOutlined style={{ color: '#faad14', fontSize: 12 }} />
+            </Tooltip>
+          )}
         </Space>
       ),
     },
