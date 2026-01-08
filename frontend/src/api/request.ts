@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios'
-import type { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import type { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { message } from 'antd'
 import { TOKEN_KEY, REFRESH_TOKEN_KEY, tokenManager } from './token'
 
@@ -65,9 +65,13 @@ async function doRefreshToken(): Promise<string> {
 }
 
 // 处理 401 错误的统一逻辑
-async function handle401Error(
-  originalRequest: InternalAxiosRequestConfig & { _retry?: boolean }
-): Promise<unknown> {
+// retryInstance: 用于重试的 axios 实例，默认为 request
+// returnFullResponse: 是否返回完整响应（用于 rawRequest）
+async function handle401Error<T = unknown>(
+  originalRequest: InternalAxiosRequestConfig & { _retry?: boolean },
+  retryInstance: AxiosInstance = request,
+  returnFullResponse: boolean = false
+): Promise<T> {
   const refreshToken = tokenManager.getRefreshToken()
 
   // 如果没有 refresh token，直接清除登录状态
@@ -94,7 +98,12 @@ async function handle401Error(
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${token}`
           }
-          resolve(request(originalRequest))
+          const retryPromise = retryInstance(originalRequest)
+          if (returnFullResponse) {
+            resolve(retryPromise as T)
+          } else {
+            retryPromise.then((res: AxiosResponse) => resolve(res.data as T)).catch(reject)
+          }
         },
         (err: unknown) => {
           reject(err)
@@ -116,7 +125,8 @@ async function handle401Error(
     if (originalRequest.headers) {
       originalRequest.headers.Authorization = `Bearer ${newToken}`
     }
-    return request(originalRequest)
+    const retryResponse = await retryInstance(originalRequest)
+    return (returnFullResponse ? retryResponse : retryResponse.data) as T
   } catch (refreshError) {
     // 刷新失败，记录时间并清除登录状态
     lastRefreshFailTime = Date.now()
@@ -166,7 +176,7 @@ request.interceptors.response.use(
 
     // 401 错误处理
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
-      return handle401Error(originalRequest)
+      return handle401Error(originalRequest, request, false)
     }
 
     // 处理其他错误（包括登录/注册的 401）
@@ -220,21 +230,15 @@ rawRequest.interceptors.request.use(
   }
 )
 
-// 为 rawRequest 添加 401 处理
+// 为 rawRequest 添加 401 处理（返回完整响应）
 rawRequest.interceptors.response.use(
-  (response) => response,
+  (response) => response, // 保持完整响应
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
-    // 401 错误处理
+    // 401 错误处理 - 使用 rawRequest 重试，返回完整响应
     if (error.response?.status === 401 && !originalRequest._retry) {
-      try {
-        const newToken = await handle401Error(originalRequest)
-        // handle401Error 返回的是重试后的响应
-        return newToken
-      } catch {
-        return Promise.reject(error)
-      }
+      return handle401Error<AxiosResponse>(originalRequest, rawRequest, true)
     }
 
     return Promise.reject(error)

@@ -39,6 +39,7 @@ export type {
   ChartSeries,
   ChartData,
   SkippedResult,
+  WarningInfo,
   CompareResponse,
 } from './visualization'
 

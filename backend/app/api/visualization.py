@@ -17,7 +17,7 @@ from app.database import get_db
 from app.models import Result, Dataset, User
 from app.schemas import (
     CompareRequest, CompareResponse, ChartDataResponse, 
-    ChartDataSeries, MetricsResponse, SkippedResult
+    ChartDataSeries, MetricsResponse, SkippedResult, WarningInfo
 )
 from app.config import settings
 from app.services.utils import (
@@ -106,7 +106,7 @@ def _save_to_cache(cache_key: str, data: dict):
 def _cleanup_cache_if_needed():
     """
     清理过期或超量的缓存
-    在后台异步执行，不阻塞主流程
+    同步执行，由调用方决定是否异步
     """
     try:
         cache_dir = _get_cache_dir()
@@ -145,6 +145,16 @@ def _cleanup_cache_if_needed():
                     continue
     except Exception:
         pass
+
+
+def _fire_and_forget_cleanup():
+    """
+    Fire-and-forget 方式清理缓存
+    在后台线程执行，不阻塞主流程
+    """
+    import threading
+    thread = threading.Thread(target=_cleanup_cache_if_needed, daemon=True)
+    thread.start()
 
 
 def _compute_data_hash(values: np.ndarray) -> str:
@@ -208,6 +218,7 @@ async def compare_results(
     series_list = []
     metrics_dict = {}
     skipped_list: List[SkippedResult] = []
+    warnings_list: List[WarningInfo] = []  # 警告列表（结果已处理但有问题）
     total_points = 0
     downsampled = False
     
@@ -251,32 +262,39 @@ async def compare_results(
             if cached.get("downsampled"):
                 downsampled = True
             
-            # 需要重新读取原始数据来计算指标和校验一致性
-            try:
-                df = await run_in_executor(
-                    _read_csv_sync, 
-                    res.filepath, 
-                    ["true_value", "predicted_value"]
-                )
-                true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
-                pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
-                
-                # 过滤 NaN
-                true_vals_clean, pred_vals_clean, _ = validate_numeric_data(
-                    true_vals, pred_vals,
-                    strategy=NaNHandlingStrategy.FILTER,
-                    min_valid_ratio=0.1
-                )
-                
-                current_true_hash = _compute_data_hash(true_vals_clean)
-            except Exception:
-                # 缓存可用但无法读取原始数据，使用缓存的哈希
+            # 优化：如果数据库有指标且缓存有 hash，完全跳过读文件
+            if res.metrics and cached_true_hash:
                 current_true_hash = cached_true_hash
-                # 使用数据库中存储的指标
-                if res.metrics:
-                    metrics_dict[res.id] = MetricsResponse(**res.metrics)
+                metrics_dict[res.id] = MetricsResponse(**res.metrics)
                 true_vals_clean = None
                 pred_vals_clean = None
+            else:
+                # 需要重新读取原始数据来计算指标和/或校验一致性
+                try:
+                    df = await run_in_executor(
+                        _read_csv_sync, 
+                        res.filepath, 
+                        ["true_value", "predicted_value"]
+                    )
+                    true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+                    pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+                    
+                    # 过滤 NaN
+                    true_vals_clean, pred_vals_clean, _ = validate_numeric_data(
+                        true_vals, pred_vals,
+                        strategy=NaNHandlingStrategy.FILTER,
+                        min_valid_ratio=0.1
+                    )
+                    
+                    current_true_hash = _compute_data_hash(true_vals_clean)
+                except Exception:
+                    # 缓存可用但无法读取原始数据，使用缓存的哈希
+                    current_true_hash = cached_true_hash
+                    # 使用数据库中存储的指标
+                    if res.metrics:
+                        metrics_dict[res.id] = MetricsResponse(**res.metrics)
+                    true_vals_clean = None
+                    pred_vals_clean = None
         else:
             # 读取原始数据
             try:
@@ -341,11 +359,11 @@ async def compare_results(
         if res.dataset_id in dataset_true_info:
             existing_info = dataset_true_info[res.dataset_id]
             if existing_info["hash"] != current_true_hash:
-                # true_value 不一致，添加警告但继续处理
-                skipped_list.append(SkippedResult(
+                # true_value 不一致，添加警告但继续处理（不是跳过）
+                warnings_list.append(WarningInfo(
                     id=res.id, 
                     name=res.name, 
-                    reason=f"true_value 与同数据集的 '{existing_info['name']}' 不一致，对比结果可能不准确"
+                    message=f"true_value 与同数据集的 '{existing_info['name']}' 不一致，对比结果可能不准确"
                 ))
         else:
             # 记录该数据集的第一个 true_value 信息
@@ -374,13 +392,14 @@ async def compare_results(
                 metrics = calculate_metrics(true_vals_clean, pred_vals_clean, handle_nan=True)
                 metrics_dict[res.id] = MetricsResponse(**metrics)
     
-    # 异步清理缓存（不阻塞响应）
-    await run_in_executor(_cleanup_cache_if_needed)
+    # Fire-and-forget 清理缓存（不阻塞响应）
+    _fire_and_forget_cleanup()
     
     return CompareResponse(
         chart_data=ChartDataResponse(series=series_list, total_points=total_points, downsampled=downsampled),
         metrics=metrics_dict,
-        skipped=skipped_list
+        skipped=skipped_list,
+        warnings=warnings_list
     )
 
 

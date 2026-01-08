@@ -48,14 +48,19 @@ def _build_config_query(user: Optional[User], base_query=None):
     if base_query is None:
         base_query = select(Configuration)
     
-    if settings.ENABLE_DATA_ISOLATION and user:
-        # 通过 join 过滤：只返回用户有权访问的数据集的配置
-        base_query = base_query.join(Dataset).where(
-            or_(
-                Dataset.user_id == user.id,
-                Dataset.is_public == True
+    if settings.ENABLE_DATA_ISOLATION:
+        if user is None:
+            # 匿名用户只能看到公开数据集的配置
+            base_query = base_query.join(Dataset).where(Dataset.is_public == True)
+        elif not user.is_admin:
+            # 普通用户只能看到自己的数据集或公开数据集的配置
+            base_query = base_query.join(Dataset).where(
+                or_(
+                    Dataset.user_id == user.id,
+                    Dataset.is_public == True
+                )
             )
-        )
+        # 管理员不做过滤
     
     return base_query
 
@@ -146,11 +151,17 @@ async def list_configurations(
     
     # 数据隔离过滤
     join_dataset = False
-    if settings.ENABLE_DATA_ISOLATION and current_user:
+    if settings.ENABLE_DATA_ISOLATION:
         join_dataset = True
-        conditions.append(
-            or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
-        )
+        if current_user is None:
+            # 匿名用户只能看到公开数据集的配置
+            conditions.append(Dataset.is_public == True)
+        elif not current_user.is_admin:
+            # 普通用户只能看到自己的数据集或公开数据集的配置
+            conditions.append(
+                or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
+            )
+        # 管理员不做过滤，但仍需要 join 来支持其他条件
     
     # 查询总数
     count_query = select(func.count(Configuration.id))

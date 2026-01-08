@@ -56,14 +56,19 @@ def _build_dataset_query(user: Optional[User], base_query=None):
     if base_query is None:
         base_query = select(Dataset)
     
-    if settings.ENABLE_DATA_ISOLATION and user:
-        # 数据隔离模式：只能看到自己的数据或公开数据
-        base_query = base_query.where(
-            or_(
-                Dataset.user_id == user.id,
-                Dataset.is_public == True
+    if settings.ENABLE_DATA_ISOLATION:
+        if user is None:
+            # 匿名用户只能看到公开数据
+            base_query = base_query.where(Dataset.is_public == True)
+        elif not user.is_admin:
+            # 普通用户只能看到自己的数据或公开数据
+            base_query = base_query.where(
+                or_(
+                    Dataset.user_id == user.id,
+                    Dataset.is_public == True
+                )
             )
-        )
+        # 管理员不做过滤，可以看到所有数据
     # 团队共享模式：不过滤
     
     return base_query
@@ -214,10 +219,16 @@ async def list_datasets(
     
     # 构建基础查询条件
     base_conditions = []
-    if settings.ENABLE_DATA_ISOLATION and current_user:
-        base_conditions.append(
-            or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
-        )
+    if settings.ENABLE_DATA_ISOLATION:
+        if current_user is None:
+            # 匿名用户只能看到公开数据
+            base_conditions.append(Dataset.is_public == True)
+        elif not current_user.is_admin:
+            # 普通用户只能看到自己的数据或公开数据
+            base_conditions.append(
+                or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
+            )
+        # 管理员不做过滤
     
     # 查询总数
     count_query = select(func.count(Dataset.id))
