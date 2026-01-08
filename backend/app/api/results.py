@@ -36,7 +36,7 @@ def _parse_result_csv_sync(filepath: str):
 
 
 def _check_dataset_access(dataset: Dataset, user: User) -> None:
-    """检查用户是否有权访问数据集"""
+    """检查用户是否有权访问数据集（只读）"""
     if not settings.ENABLE_DATA_ISOLATION:
         return
     
@@ -51,6 +51,23 @@ def _check_dataset_access(dataset: Dataset, user: User) -> None:
         return
     
     raise HTTPException(status_code=403, detail="无权访问此数据集")
+
+
+def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
+    """检查用户是否有权向数据集写入（上传结果等）"""
+    if not settings.ENABLE_DATA_ISOLATION:
+        return
+    
+    # 管理员有所有权限
+    if user.is_admin:
+        return
+    
+    # 只有数据集所有者可以写入
+    if dataset.user_id == user.id:
+        return
+    
+    # 公开数据集不允许其他用户写入
+    raise HTTPException(status_code=403, detail="无权向此数据集上传结果，只有数据集所有者可以操作")
 
 
 def _check_result_permission(result: Result, dataset: Optional[Dataset], user: User, action: str = "访问") -> None:
@@ -128,8 +145,8 @@ async def upload_result(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    # 检查用户是否有权访问该数据集
-    _check_dataset_access(dataset, current_user)
+    # 检查用户是否有权向该数据集上传结果（只有所有者可以）
+    _check_dataset_write_access(dataset, current_user)
     
     # 校验 configuration_id 归属
     if configuration_id is not None:

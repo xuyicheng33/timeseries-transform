@@ -22,7 +22,7 @@ export interface Result {
   model_version: string
   description: string
   row_count: number
-  metrics: Metrics
+  metrics: Partial<Metrics> | Record<string, never>  // 可能为空对象或部分指标
   created_at: string
   updated_at: string
 }

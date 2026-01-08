@@ -18,12 +18,14 @@ export async function uploadDataset(
   name: string,
   description: string,
   file: File,
+  isPublic: boolean = false,
   onProgress?: (percent: number) => void
 ): Promise<Dataset> {
   const formData = new FormData()
   formData.append('name', name)
   formData.append('description', description)
   formData.append('file', file)
+  formData.append('is_public', String(isPublic))
 
   return api.post('/datasets/upload', formData, {
     timeout: 300000, // 5分钟

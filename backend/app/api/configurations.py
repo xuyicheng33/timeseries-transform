@@ -38,6 +38,23 @@ def _check_dataset_access(dataset: Dataset, user: User) -> None:
     raise HTTPException(status_code=403, detail="无权访问此数据集")
 
 
+def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
+    """检查用户是否有权向数据集写入（创建配置等）"""
+    if not settings.ENABLE_DATA_ISOLATION:
+        return
+    
+    # 管理员有所有权限
+    if user.is_admin:
+        return
+    
+    # 只有数据集所有者可以写入
+    if dataset.user_id == user.id:
+        return
+    
+    # 公开数据集不允许其他用户写入
+    raise HTTPException(status_code=403, detail="无权向此数据集添加配置，只有数据集所有者可以操作")
+
+
 def _build_config_query(user: User, base_query=None):
     """
     构建配置查询，根据数据隔离配置过滤
@@ -73,8 +90,8 @@ async def create_configuration(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    # 检查用户是否有权访问该数据集
-    _check_dataset_access(dataset, current_user)
+    # 检查用户是否有权向该数据集写入配置（只有所有者可以）
+    _check_dataset_write_access(dataset, current_user)
     
     # 生成标准文件名
     filename = generate_standard_filename(

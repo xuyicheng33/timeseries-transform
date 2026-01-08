@@ -21,6 +21,7 @@ import {
   Typography,
   Descriptions,
   Empty,
+  Switch,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { UploadFile, UploadProps } from 'antd/es/upload'
@@ -158,6 +159,7 @@ export default function DataHub() {
         values.name,
         values.description || '',
         uploadFile,
+        values.is_public ?? false,
         (percent) => setUploadProgress(percent)
       )
 
@@ -517,6 +519,16 @@ export default function DataHub() {
               rows={3}
               disabled={uploading}
             />
+          </Form.Item>
+
+          <Form.Item
+            name="is_public"
+            label="公开数据集"
+            valuePropName="checked"
+            initialValue={false}
+            tooltip="公开后，其他登录用户可以查看和下载此数据集"
+          >
+            <Switch disabled={uploading} />
           </Form.Item>
 
           {uploading && (

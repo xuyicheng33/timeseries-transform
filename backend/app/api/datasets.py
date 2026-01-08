@@ -107,7 +107,7 @@ async def upload_dataset(
     file: UploadFile = File(...),
     name: str = Form(...),
     description: str = Form(""),
-    is_public: bool = Form(True),
+    is_public: bool = Form(False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)  # 需要登录
 ):
