@@ -446,7 +446,7 @@ export default function Visualization() {
             {/* 跳过的结果警告 */}
             {compareData.skipped && compareData.skipped.length > 0 && (
               <Alert
-                type="warning"
+                type="error"
                 icon={<WarningOutlined />}
                 showIcon
                 style={{ marginBottom: 16 }}
@@ -456,6 +456,25 @@ export default function Visualization() {
                     {compareData.skipped.map((item) => (
                       <li key={item.id}>
                         <Text strong>{item.name}</Text>：{item.reason}
+                      </li>
+                    ))}
+                  </ul>
+                }
+              />
+            )}
+            {/* 警告信息（已处理但有潜在问题） */}
+            {compareData.warnings && compareData.warnings.length > 0 && (
+              <Alert
+                type="warning"
+                icon={<WarningOutlined />}
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={`${compareData.warnings.length} 个结果存在警告`}
+                description={
+                  <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
+                    {compareData.warnings.map((item) => (
+                      <li key={item.id}>
+                        <Text strong>{item.name}</Text>：{item.message}
                       </li>
                     ))}
                   </ul>

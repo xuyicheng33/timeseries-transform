@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from typing import List, Optional, Dict, Any
 
 from app.database import get_db
