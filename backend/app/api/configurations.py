@@ -21,20 +21,22 @@ router = APIRouter(prefix="/api/configurations", tags=["configurations"])
 
 
 def _check_dataset_access(dataset: Dataset, user: Optional[User]) -> None:
-    """检查用户是否有权访问数据集"""
+    """检查用户是否有权访问数据集（只读）"""
     if not settings.ENABLE_DATA_ISOLATION:
         return
     
+    # 公开数据集允许匿名访问
+    if dataset.is_public:
+        return
+    
+    # 非公开数据集需要登录
     if user is None:
-        raise HTTPException(status_code=403, detail="无权访问此数据集")
+        raise HTTPException(status_code=401, detail="请先登录")
     
     if user.is_admin:
         return
     
     if dataset.user_id == user.id:
-        return
-    
-    if dataset.is_public:
         return
     
     raise HTTPException(status_code=403, detail="无权访问此数据集")
@@ -48,19 +50,14 @@ def _build_config_query(user: Optional[User], base_query=None):
     if base_query is None:
         base_query = select(Configuration)
     
-    if settings.ENABLE_DATA_ISOLATION:
-        if user is None:
-            # 匿名用户只能看到公开数据集的配置
-            base_query = base_query.join(Dataset).where(Dataset.is_public == True)
-        elif not user.is_admin:
-            # 普通用户只能看到自己的数据集或公开数据集的配置
-            base_query = base_query.join(Dataset).where(
-                or_(
-                    Dataset.user_id == user.id,
-                    Dataset.is_public == True
-                )
+    if settings.ENABLE_DATA_ISOLATION and user:
+        # 通过 join 过滤：只返回用户有权访问的数据集的配置
+        base_query = base_query.join(Dataset).where(
+            or_(
+                Dataset.user_id == user.id,
+                Dataset.is_public == True
             )
-        # 管理员不做过滤
+        )
     
     return base_query
 
@@ -151,17 +148,11 @@ async def list_configurations(
     
     # 数据隔离过滤
     join_dataset = False
-    if settings.ENABLE_DATA_ISOLATION:
+    if settings.ENABLE_DATA_ISOLATION and current_user:
         join_dataset = True
-        if current_user is None:
-            # 匿名用户只能看到公开数据集的配置
-            conditions.append(Dataset.is_public == True)
-        elif not current_user.is_admin:
-            # 普通用户只能看到自己的数据集或公开数据集的配置
-            conditions.append(
-                or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
-            )
-        # 管理员不做过滤，但仍需要 join 来支持其他条件
+        conditions.append(
+            or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
+        )
     
     # 查询总数
     count_query = select(func.count(Configuration.id))

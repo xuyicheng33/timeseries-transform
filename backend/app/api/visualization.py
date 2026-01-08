@@ -147,13 +147,32 @@ def _cleanup_cache_if_needed():
         pass
 
 
+# 缓存清理锁，防止高并发时线程堆积
+_cleanup_lock = False
+
+
 def _fire_and_forget_cleanup():
     """
     Fire-and-forget 方式清理缓存
     在后台线程执行，不阻塞主流程
+    使用简单锁防止并发时线程堆积
     """
+    global _cleanup_lock
+    
+    # 如果正在清理，跳过本次
+    if _cleanup_lock:
+        return
+    
+    def _do_cleanup():
+        global _cleanup_lock
+        _cleanup_lock = True
+        try:
+            _cleanup_cache_if_needed()
+        finally:
+            _cleanup_lock = False
+    
     import threading
-    thread = threading.Thread(target=_cleanup_cache_if_needed, daemon=True)
+    thread = threading.Thread(target=_do_cleanup, daemon=True)
     thread.start()
 
 
@@ -163,10 +182,15 @@ def _compute_data_hash(values: np.ndarray) -> str:
 
 
 def _check_result_access(result: Result, dataset: Optional[Dataset], user: Optional[User]) -> bool:
-    """检查用户是否有权访问结果"""
+    """检查用户是否有权访问结果（只读）"""
     if not settings.ENABLE_DATA_ISOLATION:
         return True
     
+    # 公开数据集的结果允许匿名访问
+    if dataset and dataset.is_public:
+        return True
+    
+    # 非公开数据需要登录
     if user is None:
         return False
     
@@ -177,9 +201,6 @@ def _check_result_access(result: Result, dataset: Optional[Dataset], user: Optio
         return True
     
     if dataset and dataset.user_id == user.id:
-        return True
-    
-    if dataset and dataset.is_public:
         return True
     
     return False
@@ -392,7 +413,7 @@ async def compare_results(
                 metrics = calculate_metrics(true_vals_clean, pred_vals_clean, handle_nan=True)
                 metrics_dict[res.id] = MetricsResponse(**metrics)
     
-    # Fire-and-forget 清理缓存（不阻塞响应）
+    # Fire-and-forget 清理缓存（不阻塞响应，有锁防止线程堆积）
     _fire_and_forget_cleanup()
     
     return CompareResponse(

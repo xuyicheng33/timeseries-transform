@@ -56,19 +56,14 @@ def _build_dataset_query(user: Optional[User], base_query=None):
     if base_query is None:
         base_query = select(Dataset)
     
-    if settings.ENABLE_DATA_ISOLATION:
-        if user is None:
-            # 匿名用户只能看到公开数据
-            base_query = base_query.where(Dataset.is_public == True)
-        elif not user.is_admin:
-            # 普通用户只能看到自己的数据或公开数据
-            base_query = base_query.where(
-                or_(
-                    Dataset.user_id == user.id,
-                    Dataset.is_public == True
-                )
+    if settings.ENABLE_DATA_ISOLATION and user:
+        # 数据隔离模式：只能看到自己的数据或公开数据
+        base_query = base_query.where(
+            or_(
+                Dataset.user_id == user.id,
+                Dataset.is_public == True
             )
-        # 管理员不做过滤，可以看到所有数据
+        )
     # 团队共享模式：不过滤
     
     return base_query
@@ -84,14 +79,19 @@ def _check_dataset_permission(dataset: Dataset, user: Optional[User], action: st
         action: 操作类型（用于错误提示）
     
     Raises:
-        HTTPException: 无权限时抛出 403
+        HTTPException: 无权限时抛出 401/403
     """
     if not settings.ENABLE_DATA_ISOLATION:
         # 团队共享模式：所有人都有权限
         return
     
+    # 公开数据集允许匿名读取
+    if dataset.is_public and action in ["访问", "下载", "预览"]:
+        return
+    
+    # 非公开数据或写操作需要登录
     if user is None:
-        raise HTTPException(status_code=403, detail=f"无权{action}此数据集")
+        raise HTTPException(status_code=401, detail="请先登录")
     
     # 管理员有所有权限
     if user.is_admin:
@@ -99,10 +99,6 @@ def _check_dataset_permission(dataset: Dataset, user: Optional[User], action: st
     
     # 所有者有所有权限
     if dataset.user_id == user.id:
-        return
-    
-    # 公开数据集只能读取，不能修改/删除
-    if dataset.is_public and action in ["访问", "下载", "预览"]:
         return
     
     raise HTTPException(status_code=403, detail=f"无权{action}此数据集")
@@ -219,16 +215,10 @@ async def list_datasets(
     
     # 构建基础查询条件
     base_conditions = []
-    if settings.ENABLE_DATA_ISOLATION:
-        if current_user is None:
-            # 匿名用户只能看到公开数据
-            base_conditions.append(Dataset.is_public == True)
-        elif not current_user.is_admin:
-            # 普通用户只能看到自己的数据或公开数据
-            base_conditions.append(
-                or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
-            )
-        # 管理员不做过滤
+    if settings.ENABLE_DATA_ISOLATION and current_user:
+        base_conditions.append(
+            or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
+        )
     
     # 查询总数
     count_query = select(func.count(Dataset.id))
