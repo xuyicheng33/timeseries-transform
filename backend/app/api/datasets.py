@@ -294,9 +294,31 @@ async def preview_dataset(
     except Exception:
         raise HTTPException(status_code=500, detail="读取数据集文件失败")
     
+    # 将 DataFrame 转换为 JSON 兼容格式
+    # pandas 的 NaN/Infinity 无法被标准 JSON 序列化，需要转换为 None
+    def make_json_safe(obj):
+        """将 DataFrame 转换为 JSON 安全的字典列表"""
+        import math
+        records = []
+        for _, row in df.iterrows():
+            record = {}
+            for col in df.columns:
+                val = row[col]
+                # 检查是否为 NaN 或 Infinity
+                if pd.isna(val):
+                    record[col] = None
+                elif isinstance(val, float) and (math.isinf(val) or math.isnan(val)):
+                    record[col] = None
+                else:
+                    record[col] = val
+            records.append(record)
+        return records
+    
+    safe_data = await run_in_executor(make_json_safe, df)
+    
     return DatasetPreview(
         columns=df.columns.tolist(),
-        data=df.to_dict(orient="records"),
+        data=safe_data,
         total_rows=dataset.row_count
     )
 
