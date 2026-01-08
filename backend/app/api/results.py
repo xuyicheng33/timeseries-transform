@@ -54,10 +54,13 @@ def _check_dataset_access(dataset: Dataset, user: User) -> None:
 
 
 def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
-    """检查用户是否有权向数据集写入（上传结果等）"""
-    if not settings.ENABLE_DATA_ISOLATION:
-        return
+    """
+    检查用户是否有权向数据集写入（上传结果等）
     
+    无论是否开启数据隔离，写入操作都只允许：
+    - 数据集所有者
+    - 管理员
+    """
     # 管理员有所有权限
     if user.is_admin:
         return
@@ -66,27 +69,50 @@ def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
     if dataset.user_id == user.id:
         return
     
-    # 公开数据集不允许其他用户写入
+    # 其他用户（包括公开数据集）不允许写入
     raise HTTPException(status_code=403, detail="无权向此数据集上传结果，只有数据集所有者可以操作")
 
 
 def _check_result_permission(result: Result, dataset: Optional[Dataset], user: User, action: str = "访问") -> None:
-    """检查用户对结果的操作权限"""
-    if not settings.ENABLE_DATA_ISOLATION:
-        return
+    """
+    检查用户对结果的操作权限
     
-    # 公开数据集的结果允许登录用户读取/下载（public=登录用户可见）
-    if dataset and dataset.is_public and action in ["访问", "下载"]:
-        return
+    读取操作（访问、下载）：
+    - 团队模式：所有登录用户可访问
+    - 隔离模式：只能访问自己的、自己数据集的、或公开数据集的结果
     
+    写入操作（修改、删除）：
+    - 无论哪种模式，只有结果所有者、数据集所有者、管理员可以操作
+    """
+    # 管理员有所有权限
     if user.is_admin:
         return
     
-    # 结果所有者有所有权限
+    # 写入操作：严格限制
+    if action in ["修改", "删除"]:
+        # 结果所有者可以操作
+        if result.user_id == user.id:
+            return
+        # 数据集所有者可以操作
+        if dataset and dataset.user_id == user.id:
+            return
+        raise HTTPException(status_code=403, detail=f"无权{action}此结果")
+    
+    # 读取操作
+    if not settings.ENABLE_DATA_ISOLATION:
+        # 团队模式：所有登录用户可访问
+        return
+    
+    # 隔离模式下的读取权限检查
+    # 公开数据集的结果允许登录用户读取/下载
+    if dataset and dataset.is_public:
+        return
+    
+    # 结果所有者可以访问
     if result.user_id == user.id:
         return
     
-    # 数据集所有者有所有权限
+    # 数据集所有者可以访问
     if dataset and dataset.user_id == user.id:
         return
     

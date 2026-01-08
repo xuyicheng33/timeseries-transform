@@ -53,11 +53,11 @@ export function formatNumber(num: number): string {
  * 安全获取指标值
  */
 export function getMetricValue(
-  metrics: Metrics | Record<string, never>,
+  metrics: Partial<Metrics> | Record<string, never>,
   key: keyof Metrics
 ): number | null {
   if (!metrics || Object.keys(metrics).length === 0) return null
-  const value = (metrics as Metrics)[key]
+  const value = (metrics as Partial<Metrics>)[key]
   return typeof value === 'number' && !isNaN(value) ? value : null
 }
 
@@ -88,7 +88,7 @@ export function formatMetric(
 /**
  * 检查 Metrics 是否有效
  */
-export function hasMetrics(metrics: Metrics | Record<string, never>): boolean {
+export function hasMetrics(metrics: Partial<Metrics> | Record<string, never>): boolean {
   return metrics && Object.keys(metrics).length > 0
 }
 

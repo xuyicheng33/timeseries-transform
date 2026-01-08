@@ -1,2 +1,0 @@
-﻿station_id,time,time_plus_15m,actual_plus_15m,actual_now,actual_minus_15m,forecast_plus_15m,forecast_issue_time,running_capacity,temperature,humidity,pressure,ws10,ws30,ws50,ws70,ws_hub
-41,2024-11-21 00:15:00,2024-11-21 00:30:00,0.33,-0.10,-0.37,3.08,2024-11-21 00:00:00,96.00,7.09,83.79,1026.10,2.05,2.06,2.09,2.14,2.14

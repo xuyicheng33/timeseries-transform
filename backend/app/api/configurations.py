@@ -39,10 +39,13 @@ def _check_dataset_access(dataset: Dataset, user: User) -> None:
 
 
 def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
-    """检查用户是否有权向数据集写入（创建配置等）"""
-    if not settings.ENABLE_DATA_ISOLATION:
-        return
+    """
+    检查用户是否有权向数据集写入（创建配置等）
     
+    无论是否开启数据隔离，写入操作都只允许：
+    - 数据集所有者
+    - 管理员
+    """
     # 管理员有所有权限
     if user.is_admin:
         return
@@ -51,7 +54,7 @@ def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
     if dataset.user_id == user.id:
         return
     
-    # 公开数据集不允许其他用户写入
+    # 其他用户（包括公开数据集）不允许写入
     raise HTTPException(status_code=403, detail="无权向此数据集添加配置，只有数据集所有者可以操作")
 
 
@@ -241,10 +244,9 @@ async def update_configuration(
     if not dataset:
         raise HTTPException(status_code=404, detail="关联的数据集不存在")
     
-    # 数据隔离模式下，只有数据集所有者或管理员可以修改配置
-    if settings.ENABLE_DATA_ISOLATION:
-        if not current_user.is_admin and dataset.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="无权修改此配置")
+    # 只有数据集所有者或管理员可以修改配置
+    if not current_user.is_admin and dataset.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权修改此配置")
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -296,8 +298,8 @@ async def delete_configuration(
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     
-    # 数据隔离模式下，只有数据集所有者或管理员可以删除配置
-    if settings.ENABLE_DATA_ISOLATION and dataset:
+    # 只有数据集所有者或管理员可以删除配置
+    if dataset:
         if not current_user.is_admin and dataset.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="无权删除此配置")
     

@@ -43,7 +43,7 @@ Thumbs.db
 # ===========================
 backend/uploads/datasets/*/
 backend/uploads/results/*/
-backend/uploads/cache/*/
+backend/uploads/cache/*
 !backend/uploads/datasets/.gitkeep
 !backend/uploads/results/.gitkeep
 !backend/uploads/cache/.gitkeep

@@ -1,9 +1,0 @@
-/Users/xuyicheng/Desktop/data/expert_package_15m_merge/example_merged_row.csv
-/Users/xuyicheng/Desktop/data/expert_package_15m_merge/example_weatherdata_rows.csv
-/Users/xuyicheng/Desktop/data/expert_package_15m_merge/example_shortforecast_rows.csv
-/Users/xuyicheng/Desktop/data/expert_package_15m_merge/train_15m_station41_simple_v4.csv
-/Users/xuyicheng/Desktop/data/expert_package_15m_merge/MERGE_TRAINING_TABLE_METHOD.md
-
-Source files used:
-/Users/xuyicheng/Desktop/data/weatherdata/powerforecast_fd_weatherdata_20241121.csv
-/Users/xuyicheng/Desktop/data/shortforecast/powerforecast_short_20241121.csv
