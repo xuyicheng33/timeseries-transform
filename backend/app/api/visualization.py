@@ -26,7 +26,7 @@ from app.services.utils import (
 )
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
-from app.api.auth import get_current_user_optional
+from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/visualization", tags=["visualization"])
 
@@ -206,7 +206,7 @@ def _check_result_access(result: Result, dataset: Optional[Dataset], user: Optio
 async def compare_results(
     data: CompareRequest, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """
     多结果对比
@@ -424,7 +424,7 @@ async def compare_results(
 async def get_metrics(
     result_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取单个结果的指标"""
     result = await db.execute(select(Result).where(Result.id == result_id))

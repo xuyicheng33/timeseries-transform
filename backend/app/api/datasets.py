@@ -19,7 +19,7 @@ from app.config import settings
 from app.services.utils import count_csv_rows, sanitize_filename, safe_rmtree, validate_form_field, validate_description
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
-from app.api.auth import get_current_user, get_current_user_optional
+from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
@@ -195,7 +195,7 @@ async def upload_dataset(
 @router.get("/all", response_model=list[DatasetResponse])
 async def list_all_datasets(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取所有数据集（不分页，用于下拉选择等场景，限制最多1000条）"""
     query = _build_dataset_query(current_user)
@@ -210,7 +210,7 @@ async def list_datasets(
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取数据集列表（分页）"""
     # 参数校验
@@ -259,7 +259,7 @@ async def list_datasets(
 async def get_dataset(
     dataset_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取数据集详情"""
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
@@ -276,7 +276,7 @@ async def preview_dataset(
     dataset_id: int, 
     rows: int = 100, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """预览数据集"""
     # 防止 0/负数
@@ -315,7 +315,7 @@ async def preview_dataset(
 async def download_dataset(
     dataset_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """下载数据集"""
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))

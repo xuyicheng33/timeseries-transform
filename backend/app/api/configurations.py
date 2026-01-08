@@ -15,7 +15,7 @@ from app.schemas import (
 )
 from app.services.utils import generate_standard_filename
 from app.config import settings
-from app.api.auth import get_current_user, get_current_user_optional
+from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/configurations", tags=["configurations"])
 
@@ -117,7 +117,7 @@ async def create_configuration(
 async def list_all_configurations(
     dataset_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取所有配置（不分页，用于下拉选择等场景，限制最多1000条）"""
     query = _build_config_query(current_user)
@@ -138,7 +138,7 @@ async def list_configurations(
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取配置列表（分页）"""
     # 参数校验
@@ -198,7 +198,7 @@ async def list_configurations(
 async def get_configuration(
     config_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取配置详情"""
     result = await db.execute(select(Configuration).where(Configuration.id == config_id))
@@ -302,7 +302,7 @@ async def delete_configuration(
 @router.post("/generate-name")
 async def generate_filename_api(
     data: GenerateFilenameRequest,
-    current_user: User = Depends(get_current_user_optional)  # 可选登录
+    current_user: User = Depends(get_current_user)
 ):
     """生成标准文件名"""
     filename = generate_standard_filename(

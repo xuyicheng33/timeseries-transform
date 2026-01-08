@@ -23,7 +23,7 @@ from app.services.utils import (
 )
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
-from app.api.auth import get_current_user, get_current_user_optional
+from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/results", tags=["results"])
 
@@ -243,7 +243,7 @@ async def upload_result(
 async def list_model_names(
     dataset_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取所有不重复的模型名称（用于筛选下拉框）"""
     query = select(distinct(Result.algo_name)).where(Result.algo_name.isnot(None))
@@ -278,7 +278,7 @@ async def list_all_results(
     dataset_id: Optional[int] = None,
     algo_name: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取所有结果（不分页，用于下拉选择等场景，限制最多1000条）"""
     query = _build_result_query(current_user)
@@ -302,7 +302,7 @@ async def list_results(
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取结果列表（分页）"""
     # 参数校验
@@ -369,7 +369,7 @@ async def list_results(
 async def get_result(
     result_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """获取结果详情"""
     result = await db.execute(select(Result).where(Result.id == result_id))
@@ -389,7 +389,7 @@ async def get_result(
 async def download_result(
     result_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     """下载结果文件"""
     result = await db.execute(select(Result).where(Result.id == result_id))
