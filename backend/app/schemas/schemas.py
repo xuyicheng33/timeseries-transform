@@ -109,6 +109,14 @@ class ConfigurationBase(BaseModel):
         # 去除空白通道名
         return [ch.strip() for ch in v if ch.strip()]
 
+    @field_validator('anomaly_type', 'injection_algorithm', 'sequence_logic', mode='before')
+    @classmethod
+    def convert_empty_string_to_none(cls, v):
+        """将空字符串转换为 None，兼容前端提交的 '' 值"""
+        if v == '' or v is None:
+            return None
+        return v
+
 
 class ConfigurationCreate(ConfigurationBase):
     pass
@@ -134,6 +142,14 @@ class ConfigurationUpdate(BaseModel):
             v = v.strip()
             if not v:
                 raise ValueError('名称不能为空')
+        return v
+
+    @field_validator('anomaly_type', 'injection_algorithm', 'sequence_logic', mode='before')
+    @classmethod
+    def convert_empty_string_to_none(cls, v):
+        """将空字符串转换为 None，兼容前端提交的 '' 值"""
+        if v == '' or v is None:
+            return None
         return v
 
 
@@ -286,10 +302,18 @@ class SkippedResult(BaseModel):
     reason: str
 
 
+class WarningInfo(BaseModel):
+    """警告信息（结果已处理但有潜在问题）"""
+    id: int
+    name: str
+    message: str
+
+
 class CompareResponse(BaseModel):
     chart_data: ChartDataResponse
     metrics: Dict[int, MetricsResponse]
     skipped: List[SkippedResult] = Field(default_factory=list)
+    warnings: List[WarningInfo] = Field(default_factory=list)
 
 
 # ============ User & Auth Schemas ============

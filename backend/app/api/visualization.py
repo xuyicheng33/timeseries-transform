@@ -148,30 +148,26 @@ def _cleanup_cache_if_needed():
 
 
 # 缓存清理锁，防止高并发时线程堆积
-_cleanup_lock = False
+import threading
+_cleanup_lock = threading.Lock()
 
 
 def _fire_and_forget_cleanup():
     """
     Fire-and-forget 方式清理缓存
     在后台线程执行，不阻塞主流程
-    使用简单锁防止并发时线程堆积
+    使用 threading.Lock 防止并发时线程堆积
     """
-    global _cleanup_lock
-    
-    # 如果正在清理，跳过本次
-    if _cleanup_lock:
+    # 尝试获取锁，如果已被占用则跳过
+    if not _cleanup_lock.acquire(blocking=False):
         return
     
     def _do_cleanup():
-        global _cleanup_lock
-        _cleanup_lock = True
         try:
             _cleanup_cache_if_needed()
         finally:
-            _cleanup_lock = False
+            _cleanup_lock.release()
     
-    import threading
     thread = threading.Thread(target=_do_cleanup, daemon=True)
     thread.start()
 

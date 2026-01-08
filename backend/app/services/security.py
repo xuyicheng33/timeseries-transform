@@ -12,6 +12,9 @@ def validate_filepath(filepath: Union[str, Path]) -> bool:
     验证文件路径是否在允许的目录内
     防止路径遍历攻击
     
+    使用 Path.resolve() 进行安全校验，
+    避免 startswith 的前缀绕过和大小写问题
+    
     Args:
         filepath: 要验证的文件路径
     
@@ -19,13 +22,31 @@ def validate_filepath(filepath: Union[str, Path]) -> bool:
         True 如果路径安全，False 否则
     """
     try:
-        real_path = os.path.realpath(str(filepath))
+        # 解析为绝对路径，消除 .. 等
+        resolved_path = Path(filepath).resolve()
+        
+        # 允许的目录列表
         allowed_dirs = [
-            os.path.realpath(str(settings.DATASETS_DIR)),
-            os.path.realpath(str(settings.RESULTS_DIR)),
-            os.path.realpath(str(settings.CACHE_DIR)),
+            Path(settings.DATASETS_DIR).resolve(),
+            Path(settings.RESULTS_DIR).resolve(),
+            Path(settings.CACHE_DIR).resolve(),
         ]
-        return any(real_path.startswith(d) for d in allowed_dirs)
+        
+        # 检查路径是否在允许的目录内
+        for allowed_dir in allowed_dirs:
+            try:
+                # is_relative_to 在 Python 3.9+ 可用
+                if hasattr(resolved_path, 'is_relative_to'):
+                    if resolved_path.is_relative_to(allowed_dir):
+                        return True
+                else:
+                    # Python 3.8 兼容：使用 relative_to 检查
+                    resolved_path.relative_to(allowed_dir)
+                    return True
+            except ValueError:
+                continue
+        
+        return False
     except Exception:
         return False
 

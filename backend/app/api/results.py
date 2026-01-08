@@ -40,16 +40,18 @@ def _check_dataset_access(dataset: Dataset, user: Optional[User]) -> None:
     if not settings.ENABLE_DATA_ISOLATION:
         return
     
+    # 公开数据集允许匿名访问
+    if dataset.is_public:
+        return
+    
+    # 非公开数据集需要登录
     if user is None:
-        raise HTTPException(status_code=403, detail="无权访问此数据集")
+        raise HTTPException(status_code=401, detail="请先登录")
     
     if user.is_admin:
         return
     
     if dataset.user_id == user.id:
-        return
-    
-    if dataset.is_public:
         return
     
     raise HTTPException(status_code=403, detail="无权访问此数据集")
@@ -87,14 +89,20 @@ def _build_result_query(user: Optional[User], base_query=None):
     if base_query is None:
         base_query = select(Result)
     
-    if settings.ENABLE_DATA_ISOLATION and user:
-        base_query = base_query.join(Dataset).where(
-            or_(
-                Result.user_id == user.id,
-                Dataset.user_id == user.id,
-                Dataset.is_public == True
+    if settings.ENABLE_DATA_ISOLATION:
+        if user is None:
+            # 匿名用户只能看到公开数据集的结果
+            base_query = base_query.join(Dataset).where(Dataset.is_public == True)
+        elif not user.is_admin:
+            # 普通用户只能看到自己的结果、自己数据集的结果、或公开数据集的结果
+            base_query = base_query.join(Dataset).where(
+                or_(
+                    Result.user_id == user.id,
+                    Dataset.user_id == user.id,
+                    Dataset.is_public == True
+                )
             )
-        )
+        # 管理员不做过滤
     
     return base_query
 
@@ -241,14 +249,20 @@ async def list_model_names(
     query = select(distinct(Result.algo_name)).where(Result.algo_name.isnot(None))
     
     # 数据隔离过滤
-    if settings.ENABLE_DATA_ISOLATION and current_user:
-        query = query.join(Dataset).where(
-            or_(
-                Result.user_id == current_user.id,
-                Dataset.user_id == current_user.id,
-                Dataset.is_public == True
+    if settings.ENABLE_DATA_ISOLATION:
+        if current_user is None:
+            # 匿名用户只能看到公开数据集的结果
+            query = query.join(Dataset).where(Dataset.is_public == True)
+        elif not current_user.is_admin:
+            # 普通用户
+            query = query.join(Dataset).where(
+                or_(
+                    Result.user_id == current_user.id,
+                    Dataset.user_id == current_user.id,
+                    Dataset.is_public == True
+                )
             )
-        )
+        # 管理员不做过滤
     
     if dataset_id is not None:
         query = query.where(Result.dataset_id == dataset_id)
@@ -306,15 +320,21 @@ async def list_results(
         conditions.append(Result.algo_name == algo_name)
     
     # 数据隔离过滤
-    if settings.ENABLE_DATA_ISOLATION and current_user:
+    if settings.ENABLE_DATA_ISOLATION:
         join_dataset = True
-        conditions.append(
-            or_(
-                Result.user_id == current_user.id,
-                Dataset.user_id == current_user.id,
-                Dataset.is_public == True
+        if current_user is None:
+            # 匿名用户只能看到公开数据集的结果
+            conditions.append(Dataset.is_public == True)
+        elif not current_user.is_admin:
+            # 普通用户
+            conditions.append(
+                or_(
+                    Result.user_id == current_user.id,
+                    Dataset.user_id == current_user.id,
+                    Dataset.is_public == True
+                )
             )
-        )
+        # 管理员不做过滤
     
     # 查询总数
     count_query = select(func.count(Result.id))
