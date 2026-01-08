@@ -231,6 +231,7 @@ export default function DataHub() {
     editForm.setFieldsValue({
       name: dataset.name,
       description: dataset.description,
+      is_public: dataset.is_public,
     })
   }
 
@@ -253,6 +254,9 @@ export default function DataHub() {
       }
       if (values.description !== editingDataset.description) {
         updateData.description = values.description
+      }
+      if (values.is_public !== editingDataset.is_public) {
+        updateData.is_public = values.is_public
       }
 
       if (Object.keys(updateData).length === 0) {
@@ -649,6 +653,15 @@ export default function DataHub() {
               rows={3}
               disabled={editLoading}
             />
+          </Form.Item>
+
+          <Form.Item
+            name="is_public"
+            label="公开数据集"
+            valuePropName="checked"
+            tooltip="公开后，其他登录用户可以查看和下载此数据集，但只有您可以修改"
+          >
+            <Switch disabled={editLoading} />
           </Form.Item>
         </Form>
       </Modal>

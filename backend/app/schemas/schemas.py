@@ -48,6 +48,7 @@ class DatasetCreate(DatasetBase):
 class DatasetUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     description: Optional[str] = None
+    is_public: Optional[bool] = None
 
     @field_validator('name')
     @classmethod
