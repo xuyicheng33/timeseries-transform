@@ -42,12 +42,12 @@ def _detect_encoding_sync(filepath: str) -> str:
         return "utf-8"
 
 
-def _build_dataset_query(user: Optional[User], base_query=None):
+def _build_dataset_query(user: User, base_query=None):
     """
     构建数据集查询，根据数据隔离配置过滤
     
     Args:
-        user: 当前用户（可选）
+        user: 当前登录用户（必须已登录）
         base_query: 基础查询（可选）
     
     Returns:
@@ -57,11 +57,8 @@ def _build_dataset_query(user: Optional[User], base_query=None):
         base_query = select(Dataset)
     
     if settings.ENABLE_DATA_ISOLATION:
-        if user is None:
-            # 匿名用户只能看到公开数据
-            base_query = base_query.where(Dataset.is_public == True)
-        elif not user.is_admin:
-            # 普通用户只能看到自己的数据或公开数据
+        if not user.is_admin:
+            # 普通用户只能看到自己的数据或公开数据（public=登录用户可见）
             base_query = base_query.where(
                 or_(
                     Dataset.user_id == user.id,
@@ -74,29 +71,25 @@ def _build_dataset_query(user: Optional[User], base_query=None):
     return base_query
 
 
-def _check_dataset_permission(dataset: Dataset, user: Optional[User], action: str = "访问") -> None:
+def _check_dataset_permission(dataset: Dataset, user: User, action: str = "访问") -> None:
     """
     检查用户对数据集的操作权限
     
     Args:
         dataset: 数据集对象
-        user: 当前用户
+        user: 当前登录用户（必须已登录）
         action: 操作类型（用于错误提示）
     
     Raises:
-        HTTPException: 无权限时抛出 401/403
+        HTTPException: 无权限时抛出 403
     """
     if not settings.ENABLE_DATA_ISOLATION:
-        # 团队共享模式：所有人都有权限
+        # 团队共享模式：所有登录用户都有权限
         return
     
-    # 公开数据集允许匿名读取
+    # 公开数据集允许登录用户读取（public=登录用户可见）
     if dataset.is_public and action in ["访问", "下载", "预览"]:
         return
-    
-    # 非公开数据或写操作需要登录
-    if user is None:
-        raise HTTPException(status_code=401, detail="请先登录")
     
     # 管理员有所有权限
     if user.is_admin:
@@ -221,11 +214,8 @@ async def list_datasets(
     # 构建基础查询条件
     base_conditions = []
     if settings.ENABLE_DATA_ISOLATION:
-        if current_user is None:
-            # 匿名用户只能看到公开数据
-            base_conditions.append(Dataset.is_public == True)
-        elif not current_user.is_admin:
-            # 普通用户只能看到自己的数据或公开数据
+        if not current_user.is_admin:
+            # 普通用户只能看到自己的数据或公开数据（public=登录用户可见）
             base_conditions.append(
                 or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
             )

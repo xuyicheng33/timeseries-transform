@@ -177,18 +177,14 @@ def _compute_data_hash(values: np.ndarray) -> str:
     return hashlib.md5(values.tobytes()).hexdigest()[:16]
 
 
-def _check_result_access(result: Result, dataset: Optional[Dataset], user: Optional[User]) -> bool:
+def _check_result_access(result: Result, dataset: Optional[Dataset], user: User) -> bool:
     """检查用户是否有权访问结果（只读）"""
     if not settings.ENABLE_DATA_ISOLATION:
         return True
     
-    # 公开数据集的结果允许匿名访问
+    # 公开数据集的结果允许登录用户访问（public=登录用户可见）
     if dataset and dataset.is_public:
         return True
-    
-    # 非公开数据需要登录
-    if user is None:
-        return False
     
     if user.is_admin:
         return True

@@ -35,18 +35,14 @@ def _parse_result_csv_sync(filepath: str):
     return pd.read_csv(filepath)
 
 
-def _check_dataset_access(dataset: Dataset, user: Optional[User]) -> None:
+def _check_dataset_access(dataset: Dataset, user: User) -> None:
     """检查用户是否有权访问数据集"""
     if not settings.ENABLE_DATA_ISOLATION:
         return
     
-    # 公开数据集允许匿名访问
+    # 公开数据集允许登录用户访问（public=登录用户可见）
     if dataset.is_public:
         return
-    
-    # 非公开数据集需要登录
-    if user is None:
-        raise HTTPException(status_code=401, detail="请先登录")
     
     if user.is_admin:
         return
@@ -57,18 +53,14 @@ def _check_dataset_access(dataset: Dataset, user: Optional[User]) -> None:
     raise HTTPException(status_code=403, detail="无权访问此数据集")
 
 
-def _check_result_permission(result: Result, dataset: Optional[Dataset], user: Optional[User], action: str = "访问") -> None:
+def _check_result_permission(result: Result, dataset: Optional[Dataset], user: User, action: str = "访问") -> None:
     """检查用户对结果的操作权限"""
     if not settings.ENABLE_DATA_ISOLATION:
         return
     
-    # 公开数据集的结果允许匿名读取/下载
+    # 公开数据集的结果允许登录用户读取/下载（public=登录用户可见）
     if dataset and dataset.is_public and action in ["访问", "下载"]:
         return
-    
-    # 非公开数据或写操作需要登录
-    if user is None:
-        raise HTTPException(status_code=401, detail="请先登录")
     
     if user.is_admin:
         return
@@ -84,17 +76,14 @@ def _check_result_permission(result: Result, dataset: Optional[Dataset], user: O
     raise HTTPException(status_code=403, detail=f"无权{action}此结果")
 
 
-def _build_result_query(user: Optional[User], base_query=None):
+def _build_result_query(user: User, base_query=None):
     """构建结果查询，根据数据隔离配置过滤"""
     if base_query is None:
         base_query = select(Result)
     
     if settings.ENABLE_DATA_ISOLATION:
-        if user is None:
-            # 匿名用户只能看到公开数据集的结果
-            base_query = base_query.join(Dataset).where(Dataset.is_public == True)
-        elif not user.is_admin:
-            # 普通用户只能看到自己的结果、自己数据集的结果、或公开数据集的结果
+        if not user.is_admin:
+            # 普通用户只能看到自己的结果、自己数据集的结果、或公开数据集的结果（public=登录用户可见）
             base_query = base_query.join(Dataset).where(
                 or_(
                     Result.user_id == user.id,
@@ -250,11 +239,8 @@ async def list_model_names(
     
     # 数据隔离过滤
     if settings.ENABLE_DATA_ISOLATION:
-        if current_user is None:
-            # 匿名用户只能看到公开数据集的结果
-            query = query.join(Dataset).where(Dataset.is_public == True)
-        elif not current_user.is_admin:
-            # 普通用户
+        if not current_user.is_admin:
+            # 普通用户（public=登录用户可见）
             query = query.join(Dataset).where(
                 or_(
                     Result.user_id == current_user.id,
@@ -322,11 +308,8 @@ async def list_results(
     # 数据隔离过滤
     if settings.ENABLE_DATA_ISOLATION:
         join_dataset = True
-        if current_user is None:
-            # 匿名用户只能看到公开数据集的结果
-            conditions.append(Dataset.is_public == True)
-        elif not current_user.is_admin:
-            # 普通用户
+        if not current_user.is_admin:
+            # 普通用户（public=登录用户可见）
             conditions.append(
                 or_(
                     Result.user_id == current_user.id,
