@@ -1,4 +1,4 @@
-from sqlalchemy import event, text
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
@@ -34,7 +34,11 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
-    """获取数据库会话"""
+    """
+    获取数据库会话
+    
+    注意：调用方需要手动 commit，异常时自动 rollback
+    """
     async with async_session() as session:
         try:
             yield session
@@ -45,70 +49,29 @@ async def get_db():
 
 async def init_db():
     """
-    初始化数据库
+    初始化数据库连接
     
-    注意：生产环境应使用 Alembic 迁移，而不是 create_all
+    重要：此函数不再自动创建表！
     
-    使用方法：
+    数据库表的创建和迁移应该通过 Alembic 完成：
         cd backend
         alembic upgrade head
     
-    如果是全新数据库，create_all 会创建所有表。
-    如果是已有数据库，请使用 alembic 进行迁移。
+    这样做的好处：
+    1. 避免运行时自动建表导致的迁移问题
+    2. 确保生产环境和开发环境的数据库结构一致
+    3. 支持数据库结构的版本控制和回滚
     """
-    from app.models import User, Dataset, Configuration, Result  # 确保模型已注册
+    # 确保模型已注册到 Base.metadata
+    from app.models import User, Dataset, Configuration, Result  # noqa: F401
     
-    # 检查是否需要运行迁移
+    # 仅验证数据库连接是否正常
     async with engine.begin() as conn:
-        # 尝试检查 alembic_version 表是否存在
-        try:
-            if "sqlite" in settings.DATABASE_URL:
-                result = await conn.execute(text(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='alembic_version'"
-                ))
-            else:
-                result = await conn.execute(text(
-                    "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'alembic_version')"
-                ))
-            has_alembic = result.scalar()
-            
-            if has_alembic:
-                # 已有迁移记录，跳过 create_all
-                # 用户应该使用 alembic upgrade head
-                return
-        except Exception:
-            pass
-        
-        # 检查是否有任何表存在（旧数据库）
-        try:
-            if "sqlite" in settings.DATABASE_URL:
-                result = await conn.execute(text(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='datasets'"
-                ))
-            else:
-                result = await conn.execute(text(
-                    "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'datasets')"
-                ))
-            has_tables = result.scalar()
-            
-            if has_tables:
-                # 旧数据库存在，提示用户运行迁移
-                import warnings
-                warnings.warn(
-                    "\n" + "=" * 60 + "\n"
-                    "检测到旧数据库，请运行 Alembic 迁移：\n"
-                    "  cd backend\n"
-                    "  alembic stamp 001_initial  # 标记当前状态\n"
-                    "  alembic upgrade head       # 执行迁移\n"
-                    "=" * 60,
-                    UserWarning
-                )
-                return
-        except Exception:
-            pass
-        
-        # 全新数据库，使用 create_all 创建表
-        await conn.run_sync(Base.metadata.create_all)
+        # 简单的连接测试
+        await conn.execute(
+            # 使用兼容所有数据库的 SQL
+            __import__('sqlalchemy').text("SELECT 1")
+        )
 
 
 async def close_db():

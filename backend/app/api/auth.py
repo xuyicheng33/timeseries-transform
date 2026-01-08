@@ -2,7 +2,7 @@
 认证 API 路由
 提供用户注册、登录、Token 刷新等功能
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -172,7 +172,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         )
     
     # 更新最后登录时间
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     await db.commit()
     
     # 生成 Token
@@ -214,7 +214,7 @@ async def login_json(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
         )
     
     # 更新最后登录时间
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     await db.commit()
     
     # 生成 Token
@@ -325,4 +325,3 @@ async def update_password(
     await db.commit()
     
     return {"message": "密码修改成功"}
-

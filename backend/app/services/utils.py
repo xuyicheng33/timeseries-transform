@@ -1,10 +1,16 @@
+"""
+工具函数模块
+包含降采样、指标计算、文件处理等通用功能
+"""
 import csv
 import re
 import shutil
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from fastapi import HTTPException
 
+
+# ============ 表单字段校验 ============
 
 def validate_form_field(value: str, field_name: str, max_length: int = 255, 
                         min_length: int = 1, required: bool = True) -> str:
@@ -56,6 +62,8 @@ def validate_description(value: str, max_length: int = 1000) -> str:
     return validate_form_field(value, "描述", max_length=max_length, min_length=0, required=False)
 
 
+# ============ 文件名处理 ============
+
 def sanitize_filename(filename: str) -> str:
     """清理文件名，移除非法字符"""
     # 移除 Windows 和 Unix 不允许的字符
@@ -80,6 +88,8 @@ def safe_rmtree(path: str) -> bool:
     except Exception:
         return False
 
+
+# ============ 降采样算法 ============
 
 def lttb_downsample(data: List[Tuple[float, float]], threshold: int) -> List[Tuple[float, float]]:
     """LTTB降采样算法 - 保留视觉特征最优"""
@@ -199,28 +209,175 @@ def downsample(data: List[Tuple[float, float]], threshold: int, algorithm: str =
         return lttb_downsample(data, threshold)
 
 
-def calculate_metrics(true_values: np.ndarray, pred_values: np.ndarray) -> dict:
-    """计算评估指标"""
+# ============ NaN 处理策略 ============
+
+class NaNHandlingStrategy:
+    """NaN 处理策略"""
+    REJECT = "reject"      # 拒绝包含 NaN 的数据
+    FILTER = "filter"      # 过滤掉 NaN 值
+    INTERPOLATE = "interpolate"  # 插值填充（暂未实现）
+
+
+def validate_numeric_data(
+    true_values: np.ndarray, 
+    pred_values: np.ndarray,
+    strategy: str = NaNHandlingStrategy.REJECT,
+    min_valid_ratio: float = 0.5
+) -> Tuple[np.ndarray, np.ndarray, Optional[str]]:
+    """
+    验证和处理数值数据中的 NaN
+    
+    Args:
+        true_values: 真实值数组
+        pred_values: 预测值数组
+        strategy: NaN 处理策略
+        min_valid_ratio: 最小有效数据比例（用于 FILTER 策略）
+    
+    Returns:
+        (处理后的真实值, 处理后的预测值, 警告信息或None)
+    
+    Raises:
+        ValueError: 数据无效时抛出
+    """
+    if len(true_values) != len(pred_values):
+        raise ValueError(f"数据长度不一致: true_value={len(true_values)}, predicted_value={len(pred_values)}")
+    
+    if len(true_values) == 0:
+        raise ValueError("数据为空")
+    
+    # 检测 NaN
+    true_nan_mask = np.isnan(true_values)
+    pred_nan_mask = np.isnan(pred_values)
+    any_nan_mask = true_nan_mask | pred_nan_mask
+    
+    nan_count = np.sum(any_nan_mask)
+    total_count = len(true_values)
+    
+    if nan_count == 0:
+        # 没有 NaN，直接返回
+        return true_values, pred_values, None
+    
+    if strategy == NaNHandlingStrategy.REJECT:
+        # 拒绝策略：有任何 NaN 就报错
+        raise ValueError(
+            f"数据包含 {nan_count} 个无效值（NaN），"
+            f"占比 {nan_count/total_count*100:.1f}%。"
+            f"请确保 true_value 和 predicted_value 列都是有效的数值。"
+        )
+    
+    elif strategy == NaNHandlingStrategy.FILTER:
+        # 过滤策略：移除包含 NaN 的行
+        valid_mask = ~any_nan_mask
+        valid_count = np.sum(valid_mask)
+        
+        if valid_count == 0:
+            raise ValueError("过滤 NaN 后没有有效数据")
+        
+        valid_ratio = valid_count / total_count
+        if valid_ratio < min_valid_ratio:
+            raise ValueError(
+                f"有效数据比例过低: {valid_ratio*100:.1f}% < {min_valid_ratio*100:.1f}%。"
+                f"共 {total_count} 行，其中 {nan_count} 行包含无效值。"
+            )
+        
+        warning = None
+        if nan_count > 0:
+            warning = f"已过滤 {nan_count} 行无效数据（占比 {nan_count/total_count*100:.1f}%）"
+        
+        return true_values[valid_mask], pred_values[valid_mask], warning
+    
+    else:
+        raise ValueError(f"未知的 NaN 处理策略: {strategy}")
+
+
+# ============ 指标计算 ============
+
+def calculate_metrics(
+    true_values: np.ndarray, 
+    pred_values: np.ndarray,
+    handle_nan: bool = False
+) -> dict:
+    """
+    计算评估指标
+    
+    Args:
+        true_values: 真实值数组
+        pred_values: 预测值数组
+        handle_nan: 是否自动过滤 NaN（用于可视化对比）
+    
+    Returns:
+        包含各项指标的字典
+    """
     if len(true_values) == 0 or len(pred_values) == 0:
         return {"mse": 0.0, "rmse": 0.0, "mae": 0.0, "r2": 0.0, "mape": 0.0}
     
+    # 处理 NaN
+    if handle_nan:
+        try:
+            true_values, pred_values, _ = validate_numeric_data(
+                true_values, pred_values, 
+                strategy=NaNHandlingStrategy.FILTER,
+                min_valid_ratio=0.1  # 可视化时允许更低的有效比例
+            )
+        except ValueError:
+            return {"mse": 0.0, "rmse": 0.0, "mae": 0.0, "r2": 0.0, "mape": 0.0}
+    
+    # MSE
     mse = float(np.mean((true_values - pred_values) ** 2))
+    
+    # RMSE
     rmse = float(np.sqrt(mse))
+    
+    # MAE
     mae = float(np.mean(np.abs(true_values - pred_values)))
     
+    # R²
     ss_res = np.sum((true_values - pred_values) ** 2)
     ss_tot = np.sum((true_values - np.mean(true_values)) ** 2)
-    # 当所有真实值相同时，R² 无意义，返回 NaN 或 0
+    # 当所有真实值相同时，R² 无意义，返回 0
     r2 = float(1 - (ss_res / ss_tot)) if ss_tot > 1e-10 else 0.0
     
-    mask = true_values != 0
-    if np.any(mask):
-        mape = float(np.mean(np.abs((true_values[mask] - pred_values[mask]) / true_values[mask])) * 100)
-    else:
-        mape = 0.0
+    # MAPE - 带数值稳定性处理
+    mape = calculate_mape(true_values, pred_values)
     
     return {"mse": mse, "rmse": rmse, "mae": mae, "r2": r2, "mape": mape}
 
+
+def calculate_mape(true_values: np.ndarray, pred_values: np.ndarray, epsilon: float = 1e-8) -> float:
+    """
+    计算 MAPE（平均绝对百分比误差）
+    带数值稳定性处理，避免除零和极大值
+    
+    Args:
+        true_values: 真实值数组
+        pred_values: 预测值数组
+        epsilon: 最小阈值，避免除以接近零的值
+    
+    Returns:
+        MAPE 值（百分比），最大限制为 1000%
+    """
+    # 只计算真实值绝对值大于 epsilon 的点
+    mask = np.abs(true_values) > epsilon
+    
+    if not np.any(mask):
+        return 0.0
+    
+    true_masked = true_values[mask]
+    pred_masked = pred_values[mask]
+    
+    # 计算百分比误差
+    percentage_errors = np.abs((true_masked - pred_masked) / true_masked)
+    
+    # 限制单个点的最大误差为 10（1000%）
+    percentage_errors = np.clip(percentage_errors, 0, 10)
+    
+    mape = float(np.mean(percentage_errors) * 100)
+    
+    # 最终结果限制在 1000% 以内
+    return min(mape, 1000.0)
+
+
+# ============ 文件名生成 ============
 
 def generate_standard_filename(dataset_name: str, channels: List[str], normalization: str,
                                anomaly_enabled: bool, anomaly_type: str, injection_algorithm: str,
@@ -263,6 +420,8 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
     
     return "_".join(parts) + ".csv"
 
+
+# ============ CSV 处理 ============
 
 def count_csv_rows(filepath: str, encoding: str = 'utf-8') -> int:
     """准确统计CSV行数 - 使用 csv.reader 正确处理字段内换行"""

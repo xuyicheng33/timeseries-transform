@@ -3,7 +3,8 @@
  * 使用带认证的 request 实例
  */
 
-import request from './request'
+import request, { rawRequest } from './request'
+export { tokenManager } from './token'
 
 export default request
-
+export { rawRequest }

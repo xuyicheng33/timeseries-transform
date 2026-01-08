@@ -2,7 +2,7 @@
 认证服务模块
 提供密码哈希、JWT Token 生成和验证等功能
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import JWTError, jwt
@@ -13,6 +13,17 @@ from app.config import settings
 
 # 密码哈希上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# 缓存 JWT 密钥（避免每次调用都生成新的随机密钥）
+_jwt_secret_key: Optional[str] = None
+
+
+def _get_jwt_secret() -> str:
+    """获取 JWT 密钥（带缓存）"""
+    global _jwt_secret_key
+    if _jwt_secret_key is None:
+        _jwt_secret_key = settings.get_jwt_secret_key()
+    return _jwt_secret_key
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -39,9 +50,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
     
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({
         "exp": expire,
@@ -50,7 +61,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.JWT_SECRET_KEY,
+        _get_jwt_secret(),
         algorithm=settings.JWT_ALGORITHM
     )
     return encoded_jwt
@@ -67,7 +78,7 @@ def create_refresh_token(data: dict) -> str:
         JWT Token 字符串
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     
     to_encode.update({
         "exp": expire,
@@ -76,7 +87,7 @@ def create_refresh_token(data: dict) -> str:
     
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.JWT_SECRET_KEY,
+        _get_jwt_secret(),
         algorithm=settings.JWT_ALGORITHM
     )
     return encoded_jwt
@@ -95,7 +106,7 @@ def decode_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(
             token,
-            settings.JWT_SECRET_KEY,
+            _get_jwt_secret(),
             algorithms=[settings.JWT_ALGORITHM]
         )
         return payload
@@ -159,4 +170,3 @@ def verify_refresh_token(token: str) -> Optional[int]:
         return int(user_id)
     except (ValueError, TypeError):
         return None
-

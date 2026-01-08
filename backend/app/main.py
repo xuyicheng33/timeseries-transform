@@ -2,22 +2,33 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import settings, init_directories
 from app.database import init_db, close_db
+from app.services.executor import shutdown_executor
 from app.api import datasets, configurations, results, visualization, auth
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    # ===== 启动时初始化 =====
+    # 1. 初始化目录（移到这里，避免 import 时的副作用）
+    init_directories()
+    
+    # 2. 初始化数据库连接
     await init_db()
+    
+    # 3. 验证 JWT 密钥（会在首次使用时触发警告或错误）
+    _ = settings.get_jwt_secret_key()
+    
     yield
-    # 清理资源
+    
+    # ===== 关闭时清理 =====
+    # 1. 关闭数据库连接
     await close_db()
-    # 关闭所有线程池执行器
-    datasets.executor.shutdown(wait=False)
-    results.executor.shutdown(wait=False)
-    visualization.executor.shutdown(wait=False)
+    
+    # 2. 关闭共享线程池执行器
+    shutdown_executor(wait=True, cancel_futures=False)
 
 
 app = FastAPI(

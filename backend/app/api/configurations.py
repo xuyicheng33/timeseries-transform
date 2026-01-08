@@ -1,31 +1,105 @@
+"""
+配置 API 路由
+提供配置的创建、查询、更新、删除等功能
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from typing import Optional
 
 from app.database import get_db
-from app.models import Configuration, Dataset
-from app.schemas import ConfigurationCreate, ConfigurationUpdate, ConfigurationResponse, GenerateFilenameRequest, PaginatedResponse
+from app.models import Configuration, Dataset, User
+from app.schemas import (
+    ConfigurationCreate, ConfigurationUpdate, ConfigurationResponse, 
+    GenerateFilenameRequest, PaginatedResponse
+)
 from app.services.utils import generate_standard_filename
+from app.config import settings
+from app.api.auth import get_current_user, get_current_user_optional
 
 router = APIRouter(prefix="/api/configurations", tags=["configurations"])
 
 
+def _check_dataset_access(dataset: Dataset, user: Optional[User]) -> None:
+    """检查用户是否有权访问数据集"""
+    if not settings.ENABLE_DATA_ISOLATION:
+        return
+    
+    if user is None:
+        raise HTTPException(status_code=403, detail="无权访问此数据集")
+    
+    if user.is_admin:
+        return
+    
+    if dataset.user_id == user.id:
+        return
+    
+    if dataset.is_public:
+        return
+    
+    raise HTTPException(status_code=403, detail="无权访问此数据集")
+
+
+def _build_config_query(user: Optional[User], base_query=None):
+    """
+    构建配置查询，根据数据隔离配置过滤
+    只返回用户有权访问的数据集的配置
+    """
+    if base_query is None:
+        base_query = select(Configuration)
+    
+    if settings.ENABLE_DATA_ISOLATION and user:
+        # 通过 join 过滤：只返回用户有权访问的数据集的配置
+        base_query = base_query.join(Dataset).where(
+            or_(
+                Dataset.user_id == user.id,
+                Dataset.is_public == True
+            )
+        )
+    
+    return base_query
+
+
 @router.post("", response_model=ConfigurationResponse)
-async def create_configuration(data: ConfigurationCreate, db: AsyncSession = Depends(get_db)):
+async def create_configuration(
+    data: ConfigurationCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # 需要登录
+):
+    """创建配置"""
+    # 检查数据集是否存在
     result = await db.execute(select(Dataset).where(Dataset.id == data.dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
+    # 检查用户是否有权访问该数据集
+    _check_dataset_access(dataset, current_user)
+    
+    # 生成标准文件名
     filename = generate_standard_filename(
-        dataset_name=dataset.name, channels=data.channels, normalization=data.normalization,
-        anomaly_enabled=data.anomaly_enabled, anomaly_type=data.anomaly_type or "",
-        injection_algorithm=data.injection_algorithm or "", sequence_logic=data.sequence_logic or "",
-        window_size=data.window_size, stride=data.stride, target_type=data.target_type, target_k=data.target_k
+        dataset_name=dataset.name, 
+        channels=data.channels, 
+        normalization=data.normalization.value if hasattr(data.normalization, 'value') else str(data.normalization),
+        anomaly_enabled=data.anomaly_enabled, 
+        anomaly_type=data.anomaly_type.value if data.anomaly_type and hasattr(data.anomaly_type, 'value') else (data.anomaly_type or ""),
+        injection_algorithm=data.injection_algorithm.value if data.injection_algorithm and hasattr(data.injection_algorithm, 'value') else (data.injection_algorithm or ""),
+        sequence_logic=data.sequence_logic.value if data.sequence_logic and hasattr(data.sequence_logic, 'value') else (data.sequence_logic or ""),
+        window_size=data.window_size, 
+        stride=data.stride, 
+        target_type=data.target_type.value if hasattr(data.target_type, 'value') else str(data.target_type),
+        target_k=data.target_k
     )
     
-    config = Configuration(**data.model_dump(), generated_filename=filename)
+    # 转换枚举为字符串存储
+    config_data = data.model_dump()
+    for key in ['normalization', 'target_type', 'anomaly_type', 'injection_algorithm', 'sequence_logic']:
+        if config_data.get(key) and hasattr(config_data[key], 'value'):
+            config_data[key] = config_data[key].value
+        elif config_data.get(key) is None:
+            config_data[key] = ""
+    
+    config = Configuration(**config_data, generated_filename=filename)
     db.add(config)
     await db.commit()
     await db.refresh(config)
@@ -35,12 +109,16 @@ async def create_configuration(data: ConfigurationCreate, db: AsyncSession = Dep
 @router.get("/all", response_model=list[ConfigurationResponse])
 async def list_all_configurations(
     dataset_id: Optional[int] = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_optional)
 ):
     """获取所有配置（不分页，用于下拉选择等场景，限制最多1000条）"""
-    query = select(Configuration).order_by(Configuration.created_at.desc())
+    query = _build_config_query(current_user)
+    query = query.order_by(Configuration.created_at.desc())
+    
     if dataset_id is not None:
         query = query.where(Configuration.dataset_id == dataset_id)
+    
     query = query.limit(1000)
     
     result = await db.execute(query)
@@ -52,7 +130,8 @@ async def list_configurations(
     dataset_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_optional)
 ):
     """获取配置列表（分页）"""
     # 参数校验
@@ -65,15 +144,28 @@ async def list_configurations(
     if dataset_id is not None:
         conditions.append(Configuration.dataset_id == dataset_id)
     
+    # 数据隔离过滤
+    join_dataset = False
+    if settings.ENABLE_DATA_ISOLATION and current_user:
+        join_dataset = True
+        conditions.append(
+            or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
+        )
+    
     # 查询总数
     count_query = select(func.count(Configuration.id))
+    if join_dataset:
+        count_query = count_query.join(Dataset)
     for cond in conditions:
         count_query = count_query.where(cond)
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     
     # 查询分页数据
-    query = select(Configuration).order_by(Configuration.created_at.desc())
+    query = select(Configuration)
+    if join_dataset:
+        query = query.join(Dataset)
+    query = query.order_by(Configuration.created_at.desc())
     for cond in conditions:
         query = query.where(cond)
     query = query.offset(offset).limit(page_size)
@@ -90,33 +182,78 @@ async def list_configurations(
 
 
 @router.get("/{config_id}", response_model=ConfigurationResponse)
-async def get_configuration(config_id: int, db: AsyncSession = Depends(get_db)):
+async def get_configuration(
+    config_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_optional)
+):
+    """获取配置详情"""
     result = await db.execute(select(Configuration).where(Configuration.id == config_id))
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
+    
+    # 检查关联数据集的访问权限
+    dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
+    dataset = dataset_result.scalar_one_or_none()
+    if dataset:
+        _check_dataset_access(dataset, current_user)
+    
     return config
 
 
 @router.put("/{config_id}", response_model=ConfigurationResponse)
-async def update_configuration(config_id: int, data: ConfigurationUpdate, db: AsyncSession = Depends(get_db)):
+async def update_configuration(
+    config_id: int, 
+    data: ConfigurationUpdate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # 需要登录
+):
+    """更新配置"""
     result = await db.execute(select(Configuration).where(Configuration.id == config_id))
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
     
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(config, key, value)
-    
+    # 检查关联数据集的访问权限
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
-    if dataset:
-        config.generated_filename = generate_standard_filename(
-            dataset_name=dataset.name, channels=config.channels, normalization=config.normalization,
-            anomaly_enabled=config.anomaly_enabled, anomaly_type=config.anomaly_type or "",
-            injection_algorithm=config.injection_algorithm or "", sequence_logic=config.sequence_logic or "",
-            window_size=config.window_size, stride=config.stride, target_type=config.target_type, target_k=config.target_k
-        )
+    if not dataset:
+        raise HTTPException(status_code=404, detail="关联的数据集不存在")
+    
+    # 数据隔离模式下，只有数据集所有者或管理员可以修改配置
+    if settings.ENABLE_DATA_ISOLATION:
+        if not current_user.is_admin and dataset.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="无权修改此配置")
+    
+    # 更新字段
+    update_data = data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="没有提供要更新的字段")
+    
+    # 转换枚举为字符串
+    for key in ['normalization', 'target_type', 'anomaly_type', 'injection_algorithm', 'sequence_logic']:
+        if key in update_data and update_data[key] is not None:
+            if hasattr(update_data[key], 'value'):
+                update_data[key] = update_data[key].value
+    
+    for key, value in update_data.items():
+        setattr(config, key, value)
+    
+    # 重新生成文件名
+    config.generated_filename = generate_standard_filename(
+        dataset_name=dataset.name, 
+        channels=config.channels, 
+        normalization=config.normalization,
+        anomaly_enabled=config.anomaly_enabled, 
+        anomaly_type=config.anomaly_type or "",
+        injection_algorithm=config.injection_algorithm or "", 
+        sequence_logic=config.sequence_logic or "",
+        window_size=config.window_size, 
+        stride=config.stride, 
+        target_type=config.target_type, 
+        target_k=config.target_k
+    )
     
     await db.commit()
     await db.refresh(config)
@@ -124,22 +261,48 @@ async def update_configuration(config_id: int, data: ConfigurationUpdate, db: As
 
 
 @router.delete("/{config_id}")
-async def delete_configuration(config_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_configuration(
+    config_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)  # 需要登录
+):
+    """删除配置"""
     result = await db.execute(select(Configuration).where(Configuration.id == config_id))
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
-    db.delete(config)
+    
+    # 检查关联数据集的访问权限
+    dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
+    dataset = dataset_result.scalar_one_or_none()
+    
+    # 数据隔离模式下，只有数据集所有者或管理员可以删除配置
+    if settings.ENABLE_DATA_ISOLATION and dataset:
+        if not current_user.is_admin and dataset.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="无权删除此配置")
+    
+    await db.delete(config)
     await db.commit()
     return {"message": "配置已删除"}
 
 
 @router.post("/generate-name")
-async def generate_filename_api(data: GenerateFilenameRequest):
+async def generate_filename_api(
+    data: GenerateFilenameRequest,
+    current_user: User = Depends(get_current_user_optional)  # 可选登录
+):
+    """生成标准文件名"""
     filename = generate_standard_filename(
-        dataset_name=data.dataset_name, channels=data.channels, normalization=data.normalization,
-        anomaly_enabled=data.anomaly_enabled, anomaly_type=data.anomaly_type or "",
-        injection_algorithm=data.injection_algorithm or "", sequence_logic=data.sequence_logic or "",
-        window_size=data.window_size, stride=data.stride, target_type=data.target_type, target_k=data.target_k
+        dataset_name=data.dataset_name, 
+        channels=data.channels, 
+        normalization=data.normalization.value if hasattr(data.normalization, 'value') else str(data.normalization),
+        anomaly_enabled=data.anomaly_enabled, 
+        anomaly_type=data.anomaly_type or "",
+        injection_algorithm=data.injection_algorithm or "", 
+        sequence_logic=data.sequence_logic or "",
+        window_size=data.window_size, 
+        stride=data.stride, 
+        target_type=data.target_type.value if hasattr(data.target_type, 'value') else str(data.target_type),
+        target_k=data.target_k
     )
     return {"filename": filename}

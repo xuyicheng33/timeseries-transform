@@ -1,5 +1,7 @@
 import os
+import secrets
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,13 +19,15 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./timeseries.db"
     
     # JWT Authentication
-    JWT_SECRET_KEY: str = "your-super-secret-key-change-in-production"
+    # 生产环境必须通过环境变量设置！
+    # 默认值仅用于开发环境，每次启动随机生成
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Data Isolation
-    ENABLE_DATA_ISOLATION: bool = False  # False = 团队共享模式
+    ENABLE_DATA_ISOLATION: bool = False  # False = 团队共享模式, True = 用户隔离模式
     
     # File Storage
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
@@ -43,6 +47,10 @@ class Settings(BaseSettings):
     DEFAULT_MAX_POINTS: int = 2000
     DOWNSAMPLE_THRESHOLD: int = 5000
     
+    # Cache Settings
+    CACHE_MAX_AGE_DAYS: int = 7  # 缓存最大保留天数
+    CACHE_MAX_SIZE_MB: int = 1024  # 缓存最大大小 (MB)
+    
     # CORS
     CORS_ORIGINS: list = ["http://localhost:5173", "http://127.0.0.1:5173"]
     
@@ -53,9 +61,47 @@ class Settings(BaseSettings):
         case_sensitive=True,
         extra="ignore"
     )
+    
+    def get_jwt_secret_key(self) -> str:
+        """
+        获取 JWT 密钥
+        - 如果设置了环境变量，使用环境变量的值
+        - 如果是开发模式且未设置，生成随机密钥（每次启动不同）
+        - 如果是生产模式且未设置，抛出异常
+        """
+        if self.JWT_SECRET_KEY:
+            return self.JWT_SECRET_KEY
+        
+        if self.DEBUG:
+            # 开发模式：生成随机密钥（警告用户）
+            import warnings
+            warnings.warn(
+                "\n" + "=" * 60 + "\n"
+                "警告：JWT_SECRET_KEY 未设置，使用随机生成的密钥。\n"
+                "这仅适用于开发环境，每次重启后 Token 将失效。\n"
+                "生产环境请设置 JWT_SECRET_KEY 环境变量！\n"
+                "=" * 60,
+                UserWarning
+            )
+            return secrets.token_urlsafe(32)
+        else:
+            # 生产模式：必须设置
+            raise RuntimeError(
+                "生产环境必须设置 JWT_SECRET_KEY 环境变量！\n"
+                "可以使用以下命令生成：python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
 
 
+# 创建全局设置实例
 settings = Settings()
 
-for dir_path in [settings.DATASETS_DIR, settings.RESULTS_DIR, settings.CACHE_DIR]:
-    dir_path.mkdir(parents=True, exist_ok=True)
+# 注意：目录创建已移至 lifespan 初始化，避免 import 时的副作用
+
+
+def init_directories() -> None:
+    """
+    初始化必要的目录
+    应在应用启动时调用（lifespan），而不是 import 时
+    """
+    for dir_path in [settings.DATASETS_DIR, settings.RESULTS_DIR, settings.CACHE_DIR]:
+        dir_path.mkdir(parents=True, exist_ok=True)

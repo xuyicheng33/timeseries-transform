@@ -1,7 +1,12 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, Float, ForeignKey
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+
+
+def utc_now():
+    """获取当前 UTC 时间（timezone-aware）"""
+    return datetime.now(timezone.utc)
 
 
 class User(Base):
@@ -15,8 +20,8 @@ class User(Base):
     full_name = Column(String(100), default="")
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     last_login = Column(DateTime, nullable=True)
     
     # 关系
@@ -37,11 +42,11 @@ class Dataset(Base):
     columns = Column(JSON, default=list)
     encoding = Column(String(50), default="utf-8")
     description = Column(Text, default="")
-    # 用户关联（可选，用于数据隔离）
+    # 用户关联（用于数据隔离）
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
     is_public = Column(Boolean, default=True)  # 是否公开（团队共享）
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     user = relationship("User", back_populates="datasets")
@@ -66,8 +71,8 @@ class Configuration(Base):
     target_type = Column(String(50), default="next")
     target_k = Column(Integer, default=1)
     generated_filename = Column(String(500), default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     dataset = relationship("Dataset", back_populates="configurations")
@@ -80,19 +85,19 @@ class Result(Base):
     name = Column(String(255), nullable=False)
     dataset_id = Column(Integer, ForeignKey('datasets.id', ondelete='CASCADE'), nullable=False, index=True)
     configuration_id = Column(Integer, ForeignKey('configurations.id', ondelete='SET NULL'), nullable=True, index=True)
-    # 用户关联（可选，用于数据隔离）
+    # 用户关联（用于数据隔离）
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
     filename = Column(String(255), nullable=False)
     filepath = Column(String(500), nullable=False)
-    # 重命名：避免 Pydantic model_ 命名空间警告
+    # 算法信息
     algo_name = Column(String(100), nullable=False)
     algo_version = Column(String(50), default="")
     description = Column(Text, default="")
     row_count = Column(Integer, default=0)
     metrics = Column(JSON, default=dict)
     code_filepath = Column(String(500), default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     user = relationship("User", back_populates="results")

@@ -2,6 +2,11 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any, Generic, TypeVar
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
+from app.schemas.enums import (
+    NormalizationType, TargetType, AnomalyType, 
+    InjectionAlgorithm, SequenceLogic, DownsampleAlgorithm
+)
+
 
 T = TypeVar('T')
 
@@ -20,14 +25,38 @@ class DatasetBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = ""
 
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('名称不能为空')
+        return v
+
+    @field_validator('description')
+    @classmethod
+    def validate_description(cls, v: Optional[str]) -> str:
+        if v is None:
+            return ""
+        return v.strip()
+
 
 class DatasetCreate(DatasetBase):
     pass
 
 
 class DatasetUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     description: Optional[str] = None
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError('名称不能为空')
+        return v
 
 
 class DatasetResponse(DatasetBase):
@@ -37,6 +66,8 @@ class DatasetResponse(DatasetBase):
     row_count: int
     column_count: int
     columns: List[str]
+    user_id: Optional[int] = None
+    is_public: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -54,15 +85,29 @@ class ConfigurationBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     dataset_id: int
     channels: List[str] = Field(default_factory=list)
-    normalization: str = "none"
+    normalization: NormalizationType = NormalizationType.NONE
     anomaly_enabled: bool = False
-    anomaly_type: Optional[str] = ""
-    injection_algorithm: Optional[str] = ""
-    sequence_logic: Optional[str] = ""
-    window_size: int = Field(default=100, ge=1)
-    stride: int = Field(default=1, ge=1)
-    target_type: str = "next"
-    target_k: int = Field(default=1, ge=1)
+    anomaly_type: Optional[AnomalyType] = None
+    injection_algorithm: Optional[InjectionAlgorithm] = None
+    sequence_logic: Optional[SequenceLogic] = None
+    window_size: int = Field(default=100, ge=1, le=10000)
+    stride: int = Field(default=1, ge=1, le=1000)
+    target_type: TargetType = TargetType.NEXT
+    target_k: int = Field(default=1, ge=1, le=100)
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('名称不能为空')
+        return v
+
+    @field_validator('channels')
+    @classmethod
+    def validate_channels(cls, v: List[str]) -> List[str]:
+        # 去除空白通道名
+        return [ch.strip() for ch in v if ch.strip()]
 
 
 class ConfigurationCreate(ConfigurationBase):
@@ -70,40 +115,66 @@ class ConfigurationCreate(ConfigurationBase):
 
 
 class ConfigurationUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     channels: Optional[List[str]] = None
-    normalization: Optional[str] = None
+    normalization: Optional[NormalizationType] = None
     anomaly_enabled: Optional[bool] = None
-    anomaly_type: Optional[str] = None
-    injection_algorithm: Optional[str] = None
-    sequence_logic: Optional[str] = None
-    window_size: Optional[int] = None
-    stride: Optional[int] = None
-    target_type: Optional[str] = None
-    target_k: Optional[int] = None
+    anomaly_type: Optional[AnomalyType] = None
+    injection_algorithm: Optional[InjectionAlgorithm] = None
+    sequence_logic: Optional[SequenceLogic] = None
+    window_size: Optional[int] = Field(default=None, ge=1, le=10000)
+    stride: Optional[int] = Field(default=None, ge=1, le=1000)
+    target_type: Optional[TargetType] = None
+    target_k: Optional[int] = Field(default=None, ge=1, le=100)
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError('名称不能为空')
+        return v
 
 
-class ConfigurationResponse(ConfigurationBase):
+class ConfigurationResponse(BaseModel):
     id: int
+    name: str
+    dataset_id: int
+    channels: List[str]
+    normalization: str  # 返回字符串以兼容前端
+    anomaly_enabled: bool
+    anomaly_type: Optional[str] = ""
+    injection_algorithm: Optional[str] = ""
+    sequence_logic: Optional[str] = ""
+    window_size: int
+    stride: int
+    target_type: str
+    target_k: int
     generated_filename: str
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator('anomaly_type', 'injection_algorithm', 'sequence_logic', mode='before')
+    @classmethod
+    def convert_none_to_empty(cls, v):
+        return v if v is not None else ""
+
 
 class GenerateFilenameRequest(BaseModel):
     dataset_name: str
     channels: List[str] = Field(default_factory=list)
-    normalization: str = "none"
+    normalization: NormalizationType = NormalizationType.NONE
     anomaly_enabled: bool = False
     anomaly_type: Optional[str] = ""
     injection_algorithm: Optional[str] = ""
     sequence_logic: Optional[str] = ""
-    window_size: int = 100
-    stride: int = 1
-    target_type: str = "next"
-    target_k: int = 1
+    window_size: int = Field(default=100, ge=1)
+    stride: int = Field(default=1, ge=1)
+    target_type: TargetType = TargetType.NEXT
+    target_k: int = Field(default=1, ge=1)
 
 
 # ============ Result Schemas ============
@@ -112,10 +183,25 @@ class ResultBase(BaseModel):
     dataset_id: int
     configuration_id: Optional[int] = None
     algo_name: str = Field(..., min_length=1, max_length=100, alias="model_name")
-    algo_version: Optional[str] = Field(default="", alias="model_version")
-    description: Optional[str] = ""
+    algo_version: Optional[str] = Field(default="", max_length=50, alias="model_version")
+    description: Optional[str] = Field(default="", max_length=1000)
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator('name', 'algo_name')
+    @classmethod
+    def validate_required_string(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('字段不能为空')
+        return v
+
+    @field_validator('algo_version', 'description')
+    @classmethod
+    def validate_optional_string(cls, v: Optional[str]) -> str:
+        if v is None:
+            return ""
+        return v.strip()
 
 
 class ResultCreate(ResultBase):
@@ -123,12 +209,21 @@ class ResultCreate(ResultBase):
 
 
 class ResultUpdate(BaseModel):
-    name: Optional[str] = None
-    algo_name: Optional[str] = Field(default=None, alias="model_name")
-    algo_version: Optional[str] = Field(default=None, alias="model_version")
-    description: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    algo_name: Optional[str] = Field(default=None, min_length=1, max_length=100, alias="model_name")
+    algo_version: Optional[str] = Field(default=None, max_length=50, alias="model_version")
+    description: Optional[str] = Field(default=None, max_length=1000)
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator('name', 'algo_name')
+    @classmethod
+    def validate_required_string(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError('字段不能为空')
+        return v
 
 
 class ResultResponse(BaseModel):
@@ -136,6 +231,7 @@ class ResultResponse(BaseModel):
     name: str
     dataset_id: int
     configuration_id: Optional[int] = None
+    user_id: Optional[int] = None
     filename: str
     row_count: int
     algo_name: str = Field(..., serialization_alias="model_name")
@@ -160,7 +256,7 @@ class MetricsResponse(BaseModel):
 class CompareRequest(BaseModel):
     result_ids: List[int] = Field(default_factory=list)
     max_points: int = Field(default=2000, ge=10, le=50000)
-    algorithm: str = Field(default="lttb", pattern="^(lttb|minmax|average)$")
+    algorithm: DownsampleAlgorithm = DownsampleAlgorithm.LTTB
 
     @field_validator('result_ids')
     @classmethod
@@ -193,7 +289,7 @@ class SkippedResult(BaseModel):
 class CompareResponse(BaseModel):
     chart_data: ChartDataResponse
     metrics: Dict[int, MetricsResponse]
-    skipped: List[SkippedResult] = Field(default_factory=list)  # 跳过的结果列表
+    skipped: List[SkippedResult] = Field(default_factory=list)
 
 
 # ============ User & Auth Schemas ============

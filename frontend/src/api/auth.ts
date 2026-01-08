@@ -2,37 +2,11 @@
  * 认证 API 服务
  */
 import request from './request'
+import { tokenManager } from './token'
 import type { User, UserRegister, UserLogin, UserUpdate, PasswordUpdate, TokenResponse, TokenRefresh } from '@/types'
 
-const TOKEN_KEY = 'access_token'
-const REFRESH_TOKEN_KEY = 'refresh_token'
-
-/**
- * Token 管理
- */
-export const tokenManager = {
-  getAccessToken: (): string | null => {
-    return localStorage.getItem(TOKEN_KEY)
-  },
-
-  getRefreshToken: (): string | null => {
-    return localStorage.getItem(REFRESH_TOKEN_KEY)
-  },
-
-  setTokens: (accessToken: string, refreshToken: string): void => {
-    localStorage.setItem(TOKEN_KEY, accessToken)
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
-  },
-
-  clearTokens: (): void => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
-  },
-
-  hasToken: (): boolean => {
-    return !!localStorage.getItem(TOKEN_KEY)
-  },
-}
+// 重新导出 tokenManager，保持向后兼容
+export { tokenManager } from './token'
 
 /**
  * 用户注册
@@ -96,4 +70,3 @@ export async function updateUser(data: UserUpdate): Promise<User> {
 export async function updatePassword(data: PasswordUpdate): Promise<{ message: string }> {
   return request.put('/auth/me/password', data)
 }
-
