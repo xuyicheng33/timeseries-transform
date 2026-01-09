@@ -1006,6 +1006,8 @@ async def export_compare_csv(
     - 添加 UTF-8 BOM 兼容 Excel
     """
     from fastapi.responses import StreamingResponse
+    import csv
+    import io
     
     if not data.result_ids:
         raise HTTPException(status_code=400, detail="请提供至少一个结果ID")
@@ -1041,50 +1043,48 @@ async def export_compare_csv(
     if not valid_results:
         raise HTTPException(status_code=400, detail="没有可导出的数据")
     
-    async def generate_csv():
-        """流式生成 CSV 内容"""
-        import csv
-        import io
-        
+    # ========== 预读取所有数据（在响应开始前完成，确保数据有效） ==========
+    all_data: Dict[int, Dict[str, Any]] = {}
+    max_length = 0
+    
+    for info in valid_results:
+        try:
+            df = await run_in_executor(
+                _read_csv_sync,
+                info["filepath"],
+                ["true_value", "predicted_value"]
+            )
+            
+            true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+            pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+            
+            all_data[info["id"]] = {
+                "name": info["name"],
+                "model": info["model"],
+                "true_vals": true_vals,
+                "pred_vals": pred_vals
+            }
+            max_length = max(max_length, len(true_vals))
+            
+        except Exception:
+            continue
+    
+    # 在开始响应前检查数据是否有效
+    if not all_data:
+        raise HTTPException(status_code=400, detail="所有文件读取失败，无法导出数据")
+    
+    # 预生成表头（包含 result_id 避免列名冲突）
+    header_parts = ["index"]
+    for rid, info in all_data.items():
+        # 格式: "模型名_ID_true" 和 "模型名_ID_pred"
+        safe_model = info["model"].replace(",", "_").replace('"', "'")
+        header_parts.append(f"{safe_model}_r{rid}_true")
+        header_parts.append(f"{safe_model}_r{rid}_pred")
+    
+    def generate_csv():
+        """流式生成 CSV 内容（同步生成器）"""
         # UTF-8 BOM（兼容 Excel）
         yield '\ufeff'
-        
-        # 预读取所有数据（必须，因为需要对齐行）
-        all_data: Dict[int, Dict[str, Any]] = {}
-        max_length = 0
-        
-        for info in valid_results:
-            try:
-                df = await run_in_executor(
-                    _read_csv_sync,
-                    info["filepath"],
-                    ["true_value", "predicted_value"]
-                )
-                
-                true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
-                pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
-                
-                all_data[info["id"]] = {
-                    "name": info["name"],
-                    "model": info["model"],
-                    "true_vals": true_vals,
-                    "pred_vals": pred_vals
-                }
-                max_length = max(max_length, len(true_vals))
-                
-            except Exception:
-                continue
-        
-        if not all_data:
-            return
-        
-        # 生成表头（包含 result_id 避免列名冲突）
-        header_parts = ["index"]
-        for rid, info in all_data.items():
-            # 格式: "模型名_ID_true" 和 "模型名_ID_pred"
-            safe_model = info["model"].replace(",", "_").replace('"', "'")
-            header_parts.append(f"{safe_model}_r{rid}_true")
-            header_parts.append(f"{safe_model}_r{rid}_pred")
         
         # 写入表头
         output = io.StringIO()

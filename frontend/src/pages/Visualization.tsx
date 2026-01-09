@@ -484,9 +484,22 @@ export default function Visualization() {
       barGap: '0%',
     }))
 
-    const bins = errorData.analyses[0].distribution.histogram.map(
-      h => `${h.bin_start.toFixed(2)}~${h.bin_end.toFixed(2)}`
-    )
+    // 优先使用后端返回的统一 bin_edges 生成 x 轴标签
+    // 这样确保所有模型的直方图 x 轴完全对齐
+    let bins: string[]
+    if (errorData.unified_bin_edges && errorData.unified_bin_edges.length > 1) {
+      bins = []
+      for (let i = 0; i < errorData.unified_bin_edges.length - 1; i++) {
+        const start = errorData.unified_bin_edges[i]
+        const end = errorData.unified_bin_edges[i + 1]
+        bins.push(`${start.toFixed(2)}~${end.toFixed(2)}`)
+      }
+    } else {
+      // 兼容旧版本：使用第一个模型的 histogram bins
+      bins = errorData.analyses[0].distribution.histogram.map(
+        h => `${h.bin_start.toFixed(2)}~${h.bin_end.toFixed(2)}`
+      )
+    }
 
     return {
       title: {
