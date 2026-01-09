@@ -245,8 +245,8 @@ async def update_configuration(
         raise HTTPException(status_code=404, detail="关联的数据集不存在")
     
     # 只有数据集所有者或管理员可以修改配置
-        if not current_user.is_admin and dataset.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="无权修改此配置")
+    if not current_user.is_admin and dataset.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权修改此配置")
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
