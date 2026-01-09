@@ -334,6 +334,14 @@ class ErrorAnalysisRequest(BaseModel):
         return v
 
 
+class HistogramBin(BaseModel):
+    """直方图单个 bin"""
+    bin_start: float
+    bin_end: float
+    count: int
+    percentage: float
+
+
 class ErrorDistribution(BaseModel):
     """误差分布统计"""
     min: float
@@ -343,7 +351,7 @@ class ErrorDistribution(BaseModel):
     median: float
     q1: float  # 25% 分位数
     q3: float  # 75% 分位数
-    histogram: List[Dict[str, float]]  # [{bin_start, bin_end, count, percentage}]
+    histogram: List[HistogramBin]
 
 
 class ResidualData(BaseModel):
@@ -364,11 +372,20 @@ class SingleErrorAnalysis(BaseModel):
     residual_data: ResidualData
 
 
+class RangeInfo(BaseModel):
+    """区间信息"""
+    start_index: Optional[int] = None
+    end_index: Optional[int] = None
+    is_full_range: bool = True
+
+
 class ErrorAnalysisResponse(BaseModel):
     """误差分析响应"""
     analyses: List[SingleErrorAnalysis]
     skipped: List[SkippedResult] = Field(default_factory=list)
-    range_info: Dict[str, Any] = Field(default_factory=dict)  # 区间信息
+    range_info: RangeInfo = Field(default_factory=RangeInfo)
+    # 统一的 bin edges，用于前端对齐直方图
+    unified_bin_edges: List[float] = Field(default_factory=list)
 
 
 class RadarMetrics(BaseModel):
@@ -386,13 +403,29 @@ class RadarMetrics(BaseModel):
     raw_metrics: MetricsResponse
 
 
+class MetricRanking(BaseModel):
+    """单个指标的排名项"""
+    result_id: int
+    rank: int
+    value: float
+
+
+class OverallScore(BaseModel):
+    """综合得分"""
+    result_id: int
+    result_name: str
+    model_name: str
+    score: float
+    rank: int
+
+
 class RadarChartResponse(BaseModel):
     """雷达图响应"""
     results: List[RadarMetrics]
     # 排名信息
-    rankings: Dict[str, List[Dict[str, Any]]]  # {metric_name: [{result_id, rank, value}]}
+    rankings: Dict[str, List[MetricRanking]]  # {metric_name: [排名列表]}
     # 综合得分
-    overall_scores: List[Dict[str, Any]]  # [{result_id, result_name, score, rank}]
+    overall_scores: List[OverallScore]
 
 
 class RangeMetricsRequest(BaseModel):

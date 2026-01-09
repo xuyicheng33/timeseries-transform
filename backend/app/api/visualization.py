@@ -11,7 +11,7 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from app.database import get_db
 from app.models import Result, Dataset, User
@@ -19,8 +19,8 @@ from app.schemas import (
     CompareRequest, CompareResponse, ChartDataResponse, 
     ChartDataSeries, MetricsResponse, SkippedResult, WarningInfo,
     ErrorAnalysisRequest, ErrorAnalysisResponse, ErrorDistribution,
-    ResidualData, SingleErrorAnalysis,
-    RadarMetrics, RadarChartResponse,
+    ResidualData, SingleErrorAnalysis, RangeInfo,
+    RadarMetrics, RadarChartResponse, MetricRanking, OverallScore,
     RangeMetricsRequest, RangeMetricsResponse
 )
 from app.config import settings
@@ -466,8 +466,24 @@ async def get_metrics(
 
 # ============ 新增：误差分析 API ============
 
-def _calculate_error_distribution(residuals: np.ndarray, num_bins: int = 20) -> ErrorDistribution:
-    """计算误差分布统计"""
+def _calculate_error_distribution(
+    residuals: np.ndarray, 
+    bin_edges: Optional[np.ndarray] = None,
+    num_bins: int = 20
+) -> Tuple[ErrorDistribution, np.ndarray]:
+    """
+    计算误差分布统计
+    
+    Args:
+        residuals: 残差数组
+        bin_edges: 统一的 bin 边界（如果为 None 则自动计算）
+        num_bins: bin 数量（仅在 bin_edges 为 None 时使用）
+    
+    Returns:
+        (ErrorDistribution, bin_edges): 分布统计和使用的 bin 边界
+    """
+    from app.schemas.schemas import HistogramBin
+    
     # 基础统计
     min_val = float(np.min(residuals))
     max_val = float(np.max(residuals))
@@ -477,17 +493,21 @@ def _calculate_error_distribution(residuals: np.ndarray, num_bins: int = 20) -> 
     q1 = float(np.percentile(residuals, 25))
     q3 = float(np.percentile(residuals, 75))
     
-    # 直方图
-    hist, bin_edges = np.histogram(residuals, bins=num_bins)
+    # 直方图（使用统一的 bin_edges）
+    if bin_edges is None:
+        hist, bin_edges = np.histogram(residuals, bins=num_bins)
+    else:
+        hist, _ = np.histogram(residuals, bins=bin_edges)
+    
     total = len(residuals)
     histogram = []
     for i in range(len(hist)):
-        histogram.append({
-            "bin_start": float(bin_edges[i]),
-            "bin_end": float(bin_edges[i + 1]),
-            "count": int(hist[i]),
-            "percentage": float(hist[i] / total * 100)
-        })
+        histogram.append(HistogramBin(
+            bin_start=float(bin_edges[i]),
+            bin_end=float(bin_edges[i + 1]),
+            count=int(hist[i]),
+            percentage=float(hist[i] / total * 100) if total > 0 else 0.0
+        ))
     
     return ErrorDistribution(
         min=min_val,
@@ -498,7 +518,7 @@ def _calculate_error_distribution(residuals: np.ndarray, num_bins: int = 20) -> 
         q1=q1,
         q3=q3,
         histogram=histogram
-    )
+    ), bin_edges
 
 
 @router.post("/error-analysis", response_model=ErrorAnalysisResponse)
@@ -512,6 +532,8 @@ async def analyze_errors(
     
     返回残差时序、误差分布统计等信息
     支持指定区间分析
+    
+    重要：所有模型使用统一的 bin_edges 计算直方图，确保可比性
     """
     if not data.result_ids:
         raise HTTPException(status_code=400, detail="请提供至少一个结果ID")
@@ -525,13 +547,17 @@ async def analyze_errors(
     datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
     datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
     
-    analyses: List[SingleErrorAnalysis] = []
     skipped_list: List[SkippedResult] = []
     
     # 检查不存在的 ID
     found_ids = {r.id for r in results}
     for mid in set(data.result_ids) - found_ids:
         skipped_list.append(SkippedResult(id=mid, name=f"ID:{mid}", reason="结果不存在"))
+    
+    # ========== 第一阶段：收集所有有效数据和残差 ==========
+    # 用于计算全局 min/max 以统一 bin_edges
+    collected_data: List[Dict[str, Any]] = []
+    all_residuals_for_bins: List[np.ndarray] = []
     
     for res in results:
         dataset = datasets_map.get(res.dataset_id)
@@ -595,6 +621,53 @@ async def analyze_errors(
             
             # 计算残差
             residuals = pred_range - true_range
+            
+            # 收集数据用于第二阶段
+            collected_data.append({
+                "result": res,
+                "range_indices": range_indices,
+                "true_range": true_range,
+                "pred_range": pred_range,
+                "residuals": residuals,
+            })
+            
+            # 收集残差用于计算全局 bin_edges
+            all_residuals_for_bins.append(residuals)
+            
+        except Exception as e:
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason=f"数据处理失败: {str(e)[:50]}"))
+            continue
+    
+    # ========== 计算统一的 bin_edges ==========
+    unified_bin_edges: Optional[np.ndarray] = None
+    num_bins = 20
+    
+    if all_residuals_for_bins:
+        # 合并所有残差计算全局 min/max
+        all_residuals_concat = np.concatenate(all_residuals_for_bins)
+        global_min = float(np.min(all_residuals_concat))
+        global_max = float(np.max(all_residuals_concat))
+        
+        # 创建统一的 bin edges
+        # 稍微扩展范围以确保所有值都在范围内
+        margin = (global_max - global_min) * 0.01 if global_max > global_min else 0.1
+        unified_bin_edges = np.linspace(
+            global_min - margin, 
+            global_max + margin, 
+            num_bins + 1
+        )
+    
+    # ========== 第二阶段：使用统一 bin_edges 计算分布 ==========
+    analyses: List[SingleErrorAnalysis] = []
+    
+    for item in collected_data:
+        res = item["result"]
+        range_indices = item["range_indices"]
+        true_range = item["true_range"]
+        pred_range = item["pred_range"]
+        residuals = item["residuals"]
+        
+        try:
             abs_residuals = np.abs(residuals)
             
             # 计算百分比误差（避免除零）
@@ -606,8 +679,12 @@ async def analyze_errors(
             # 计算指标
             metrics = calculate_metrics(true_range, pred_range)
             
-            # 计算误差分布
-            distribution = _calculate_error_distribution(residuals)
+            # 计算误差分布（使用统一的 bin_edges）
+            distribution, _ = _calculate_error_distribution(
+                residuals, 
+                bin_edges=unified_bin_edges,
+                num_bins=num_bins
+            )
             
             # 降采样残差数据用于前端展示（最多2000点）
             max_display_points = 2000
@@ -643,16 +720,17 @@ async def analyze_errors(
             skipped_list.append(SkippedResult(id=res.id, name=res.name, reason=f"分析失败: {str(e)[:50]}"))
             continue
     
-    range_info = {
-        "start_index": data.start_index,
-        "end_index": data.end_index,
-        "is_full_range": data.start_index is None and data.end_index is None
-    }
+    range_info = RangeInfo(
+        start_index=data.start_index,
+        end_index=data.end_index,
+        is_full_range=data.start_index is None and data.end_index is None
+    )
     
     return ErrorAnalysisResponse(
         analyses=analyses,
         skipped=skipped_list,
-        range_info=range_info
+        range_info=range_info,
+        unified_bin_edges=unified_bin_edges.tolist() if unified_bin_edges is not None else []
     )
 
 
@@ -770,12 +848,12 @@ async def get_radar_chart(
         ))
     
     # 计算排名
-    def get_rankings(vals: List[float], result_ids: List[int], lower_better: bool = True) -> List[Dict]:
+    def get_rankings(vals: List[float], result_ids: List[int], lower_better: bool = True) -> List[MetricRanking]:
         indexed = list(zip(result_ids, vals))
         sorted_list = sorted(indexed, key=lambda x: x[1], reverse=not lower_better)
         rankings = []
         for rank, (rid, val) in enumerate(sorted_list, 1):
-            rankings.append({"result_id": rid, "rank": rank, "value": val})
+            rankings.append(MetricRanking(result_id=rid, rank=rank, value=val))
         return rankings
     
     result_ids = [r["result_id"] for r in valid_results]
@@ -788,25 +866,26 @@ async def get_radar_chart(
     }
     
     # 计算综合得分（各指标得分的平均值）
-    overall_scores = []
+    overall_scores_list: List[OverallScore] = []
     for i, r in enumerate(valid_results):
         avg_score = (mse_scores[i] + rmse_scores[i] + mae_scores[i] + r2_scores[i] + mape_scores[i]) / 5
-        overall_scores.append({
-            "result_id": r["result_id"],
-            "result_name": r["result_name"],
-            "model_name": r["model_name"],
-            "score": avg_score
-        })
+        overall_scores_list.append(OverallScore(
+            result_id=r["result_id"],
+            result_name=r["result_name"],
+            model_name=r["model_name"],
+            score=avg_score,
+            rank=0  # 稍后填充
+        ))
     
-    # 按综合得分排序
-    overall_scores.sort(key=lambda x: x["score"], reverse=True)
-    for rank, item in enumerate(overall_scores, 1):
-        item["rank"] = rank
+    # 按综合得分排序并设置排名
+    overall_scores_list.sort(key=lambda x: x.score, reverse=True)
+    for rank, item in enumerate(overall_scores_list, 1):
+        item.rank = rank
     
     return RadarChartResponse(
         results=radar_results,
         rankings=rankings,
-        overall_scores=overall_scores
+        overall_scores=overall_scores_list
     )
 
 
@@ -919,13 +998,14 @@ async def export_compare_csv(
     current_user: User = Depends(get_current_user)
 ):
     """
-    导出对比数据为 CSV 格式
+    导出对比数据为 CSV 格式（流式输出）
     
     返回包含所有结果的 true_value 和 predicted_value 的 CSV 数据
+    - 使用流式输出避免大数据 OOM
+    - 列名包含 result_id 避免同名模型冲突
+    - 添加 UTF-8 BOM 兼容 Excel
     """
     from fastapi.responses import StreamingResponse
-    import io
-    import csv
     
     if not data.result_ids:
         raise HTTPException(status_code=400, detail="请提供至少一个结果ID")
@@ -939,9 +1019,8 @@ async def export_compare_csv(
     datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
     datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
     
-    # 收集数据
-    all_data: Dict[int, Dict[str, Any]] = {}  # result_id -> {name, model, true_vals, pred_vals}
-    max_length = 0
+    # 收集有效结果的元信息和文件路径
+    valid_results: List[Dict[str, Any]] = []
     
     for res in results:
         dataset = datasets_map.get(res.dataset_id)
@@ -952,55 +1031,92 @@ async def export_compare_csv(
         if not os.path.exists(res.filepath) or not validate_filepath(res.filepath):
             continue
         
-        try:
-            df = await run_in_executor(
-                _read_csv_sync,
-                res.filepath,
-                ["true_value", "predicted_value"]
-            )
-            
-            true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
-            pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
-            
-            all_data[res.id] = {
-                "name": res.name,
-                "model": res.algo_name,
-                "true_vals": true_vals.tolist(),
-                "pred_vals": pred_vals.tolist()
-            }
-            max_length = max(max_length, len(true_vals))
-            
-        except Exception:
-            continue
+        valid_results.append({
+            "id": res.id,
+            "name": res.name,
+            "model": res.algo_name,
+            "filepath": res.filepath
+        })
     
-    if not all_data:
+    if not valid_results:
         raise HTTPException(status_code=400, detail="没有可导出的数据")
     
-    # 生成 CSV
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # 写入表头
-    header = ["index"]
-    for rid, info in all_data.items():
-        header.extend([f"{info['model']}_true", f"{info['model']}_pred"])
-    writer.writerow(header)
-    
-    # 写入数据
-    for i in range(max_length):
-        row = [i]
+    async def generate_csv():
+        """流式生成 CSV 内容"""
+        import csv
+        import io
+        
+        # UTF-8 BOM（兼容 Excel）
+        yield '\ufeff'
+        
+        # 预读取所有数据（必须，因为需要对齐行）
+        all_data: Dict[int, Dict[str, Any]] = {}
+        max_length = 0
+        
+        for info in valid_results:
+            try:
+                df = await run_in_executor(
+                    _read_csv_sync,
+                    info["filepath"],
+                    ["true_value", "predicted_value"]
+                )
+                
+                true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+                pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+                
+                all_data[info["id"]] = {
+                    "name": info["name"],
+                    "model": info["model"],
+                    "true_vals": true_vals,
+                    "pred_vals": pred_vals
+                }
+                max_length = max(max_length, len(true_vals))
+                
+            except Exception:
+                continue
+        
+        if not all_data:
+            return
+        
+        # 生成表头（包含 result_id 避免列名冲突）
+        header_parts = ["index"]
         for rid, info in all_data.items():
-            true_val = info["true_vals"][i] if i < len(info["true_vals"]) else ""
-            pred_val = info["pred_vals"][i] if i < len(info["pred_vals"]) else ""
-            row.extend([true_val, pred_val])
-        writer.writerow(row)
-    
-    # 返回 CSV 文件
-    output.seek(0)
+            # 格式: "模型名_ID_true" 和 "模型名_ID_pred"
+            safe_model = info["model"].replace(",", "_").replace('"', "'")
+            header_parts.append(f"{safe_model}_r{rid}_true")
+            header_parts.append(f"{safe_model}_r{rid}_pred")
+        
+        # 写入表头
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(header_parts)
+        yield output.getvalue()
+        
+        # 分批写入数据（每批 1000 行）
+        batch_size = 1000
+        for batch_start in range(0, max_length, batch_size):
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            batch_end = min(batch_start + batch_size, max_length)
+            for i in range(batch_start, batch_end):
+                row = [i]
+                for rid, info in all_data.items():
+                    true_val = info["true_vals"][i] if i < len(info["true_vals"]) else ""
+                    pred_val = info["pred_vals"][i] if i < len(info["pred_vals"]) else ""
+                    # 处理 NaN
+                    if isinstance(true_val, float) and np.isnan(true_val):
+                        true_val = ""
+                    if isinstance(pred_val, float) and np.isnan(pred_val):
+                        pred_val = ""
+                    row.extend([true_val, pred_val])
+                writer.writerow(row)
+            
+            yield output.getvalue()
     
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
+        generate_csv(),
+        media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f"attachment; filename=comparison_export_{int(time.time())}.csv"
         }

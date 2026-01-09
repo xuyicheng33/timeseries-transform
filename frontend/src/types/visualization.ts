@@ -102,6 +102,8 @@ export interface ErrorAnalysisResponse {
     end_index: number | null
     is_full_range: boolean
   }
+  // 统一的 bin edges，用于前端对齐直方图
+  unified_bin_edges: number[]
 }
 
 // ============ 雷达图相关 ============
