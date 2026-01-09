@@ -1001,7 +1001,7 @@ async def export_compare_csv(
     导出对比数据为 CSV 格式（流式输出）
     
     返回包含所有结果的 true_value 和 predicted_value 的 CSV 数据
-    - 列顺序与请求 result_ids 顺序一致
+    - 列顺序与请求 result_ids 顺序一致（去重）
     - 列名包含 result_id 避免同名模型冲突
     - 添加 UTF-8 BOM 兼容 Excel
     - 正确处理 numpy NaN
@@ -1026,11 +1026,17 @@ async def export_compare_csv(
     datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
     datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
     
-    # 按请求的 result_ids 顺序收集有效结果
-    # 这样保证列顺序与用户选择顺序一致
-    ordered_valid_ids: List[int] = []
+    # 按请求的 result_ids 顺序收集"可尝试导出"的 rid（去重）
+    # 注意：这里只做权限和文件存在性检查，不做实际读取
+    candidate_ids: List[int] = []
+    seen_ids: set = set()
     
     for rid in data.result_ids:
+        # 去重
+        if rid in seen_ids:
+            continue
+        seen_ids.add(rid)
+        
         res = results_map.get(rid)
         if not res:
             continue
@@ -1042,16 +1048,19 @@ async def export_compare_csv(
         if not os.path.exists(res.filepath) or not validate_filepath(res.filepath):
             continue
         
-        ordered_valid_ids.append(rid)
+        candidate_ids.append(rid)
     
-    if not ordered_valid_ids:
+    if not candidate_ids:
         raise HTTPException(status_code=400, detail="没有可导出的数据")
     
-    # ========== 预读取所有数据（按顺序） ==========
+    # ========== 预读取所有数据 ==========
+    # 使用新列表 export_ids 收集"读取成功"的 rid
+    # 不要在遍历时修改原列表！
     all_data: Dict[int, Dict[str, Any]] = {}
+    export_ids: List[int] = []  # 最终导出的 rid 列表（读取成功的）
     max_length = 0
     
-    for rid in ordered_valid_ids:
+    for rid in candidate_ids:
         res = results_map[rid]
         try:
             df = await run_in_executor(
@@ -1069,22 +1078,22 @@ async def export_compare_csv(
                 "true_vals": true_vals,
                 "pred_vals": pred_vals
             }
-            max_length = max(max_length, len(true_vals))
+            # 取两列的最大长度，避免截断
+            max_length = max(max_length, len(true_vals), len(pred_vals))
+            # 读取成功，加入导出列表
+            export_ids.append(rid)
             
         except Exception:
-            # 读取失败，从有效列表中移除
-            ordered_valid_ids.remove(rid)
+            # 读取失败，不加入 export_ids，继续处理下一个
             continue
     
     # 在开始响应前检查数据是否有效
-    if not all_data:
+    if not export_ids:
         raise HTTPException(status_code=400, detail="所有文件读取失败，无法导出数据")
     
-    # 预生成表头（按 ordered_valid_ids 顺序，包含 result_id 避免列名冲突）
+    # 预生成表头（按 export_ids 顺序，包含 result_id 避免列名冲突）
     header_parts = ["index"]
-    for rid in ordered_valid_ids:
-        if rid not in all_data:
-            continue
+    for rid in export_ids:
         info = all_data[rid]
         # 格式: "模型名_rID_true" 和 "模型名_rID_pred"
         safe_model = info["model"].replace(",", "_").replace('"', "'")
@@ -1111,14 +1120,11 @@ async def export_compare_csv(
             batch_end = min(batch_start + batch_size, max_length)
             for i in range(batch_start, batch_end):
                 row = [i]
-                # 按 ordered_valid_ids 顺序遍历，保证列顺序一致
-                for rid in ordered_valid_ids:
-                    if rid not in all_data:
-                        row.extend(["", ""])
-                        continue
+                # 只遍历 export_ids（读取成功的），保证列数与表头一致
+                for rid in export_ids:
                     info = all_data[rid]
                     
-                    # 获取值
+                    # 获取值（注意两列长度可能不同）
                     true_val = info["true_vals"][i] if i < len(info["true_vals"]) else np.nan
                     pred_val = info["pred_vals"][i] if i < len(info["pred_vals"]) else np.nan
                     
