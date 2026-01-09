@@ -2,6 +2,7 @@ import os
 import secrets
 from pathlib import Path
 from typing import Optional
+from pydantic import PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +26,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # 内部缓存：进程内只生成一次的 JWT 密钥（使用 PrivateAttr 避免被当成 settings 字段）
+    _cached_jwt_secret: Optional[str] = PrivateAttr(default=None)
     
     # Data Isolation
     ENABLE_DATA_ISOLATION: bool = False  # False = 团队共享模式, True = 用户隔离模式
@@ -64,17 +68,30 @@ class Settings(BaseSettings):
     
     def get_jwt_secret_key(self) -> str:
         """
-        获取 JWT 密钥
+        获取 JWT 密钥（带进程内缓存）
+        
+        重要：此方法确保在同一进程内只生成一次密钥，
+        避免 DEBUG 模式下多次调用导致 Token 校验不一致。
+        
+        外部代码应通过 app.services.auth 模块获取密钥，
+        而不是直接调用此方法，以确保一致性。
+        
         - 如果设置了环境变量，使用环境变量的值
-        - 如果是开发模式且未设置，生成随机密钥（每次启动不同）
+        - 如果是开发模式且未设置，生成随机密钥（进程内缓存）
         - 如果是生产模式且未设置，抛出异常
         """
+        # 如果已配置环境变量，直接返回
         if self.JWT_SECRET_KEY:
             return self.JWT_SECRET_KEY
         
+        # 检查进程内缓存
+        if self._cached_jwt_secret is not None:
+            return self._cached_jwt_secret
+        
         if self.DEBUG:
-            # 开发模式：生成随机密钥（警告用户）
+            # 开发模式：生成随机密钥并缓存（警告用户）
             import warnings
+            self._cached_jwt_secret = secrets.token_urlsafe(32)
             warnings.warn(
                 "\n" + "=" * 60 + "\n"
                 "警告：JWT_SECRET_KEY 未设置，使用随机生成的密钥。\n"
@@ -83,7 +100,7 @@ class Settings(BaseSettings):
                 "=" * 60,
                 UserWarning
             )
-            return secrets.token_urlsafe(32)
+            return self._cached_jwt_secret
         else:
             # 生产模式：必须设置
             raise RuntimeError(

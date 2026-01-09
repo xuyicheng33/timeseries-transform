@@ -22,10 +22,11 @@ from app.schemas import (
 from app.config import settings
 from app.services.utils import (
     downsample, calculate_metrics, 
-    validate_numeric_data, NaNHandlingStrategy
+    validate_numeric_data, NaNHandlingStrategy, is_valid_numeric
 )
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
+from app.services.permissions import can_access_result
 from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/visualization", tags=["visualization"])
@@ -177,27 +178,6 @@ def _compute_data_hash(values: np.ndarray) -> str:
     return hashlib.md5(values.tobytes()).hexdigest()[:16]
 
 
-def _check_result_access(result: Result, dataset: Optional[Dataset], user: User) -> bool:
-    """检查用户是否有权访问结果（只读）"""
-    if not settings.ENABLE_DATA_ISOLATION:
-        return True
-    
-    # 公开数据集的结果允许登录用户访问（public=登录用户可见）
-    if dataset and dataset.is_public:
-        return True
-    
-    if user.is_admin:
-        return True
-    
-    if result.user_id == user.id:
-        return True
-    
-    if dataset and dataset.user_id == user.id:
-        return True
-    
-    return False
-
-
 @router.post("/compare", response_model=CompareResponse)
 async def compare_results(
     data: CompareRequest, 
@@ -248,7 +228,7 @@ async def compare_results(
         dataset = datasets_map.get(res.dataset_id)
         
         # 权限检查
-        if not _check_result_access(res, dataset, current_user):
+        if not can_access_result(res, dataset, current_user):
             skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="无权访问"))
             continue
         
@@ -335,7 +315,7 @@ async def compare_results(
                     min_valid_ratio=0.1
                 )
                 
-                valid_mask = ~(np.isnan(true_vals) | np.isnan(pred_vals))
+                valid_mask = is_valid_numeric(true_vals) & is_valid_numeric(pred_vals)
                 valid_indices = np.where(valid_mask)[0].tolist()
             except ValueError as e:
                 skipped_list.append(SkippedResult(id=res.id, name=res.name, reason=str(e)))
@@ -402,7 +382,7 @@ async def compare_results(
             if res.metrics:
                 metrics_dict[res.id] = MetricsResponse(**res.metrics)
             elif true_vals_clean is not None and pred_vals_clean is not None:
-                metrics = calculate_metrics(true_vals_clean, pred_vals_clean, handle_nan=True)
+                metrics = calculate_metrics(true_vals_clean, pred_vals_clean, handle_invalid=True)
                 metrics_dict[res.id] = MetricsResponse(**metrics)
     
     # Fire-and-forget 清理缓存（不阻塞响应，有锁防止线程堆积）
@@ -432,7 +412,8 @@ async def get_metrics(
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     
-    if not _check_result_access(result_obj, dataset, current_user):
+    # 权限检查
+    if not can_access_result(result_obj, dataset, current_user):
         raise HTTPException(status_code=403, detail="无权访问此结果")
     
     # 优先使用数据库中存储的指标

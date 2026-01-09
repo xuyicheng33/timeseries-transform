@@ -4,7 +4,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func
 from typing import Optional
 
 from app.database import get_db
@@ -14,70 +14,14 @@ from app.schemas import (
     GenerateFilenameRequest, PaginatedResponse
 )
 from app.services.utils import generate_standard_filename
-from app.config import settings
+from app.services.permissions import (
+    check_read_access, check_write_access, check_dataset_write_access,
+    build_config_query, get_isolation_conditions,
+    ResourceType, ActionType
+)
 from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/configurations", tags=["configurations"])
-
-
-def _check_dataset_access(dataset: Dataset, user: User) -> None:
-    """检查用户是否有权访问数据集（只读）"""
-    if not settings.ENABLE_DATA_ISOLATION:
-        return
-    
-    # 公开数据集允许登录用户访问（public=登录用户可见）
-    if dataset.is_public:
-        return
-    
-    if user.is_admin:
-        return
-    
-    if dataset.user_id == user.id:
-        return
-    
-    raise HTTPException(status_code=403, detail="无权访问此数据集")
-
-
-def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
-    """
-    检查用户是否有权向数据集写入（创建配置等）
-    
-    无论是否开启数据隔离，写入操作都只允许：
-    - 数据集所有者
-    - 管理员
-    """
-    # 管理员有所有权限
-    if user.is_admin:
-        return
-    
-    # 只有数据集所有者可以写入
-    if dataset.user_id == user.id:
-        return
-    
-    # 其他用户（包括公开数据集）不允许写入
-    raise HTTPException(status_code=403, detail="无权向此数据集添加配置，只有数据集所有者可以操作")
-
-
-def _build_config_query(user: User, base_query=None):
-    """
-    构建配置查询，根据数据隔离配置过滤
-    只返回用户有权访问的数据集的配置
-    """
-    if base_query is None:
-        base_query = select(Configuration)
-    
-    if settings.ENABLE_DATA_ISOLATION:
-        if not user.is_admin:
-            # 普通用户只能看到自己的数据集或公开数据集的配置（public=登录用户可见）
-            base_query = base_query.join(Dataset).where(
-                or_(
-                    Dataset.user_id == user.id,
-                    Dataset.is_public == True
-                )
-            )
-        # 管理员不做过滤
-    
-    return base_query
 
 
 @router.post("", response_model=ConfigurationResponse)
@@ -94,7 +38,7 @@ async def create_configuration(
         raise HTTPException(status_code=404, detail="数据集不存在")
     
     # 检查用户是否有权向该数据集写入配置（只有所有者可以）
-    _check_dataset_write_access(dataset, current_user)
+    check_dataset_write_access(dataset, current_user, "添加配置")
     
     # 生成标准文件名
     filename = generate_standard_filename(
@@ -133,7 +77,7 @@ async def list_all_configurations(
     current_user: User = Depends(get_current_user)
 ):
     """获取所有配置（不分页，用于下拉选择等场景，限制最多1000条）"""
-    query = _build_config_query(current_user)
+    query = build_config_query(current_user)
     query = query.order_by(Configuration.created_at.desc())
     
     if dataset_id is not None:
@@ -165,19 +109,12 @@ async def list_configurations(
         conditions.append(Configuration.dataset_id == dataset_id)
     
     # 数据隔离过滤
-    join_dataset = False
-    if settings.ENABLE_DATA_ISOLATION:
-        join_dataset = True
-        if not current_user.is_admin:
-            # 普通用户只能看到自己的数据集或公开数据集的配置（public=登录用户可见）
-            conditions.append(
-                or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
-            )
-        # 管理员不做过滤
+    isolation_conditions, need_join = get_isolation_conditions(current_user, Configuration)
+    conditions.extend(isolation_conditions)
     
     # 查询总数
     count_query = select(func.count(Configuration.id))
-    if join_dataset:
+    if need_join:
         count_query = count_query.join(Dataset)
     for cond in conditions:
         count_query = count_query.where(cond)
@@ -186,7 +123,7 @@ async def list_configurations(
     
     # 查询分页数据
     query = select(Configuration)
-    if join_dataset:
+    if need_join:
         query = query.join(Dataset)
     query = query.order_by(Configuration.created_at.desc())
     for cond in conditions:
@@ -220,7 +157,7 @@ async def get_configuration(
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     if dataset:
-        _check_dataset_access(dataset, current_user)
+        check_read_access(config, current_user, ResourceType.CONFIGURATION, parent_dataset=dataset)
     
     return config
 
@@ -245,8 +182,7 @@ async def update_configuration(
         raise HTTPException(status_code=404, detail="关联的数据集不存在")
     
     # 只有数据集所有者或管理员可以修改配置
-    if not current_user.is_admin and dataset.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权修改此配置")
+    check_write_access(config, current_user, ActionType.WRITE, ResourceType.CONFIGURATION, parent_dataset=dataset)
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -299,9 +235,7 @@ async def delete_configuration(
     dataset = dataset_result.scalar_one_or_none()
     
     # 只有数据集所有者或管理员可以删除配置
-    if dataset:
-        if not current_user.is_admin and dataset.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="无权删除此配置")
+    check_write_access(config, current_user, ActionType.DELETE, ResourceType.CONFIGURATION, parent_dataset=dataset)
     
     await db.delete(config)
     await db.commit()

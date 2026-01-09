@@ -209,13 +209,26 @@ def downsample(data: List[Tuple[float, float]], threshold: int, algorithm: str =
         return lttb_downsample(data, threshold)
 
 
-# ============ NaN 处理策略 ============
+# ============ 数值合法性处理 ============
 
 class NaNHandlingStrategy:
-    """NaN 处理策略"""
-    REJECT = "reject"      # 拒绝包含 NaN 的数据
-    FILTER = "filter"      # 过滤掉 NaN 值
+    """无效数值处理策略"""
+    REJECT = "reject"      # 拒绝包含无效值的数据
+    FILTER = "filter"      # 过滤掉无效值
     INTERPOLATE = "interpolate"  # 插值填充（暂未实现）
+
+
+def is_valid_numeric(arr: np.ndarray) -> np.ndarray:
+    """
+    检查数组中的值是否为有效数值（非 NaN 且非 ±Infinity）
+    
+    Args:
+        arr: numpy 数组
+    
+    Returns:
+        布尔数组，True 表示有效值
+    """
+    return np.isfinite(arr)
 
 
 def validate_numeric_data(
@@ -225,12 +238,15 @@ def validate_numeric_data(
     min_valid_ratio: float = 0.5
 ) -> Tuple[np.ndarray, np.ndarray, Optional[str]]:
     """
-    验证和处理数值数据中的 NaN
+    验证和处理数值数据中的无效值（NaN 和 ±Infinity）
+    
+    在严格 JSON 序列化场景下，NaN 和 ±Infinity 都会导致问题，
+    因此统一使用 np.isfinite() 进行检查。
     
     Args:
         true_values: 真实值数组
         pred_values: 预测值数组
-        strategy: NaN 处理策略
+        strategy: 无效值处理策略
         min_valid_ratio: 最小有效数据比例（用于 FILTER 策略）
     
     Returns:
@@ -245,49 +261,65 @@ def validate_numeric_data(
     if len(true_values) == 0:
         raise ValueError("数据为空")
     
-    # 检测 NaN
-    true_nan_mask = np.isnan(true_values)
-    pred_nan_mask = np.isnan(pred_values)
-    any_nan_mask = true_nan_mask | pred_nan_mask
+    # 检测无效值（NaN 或 ±Infinity）
+    # np.isfinite() 对 NaN 和 ±Infinity 都返回 False
+    true_valid_mask = is_valid_numeric(true_values)
+    pred_valid_mask = is_valid_numeric(pred_values)
+    both_valid_mask = true_valid_mask & pred_valid_mask
     
-    nan_count = np.sum(any_nan_mask)
+    invalid_count = np.sum(~both_valid_mask)
     total_count = len(true_values)
     
-    if nan_count == 0:
-        # 没有 NaN，直接返回
+    # 分别统计 NaN 和 Infinity 的数量（用于更详细的错误信息）
+    # 使用 ~np.isfinite 而非 np.isnan，确保在极端 dtype 下也能正确处理
+    true_inf_mask = np.isinf(true_values)
+    pred_inf_mask = np.isinf(pred_values)
+    inf_count = int(np.sum(true_inf_mask | pred_inf_mask))
+    nan_count = invalid_count - inf_count  # 剩余的无效值都是 NaN
+    
+    if invalid_count == 0:
+        # 没有无效值，直接返回
         return true_values, pred_values, None
     
+    # 构建详细的错误描述
+    def _build_invalid_desc() -> str:
+        parts = []
+        if nan_count > 0:
+            parts.append(f"{nan_count} 个 NaN")
+        if inf_count > 0:
+            parts.append(f"{inf_count} 个 Infinity")
+        return "、".join(parts)
+    
     if strategy == NaNHandlingStrategy.REJECT:
-        # 拒绝策略：有任何 NaN 就报错
+        # 拒绝策略：有任何无效值就报错
         raise ValueError(
-            f"数据包含 {nan_count} 个无效值（NaN），"
-            f"占比 {nan_count/total_count*100:.1f}%。"
-            f"请确保 true_value 和 predicted_value 列都是有效的数值。"
+            f"数据包含 {invalid_count} 个无效值（{_build_invalid_desc()}），"
+            f"占比 {invalid_count/total_count*100:.1f}%。"
+            f"请确保 true_value 和 predicted_value 列都是有效的有限数值。"
         )
     
     elif strategy == NaNHandlingStrategy.FILTER:
-        # 过滤策略：移除包含 NaN 的行
-        valid_mask = ~any_nan_mask
-        valid_count = np.sum(valid_mask)
+        # 过滤策略：移除包含无效值的行
+        valid_count = np.sum(both_valid_mask)
         
         if valid_count == 0:
-            raise ValueError("过滤 NaN 后没有有效数据")
+            raise ValueError("过滤无效值后没有有效数据")
         
         valid_ratio = valid_count / total_count
         if valid_ratio < min_valid_ratio:
             raise ValueError(
                 f"有效数据比例过低: {valid_ratio*100:.1f}% < {min_valid_ratio*100:.1f}%。"
-                f"共 {total_count} 行，其中 {nan_count} 行包含无效值。"
+                f"共 {total_count} 行，其中 {invalid_count} 行包含无效值（{_build_invalid_desc()}）。"
             )
         
         warning = None
-        if nan_count > 0:
-            warning = f"已过滤 {nan_count} 行无效数据（占比 {nan_count/total_count*100:.1f}%）"
+        if invalid_count > 0:
+            warning = f"已过滤 {invalid_count} 行无效数据（{_build_invalid_desc()}，占比 {invalid_count/total_count*100:.1f}%）"
         
-        return true_values[valid_mask], pred_values[valid_mask], warning
+        return true_values[both_valid_mask], pred_values[both_valid_mask], warning
     
     else:
-        raise ValueError(f"未知的 NaN 处理策略: {strategy}")
+        raise ValueError(f"未知的无效值处理策略: {strategy}")
 
 
 # ============ 指标计算 ============
@@ -295,7 +327,7 @@ def validate_numeric_data(
 def calculate_metrics(
     true_values: np.ndarray, 
     pred_values: np.ndarray,
-    handle_nan: bool = False
+    handle_invalid: bool = False
 ) -> dict:
     """
     计算评估指标
@@ -303,7 +335,7 @@ def calculate_metrics(
     Args:
         true_values: 真实值数组
         pred_values: 预测值数组
-        handle_nan: 是否自动过滤 NaN（用于可视化对比）
+        handle_invalid: 是否自动过滤无效值（NaN/Infinity，用于可视化对比）
     
     Returns:
         包含各项指标的字典
@@ -311,8 +343,8 @@ def calculate_metrics(
     if len(true_values) == 0 or len(pred_values) == 0:
         return {"mse": 0.0, "rmse": 0.0, "mae": 0.0, "r2": 0.0, "mape": 0.0}
     
-    # 处理 NaN
-    if handle_nan:
+    # 处理无效值（NaN 和 ±Infinity）
+    if handle_invalid:
         try:
             true_values, pred_values, _ = validate_numeric_data(
                 true_values, pred_values, 

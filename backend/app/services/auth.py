@@ -1,6 +1,9 @@
 """
 认证服务模块
 提供密码哈希、JWT Token 生成和验证等功能
+
+重要：所有需要 JWT 密钥的操作都应通过本模块进行，
+不要直接调用 settings.get_jwt_secret_key()，以确保密钥一致性。
 """
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -14,15 +17,36 @@ from app.config import settings
 # 密码哈希上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# 缓存 JWT 密钥（避免每次调用都生成新的随机密钥）
+# 缓存 JWT 密钥（进程内单例，避免每次调用都生成新的随机密钥）
 _jwt_secret_key: Optional[str] = None
 
 
-def _get_jwt_secret() -> str:
-    """获取 JWT 密钥（带缓存）"""
+def init_jwt_secret() -> str:
+    """
+    初始化 JWT 密钥（应在应用启动时调用）
+    
+    此函数确保 JWT 密钥在进程内只初始化一次，
+    后续所有 Token 操作都使用同一个密钥。
+    
+    Returns:
+        JWT 密钥字符串
+    """
     global _jwt_secret_key
     if _jwt_secret_key is None:
         _jwt_secret_key = settings.get_jwt_secret_key()
+    return _jwt_secret_key
+
+
+def _get_jwt_secret() -> str:
+    """
+    获取 JWT 密钥（内部使用，带缓存）
+    
+    如果尚未初始化，会自动调用 init_jwt_secret()。
+    但推荐在应用启动时显式调用 init_jwt_secret()。
+    """
+    global _jwt_secret_key
+    if _jwt_secret_key is None:
+        return init_jwt_secret()
     return _jwt_secret_key
 
 

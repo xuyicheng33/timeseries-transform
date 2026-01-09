@@ -9,7 +9,7 @@ import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, distinct, or_
+from sqlalchemy import select, func, distinct
 from typing import Optional
 
 from app.database import get_db
@@ -23,6 +23,11 @@ from app.services.utils import (
 )
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
+from app.services.permissions import (
+    check_read_access, check_write_access, check_dataset_write_access,
+    build_result_query, get_isolation_conditions,
+    ResourceType, ActionType
+)
 from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/results", tags=["results"])
@@ -33,110 +38,6 @@ REQUIRED_COLUMNS = {"true_value", "predicted_value"}
 def _parse_result_csv_sync(filepath: str):
     """同步解析结果CSV"""
     return pd.read_csv(filepath)
-
-
-def _check_dataset_access(dataset: Dataset, user: User) -> None:
-    """检查用户是否有权访问数据集（只读）"""
-    if not settings.ENABLE_DATA_ISOLATION:
-        return
-    
-    # 公开数据集允许登录用户访问（public=登录用户可见）
-    if dataset.is_public:
-        return
-    
-    if user.is_admin:
-        return
-    
-    if dataset.user_id == user.id:
-        return
-    
-    raise HTTPException(status_code=403, detail="无权访问此数据集")
-
-
-def _check_dataset_write_access(dataset: Dataset, user: User) -> None:
-    """
-    检查用户是否有权向数据集写入（上传结果等）
-    
-    无论是否开启数据隔离，写入操作都只允许：
-    - 数据集所有者
-    - 管理员
-    """
-    # 管理员有所有权限
-    if user.is_admin:
-        return
-    
-    # 只有数据集所有者可以写入
-    if dataset.user_id == user.id:
-        return
-    
-    # 其他用户（包括公开数据集）不允许写入
-    raise HTTPException(status_code=403, detail="无权向此数据集上传结果，只有数据集所有者可以操作")
-
-
-def _check_result_permission(result: Result, dataset: Optional[Dataset], user: User, action: str = "访问") -> None:
-    """
-    检查用户对结果的操作权限
-    
-    读取操作（访问、下载）：
-    - 团队模式：所有登录用户可访问
-    - 隔离模式：只能访问自己的、自己数据集的、或公开数据集的结果
-    
-    写入操作（修改、删除）：
-    - 无论哪种模式，只有结果所有者、数据集所有者、管理员可以操作
-    """
-    # 管理员有所有权限
-    if user.is_admin:
-        return
-    
-    # 写入操作：严格限制
-    if action in ["修改", "删除"]:
-        # 结果所有者可以操作
-        if result.user_id == user.id:
-            return
-        # 数据集所有者可以操作
-        if dataset and dataset.user_id == user.id:
-            return
-        raise HTTPException(status_code=403, detail=f"无权{action}此结果")
-    
-    # 读取操作
-    if not settings.ENABLE_DATA_ISOLATION:
-        # 团队模式：所有登录用户可访问
-        return
-    
-    # 隔离模式下的读取权限检查
-    # 公开数据集的结果允许登录用户读取/下载
-    if dataset and dataset.is_public:
-        return
-    
-    # 结果所有者可以访问
-    if result.user_id == user.id:
-        return
-    
-    # 数据集所有者可以访问
-    if dataset and dataset.user_id == user.id:
-        return
-    
-    raise HTTPException(status_code=403, detail=f"无权{action}此结果")
-
-
-def _build_result_query(user: User, base_query=None):
-    """构建结果查询，根据数据隔离配置过滤"""
-    if base_query is None:
-        base_query = select(Result)
-    
-    if settings.ENABLE_DATA_ISOLATION:
-        if not user.is_admin:
-            # 普通用户只能看到自己的结果、自己数据集的结果、或公开数据集的结果（public=登录用户可见）
-            base_query = base_query.join(Dataset).where(
-                or_(
-                    Result.user_id == user.id,
-                    Dataset.user_id == user.id,
-                    Dataset.is_public == True
-                )
-            )
-        # 管理员不做过滤
-    
-    return base_query
 
 
 @router.post("/upload", response_model=ResultResponse)
@@ -172,7 +73,7 @@ async def upload_result(
         raise HTTPException(status_code=404, detail="数据集不存在")
     
     # 检查用户是否有权向该数据集上传结果（只有所有者可以）
-    _check_dataset_write_access(dataset, current_user)
+    check_dataset_write_access(dataset, current_user, "上传结果")
     
     # 校验 configuration_id 归属
     if configuration_id is not None:
@@ -281,17 +182,11 @@ async def list_model_names(
     query = select(distinct(Result.algo_name)).where(Result.algo_name.isnot(None))
     
     # 数据隔离过滤
-    if settings.ENABLE_DATA_ISOLATION:
-        if not current_user.is_admin:
-            # 普通用户（public=登录用户可见）
-            query = query.join(Dataset).where(
-                or_(
-                    Result.user_id == current_user.id,
-                    Dataset.user_id == current_user.id,
-                    Dataset.is_public == True
-                )
-            )
-        # 管理员不做过滤
+    conditions, need_join = get_isolation_conditions(current_user, Result)
+    if need_join:
+        query = query.join(Dataset)
+    for cond in conditions:
+        query = query.where(cond)
     
     if dataset_id is not None:
         query = query.where(Result.dataset_id == dataset_id)
@@ -310,7 +205,7 @@ async def list_all_results(
     current_user: User = Depends(get_current_user)
 ):
     """获取所有结果（不分页，用于下拉选择等场景，限制最多1000条）"""
-    query = _build_result_query(current_user)
+    query = build_result_query(current_user)
     query = query.order_by(Result.created_at.desc())
     
     if dataset_id is not None:
@@ -341,7 +236,6 @@ async def list_results(
     
     # 构建查询条件
     conditions = []
-    join_dataset = False
     
     if dataset_id is not None:
         conditions.append(Result.dataset_id == dataset_id)
@@ -349,22 +243,12 @@ async def list_results(
         conditions.append(Result.algo_name == algo_name)
     
     # 数据隔离过滤
-    if settings.ENABLE_DATA_ISOLATION:
-        join_dataset = True
-        if not current_user.is_admin:
-            # 普通用户（public=登录用户可见）
-            conditions.append(
-                or_(
-                    Result.user_id == current_user.id,
-                    Dataset.user_id == current_user.id,
-                    Dataset.is_public == True
-                )
-            )
-        # 管理员不做过滤
+    isolation_conditions, need_join = get_isolation_conditions(current_user, Result)
+    conditions.extend(isolation_conditions)
     
     # 查询总数
     count_query = select(func.count(Result.id))
-    if join_dataset:
+    if need_join:
         count_query = count_query.join(Dataset)
     for cond in conditions:
         count_query = count_query.where(cond)
@@ -373,7 +257,7 @@ async def list_results(
     
     # 查询分页数据
     query = select(Result)
-    if join_dataset:
+    if need_join:
         query = query.join(Dataset)
     query = query.order_by(Result.created_at.desc())
     for cond in conditions:
@@ -407,7 +291,7 @@ async def get_result(
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     
-    _check_result_permission(result_obj, dataset, current_user, "访问")
+    check_read_access(result_obj, current_user, ResourceType.RESULT, parent_dataset=dataset)
     return result_obj
 
 
@@ -427,7 +311,7 @@ async def download_result(
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     
-    _check_result_permission(result_obj, dataset, current_user, "下载")
+    check_read_access(result_obj, current_user, ResourceType.RESULT, parent_dataset=dataset)
     
     # 检查文件是否存在
     if not os.path.exists(result_obj.filepath):
@@ -457,7 +341,7 @@ async def update_result(
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     
-    _check_result_permission(result_obj, dataset, current_user, "修改")
+    check_write_access(result_obj, current_user, ActionType.WRITE, ResourceType.RESULT, parent_dataset=dataset)
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -488,7 +372,7 @@ async def delete_result(
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     
-    _check_result_permission(result_obj, dataset, current_user, "删除")
+    check_write_access(result_obj, current_user, ActionType.DELETE, ResourceType.RESULT, parent_dataset=dataset)
     
     # 记录要删除的目录
     result_dir = settings.RESULTS_DIR / str(result_obj.dataset_id) / str(result_id)

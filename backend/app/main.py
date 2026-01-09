@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings, init_directories
 from app.database import init_db, close_db
 from app.services.executor import shutdown_executor
+from app.services.auth import init_jwt_secret
 from app.api import datasets, configurations, results, visualization, auth
 
 
@@ -18,8 +19,9 @@ async def lifespan(app: FastAPI):
     # 2. 初始化数据库连接
     await init_db()
     
-    # 3. 验证 JWT 密钥（会在首次使用时触发警告或错误）
-    _ = settings.get_jwt_secret_key()
+    # 3. 初始化 JWT 密钥（通过认证服务层，确保进程内一致性）
+    # 这会触发密钥生成/验证，并缓存到认证服务模块
+    init_jwt_secret()
     
     yield
     

@@ -9,8 +9,7 @@ import chardet
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
-from typing import Optional
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models import Dataset, Configuration, Result, User
@@ -19,6 +18,11 @@ from app.config import settings
 from app.services.utils import count_csv_rows, sanitize_filename, safe_rmtree, validate_form_field, validate_description
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
+from app.services.permissions import (
+    check_read_access, check_write_access, 
+    build_dataset_query, get_isolation_conditions,
+    ResourceType, ActionType
+)
 from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
@@ -40,81 +44,6 @@ def _detect_encoding_sync(filepath: str) -> str:
         return detected.get("encoding", "utf-8") or "utf-8"
     except:
         return "utf-8"
-
-
-def _build_dataset_query(user: User, base_query=None):
-    """
-    构建数据集查询，根据数据隔离配置过滤
-    
-    Args:
-        user: 当前登录用户（必须已登录）
-        base_query: 基础查询（可选）
-    
-    Returns:
-        过滤后的查询
-    """
-    if base_query is None:
-        base_query = select(Dataset)
-    
-    if settings.ENABLE_DATA_ISOLATION:
-        if not user.is_admin:
-            # 普通用户只能看到自己的数据或公开数据（public=登录用户可见）
-            base_query = base_query.where(
-                or_(
-                    Dataset.user_id == user.id,
-                    Dataset.is_public == True
-                )
-            )
-        # 管理员不做过滤，可以看到所有数据
-    # 团队共享模式：不过滤
-    
-    return base_query
-
-
-def _check_dataset_permission(dataset: Dataset, user: User, action: str = "访问") -> None:
-    """
-    检查用户对数据集的操作权限
-    
-    读取操作（访问、下载、预览）：
-    - 团队模式：所有登录用户可访问
-    - 隔离模式：只能访问自己的或公开的数据集
-    
-    写入操作（修改、删除）：
-    - 无论哪种模式，只有所有者和管理员可以操作
-    
-    Args:
-        dataset: 数据集对象
-        user: 当前登录用户（必须已登录）
-        action: 操作类型（用于错误提示）
-    
-    Raises:
-        HTTPException: 无权限时抛出 403
-    """
-    # 管理员有所有权限
-    if user.is_admin:
-        return
-    
-    # 写入操作：严格限制为所有者
-    if action in ["修改", "删除"]:
-        if dataset.user_id == user.id:
-            return
-        raise HTTPException(status_code=403, detail=f"无权{action}此数据集，只有数据集所有者可以操作")
-    
-    # 读取操作
-    if not settings.ENABLE_DATA_ISOLATION:
-        # 团队共享模式：所有登录用户都可以读取
-        return
-    
-    # 隔离模式下的读取权限检查
-    # 公开数据集允许登录用户读取
-    if dataset.is_public:
-        return
-    
-    # 所有者可以读取
-    if dataset.user_id == user.id:
-        return
-    
-    raise HTTPException(status_code=403, detail=f"无权{action}此数据集")
 
 
 @router.post("/upload", response_model=DatasetResponse)
@@ -206,7 +135,7 @@ async def list_all_datasets(
     current_user: User = Depends(get_current_user)
 ):
     """获取所有数据集（不分页，用于下拉选择等场景，限制最多1000条）"""
-    query = _build_dataset_query(current_user)
+    query = build_dataset_query(current_user)
     query = query.order_by(Dataset.created_at.desc()).limit(1000)
     
     result = await db.execute(query)
@@ -226,26 +155,19 @@ async def list_datasets(
     page_size = max(1, min(100, page_size))
     offset = (page - 1) * page_size
     
-    # 构建基础查询条件
-    base_conditions = []
-    if settings.ENABLE_DATA_ISOLATION:
-        if not current_user.is_admin:
-            # 普通用户只能看到自己的数据或公开数据（public=登录用户可见）
-            base_conditions.append(
-                or_(Dataset.user_id == current_user.id, Dataset.is_public == True)
-            )
-        # 管理员不做过滤
+    # 获取数据隔离条件
+    conditions, _ = get_isolation_conditions(current_user, Dataset)
     
     # 查询总数
     count_query = select(func.count(Dataset.id))
-    for cond in base_conditions:
+    for cond in conditions:
         count_query = count_query.where(cond)
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     
     # 查询分页数据
     query = select(Dataset).order_by(Dataset.created_at.desc())
-    for cond in base_conditions:
+    for cond in conditions:
         query = query.where(cond)
     query = query.offset(offset).limit(page_size)
     
@@ -272,7 +194,7 @@ async def get_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    _check_dataset_permission(dataset, current_user, "访问")
+    check_read_access(dataset, current_user, ResourceType.DATASET)
     return dataset
 
 
@@ -292,7 +214,7 @@ async def preview_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    _check_dataset_permission(dataset, current_user, "预览")
+    check_read_access(dataset, current_user, ResourceType.DATASET)
     
     # 检查文件是否存在
     if not os.path.exists(dataset.filepath):
@@ -350,7 +272,7 @@ async def download_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    _check_dataset_permission(dataset, current_user, "下载")
+    check_read_access(dataset, current_user, ResourceType.DATASET)
     
     # 检查文件是否存在
     if not os.path.exists(dataset.filepath):
@@ -376,7 +298,7 @@ async def update_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    _check_dataset_permission(dataset, current_user, "修改")
+    check_write_access(dataset, current_user, ActionType.WRITE, ResourceType.DATASET)
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -403,7 +325,7 @@ async def delete_dataset(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    _check_dataset_permission(dataset, current_user, "删除")
+    check_write_access(dataset, current_user, ActionType.DELETE, ResourceType.DATASET)
     
     # 先提交数据库删除，再清理文件（避免事务失败但文件已删除）
     # 级联删除关联的配置
