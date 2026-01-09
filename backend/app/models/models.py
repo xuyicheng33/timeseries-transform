@@ -44,7 +44,7 @@ class Dataset(Base):
     description = Column(Text, default="")
     # 用户关联（用于数据隔离）
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
-    is_public = Column(Boolean, default=True)  # 是否公开（团队共享）
+    is_public = Column(Boolean, default=False)  # 是否公开（默认私有）
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     

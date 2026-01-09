@@ -43,7 +43,8 @@ cd timeseries-platform
 
 # 2. Configure environment variables
 cp docker.env.example .env
-# Edit .env and set JWT_SECRET_KEY (important for production!)
+# Edit .env and set JWT_SECRET_KEY (required!)
+# Generate key: python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 # 3. Build and start services
 docker-compose up -d
@@ -108,7 +109,7 @@ npm run dev
 
 **Access:**
 - Frontend: http://localhost:5173
-- API Docs: http://localhost:8000/docs
+- API Docs: http://localhost:8000/api/docs
 
 ## Project Structure
 
@@ -171,7 +172,7 @@ timeseries-platform/
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `JWT_SECRET_KEY` | JWT signing key (must change in production!) | random |
+| `JWT_SECRET_KEY` | JWT signing key (**required** for Docker!) | - |
 | `ENABLE_DATA_ISOLATION` | `true` = user isolation, `false` = team sharing | `false` |
 | `FRONTEND_PORT` | Frontend exposed port (Docker) | `80` |
 | `DATABASE_URL` | Database connection string | SQLite |

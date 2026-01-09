@@ -21,8 +21,8 @@ services:
       - PORT=8000
       # 数据库配置（使用 SQLite，数据持久化到 volume）
       - DATABASE_URL=sqlite+aiosqlite:///./data/timeseries.db
-      # JWT 配置（生产环境必须修改！）
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-please-change-this-secret-key-in-production}
+      # JWT 配置（生产环境必须在 .env 中设置 JWT_SECRET_KEY！）
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required - please set it in .env file}
       - JWT_ALGORITHM=HS256
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
       - JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
@@ -62,7 +62,7 @@ services:
     networks:
       - timeseries-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3

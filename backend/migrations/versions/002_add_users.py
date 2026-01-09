@@ -48,7 +48,7 @@ def upgrade() -> None:
     # 使用批量模式（SQLite 兼容）
     with op.batch_alter_table('datasets', schema=None) as batch_op:
         batch_op.add_column(sa.Column('user_id', sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column('is_public', sa.Boolean(), server_default='1', nullable=False))
+        batch_op.add_column(sa.Column('is_public', sa.Boolean(), server_default='0', nullable=False))
         batch_op.create_foreign_key(
             'fk_datasets_user_id', 
             'users', 

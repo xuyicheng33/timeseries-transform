@@ -68,7 +68,7 @@ class DatasetResponse(DatasetBase):
     column_count: int
     columns: List[str]
     user_id: Optional[int] = None
-    is_public: bool = True
+    is_public: bool = False
     created_at: datetime
     updated_at: datetime
 

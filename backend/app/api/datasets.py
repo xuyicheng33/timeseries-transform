@@ -75,6 +75,13 @@ def _check_dataset_permission(dataset: Dataset, user: User, action: str = "访�
     """
     检查用户对数据集的操作权限
     
+    读取操作（访问、下载、预览）：
+    - 团队模式：所有登录用户可访问
+    - 隔离模式：只能访问自己的或公开的数据集
+    
+    写入操作（修改、删除）：
+    - 无论哪种模式，只有所有者和管理员可以操作
+    
     Args:
         dataset: 数据集对象
         user: 当前登录用户（必须已登录）
@@ -83,19 +90,27 @@ def _check_dataset_permission(dataset: Dataset, user: User, action: str = "访�
     Raises:
         HTTPException: 无权限时抛出 403
     """
-    if not settings.ENABLE_DATA_ISOLATION:
-        # 团队共享模式：所有登录用户都有权限
-        return
-    
-    # 公开数据集允许登录用户读取（public=登录用户可见）
-    if dataset.is_public and action in ["访问", "下载", "预览"]:
-        return
-    
     # 管理员有所有权限
     if user.is_admin:
         return
     
-    # 所有者有所有权限
+    # 写入操作：严格限制为所有者
+    if action in ["修改", "删除"]:
+        if dataset.user_id == user.id:
+            return
+        raise HTTPException(status_code=403, detail=f"无权{action}此数据集，只有数据集所有者可以操作")
+    
+    # 读取操作
+    if not settings.ENABLE_DATA_ISOLATION:
+        # 团队共享模式：所有登录用户都可以读取
+        return
+    
+    # 隔离模式下的读取权限检查
+    # 公开数据集允许登录用户读取
+    if dataset.is_public:
+        return
+    
+    # 所有者可以读取
     if dataset.user_id == user.id:
         return
     

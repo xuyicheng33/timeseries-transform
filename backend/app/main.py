@@ -34,7 +34,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    lifespan=lifespan
+    lifespan=lifespan,
+    # Docker 部署时通过 Nginx 代理 /api/*，所以 docs 也放在 /api/ 下
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 app.add_middleware(
