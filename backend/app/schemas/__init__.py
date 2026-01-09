@@ -7,3 +7,16 @@ from app.schemas.enums import (
     SequenceLogic,
     DownsampleAlgorithm,
 )
+
+# 显式导出新增的 schemas
+from app.schemas.schemas import (
+    ErrorAnalysisRequest,
+    ErrorAnalysisResponse,
+    ErrorDistribution,
+    ResidualData,
+    SingleErrorAnalysis,
+    RadarMetrics,
+    RadarChartResponse,
+    RangeMetricsRequest,
+    RangeMetricsResponse,
+)

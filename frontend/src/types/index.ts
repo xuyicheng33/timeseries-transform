@@ -41,6 +41,18 @@ export type {
   SkippedResult,
   WarningInfo,
   CompareResponse,
+  // 新增类型
+  ErrorAnalysisRequest,
+  ErrorDistribution,
+  ResidualData,
+  SingleErrorAnalysis,
+  ErrorAnalysisResponse,
+  RadarMetrics,
+  RankingItem,
+  OverallScore,
+  RadarChartResponse,
+  RangeMetricsRequest,
+  RangeMetricsResponse,
 } from './visualization'
 
 // API

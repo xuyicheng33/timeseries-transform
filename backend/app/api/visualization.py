@@ -1,6 +1,6 @@
 """
 可视化 API 路由
-提供多结果对比、指标计算等功能
+提供多结果对比、指标计算、误差分析、雷达图等功能
 """
 import os
 import time
@@ -17,7 +17,11 @@ from app.database import get_db
 from app.models import Result, Dataset, User
 from app.schemas import (
     CompareRequest, CompareResponse, ChartDataResponse, 
-    ChartDataSeries, MetricsResponse, SkippedResult, WarningInfo
+    ChartDataSeries, MetricsResponse, SkippedResult, WarningInfo,
+    ErrorAnalysisRequest, ErrorAnalysisResponse, ErrorDistribution,
+    ResidualData, SingleErrorAnalysis,
+    RadarMetrics, RadarChartResponse,
+    RangeMetricsRequest, RangeMetricsResponse
 )
 from app.config import settings
 from app.services.utils import (
@@ -458,3 +462,546 @@ async def get_metrics(
     metrics = calculate_metrics(true_vals, pred_vals)
     
     return MetricsResponse(**metrics)
+
+
+# ============ 新增：误差分析 API ============
+
+def _calculate_error_distribution(residuals: np.ndarray, num_bins: int = 20) -> ErrorDistribution:
+    """计算误差分布统计"""
+    # 基础统计
+    min_val = float(np.min(residuals))
+    max_val = float(np.max(residuals))
+    mean_val = float(np.mean(residuals))
+    std_val = float(np.std(residuals))
+    median_val = float(np.median(residuals))
+    q1 = float(np.percentile(residuals, 25))
+    q3 = float(np.percentile(residuals, 75))
+    
+    # 直方图
+    hist, bin_edges = np.histogram(residuals, bins=num_bins)
+    total = len(residuals)
+    histogram = []
+    for i in range(len(hist)):
+        histogram.append({
+            "bin_start": float(bin_edges[i]),
+            "bin_end": float(bin_edges[i + 1]),
+            "count": int(hist[i]),
+            "percentage": float(hist[i] / total * 100)
+        })
+    
+    return ErrorDistribution(
+        min=min_val,
+        max=max_val,
+        mean=mean_val,
+        std=std_val,
+        median=median_val,
+        q1=q1,
+        q3=q3,
+        histogram=histogram
+    )
+
+
+@router.post("/error-analysis", response_model=ErrorAnalysisResponse)
+async def analyze_errors(
+    data: ErrorAnalysisRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    误差分析接口
+    
+    返回残差时序、误差分布统计等信息
+    支持指定区间分析
+    """
+    if not data.result_ids:
+        raise HTTPException(status_code=400, detail="请提供至少一个结果ID")
+    
+    # 查询结果
+    result = await db.execute(select(Result).where(Result.id.in_(data.result_ids)))
+    results = result.scalars().all()
+    
+    # 预加载数据集
+    dataset_ids = {r.dataset_id for r in results}
+    datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
+    datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
+    
+    analyses: List[SingleErrorAnalysis] = []
+    skipped_list: List[SkippedResult] = []
+    
+    # 检查不存在的 ID
+    found_ids = {r.id for r in results}
+    for mid in set(data.result_ids) - found_ids:
+        skipped_list.append(SkippedResult(id=mid, name=f"ID:{mid}", reason="结果不存在"))
+    
+    for res in results:
+        dataset = datasets_map.get(res.dataset_id)
+        
+        # 权限检查
+        if not can_access_result(res, dataset, current_user):
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="无权访问"))
+            continue
+        
+        # 文件检查
+        if not os.path.exists(res.filepath):
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件不存在"))
+            continue
+        
+        if not validate_filepath(res.filepath):
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件路径不安全"))
+            continue
+        
+        try:
+            df = await run_in_executor(
+                _read_csv_sync,
+                res.filepath,
+                ["true_value", "predicted_value"]
+            )
+        except Exception:
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件读取失败"))
+            continue
+        
+        if "true_value" not in df.columns or "predicted_value" not in df.columns:
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="缺少必需列"))
+            continue
+        
+        try:
+            true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+            pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+            
+            # 过滤无效值
+            valid_mask = is_valid_numeric(true_vals) & is_valid_numeric(pred_vals)
+            valid_indices = np.where(valid_mask)[0]
+            
+            true_vals_clean = true_vals[valid_mask]
+            pred_vals_clean = pred_vals[valid_mask]
+            
+            if len(true_vals_clean) == 0:
+                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="无有效数据"))
+                continue
+            
+            # 应用区间筛选
+            start_idx = data.start_index if data.start_index is not None else 0
+            end_idx = data.end_index if data.end_index is not None else len(true_vals_clean)
+            end_idx = min(end_idx, len(true_vals_clean))
+            
+            if start_idx >= end_idx:
+                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="区间无效"))
+                continue
+            
+            # 截取区间数据
+            range_indices = valid_indices[start_idx:end_idx].tolist()
+            true_range = true_vals_clean[start_idx:end_idx]
+            pred_range = pred_vals_clean[start_idx:end_idx]
+            
+            # 计算残差
+            residuals = pred_range - true_range
+            abs_residuals = np.abs(residuals)
+            
+            # 计算百分比误差（避免除零）
+            epsilon = 1e-8
+            safe_true = np.where(np.abs(true_range) > epsilon, true_range, epsilon)
+            percentage_errors = np.abs(residuals / safe_true) * 100
+            percentage_errors = np.clip(percentage_errors, 0, 1000)  # 限制最大值
+            
+            # 计算指标
+            metrics = calculate_metrics(true_range, pred_range)
+            
+            # 计算误差分布
+            distribution = _calculate_error_distribution(residuals)
+            
+            # 降采样残差数据用于前端展示（最多2000点）
+            max_display_points = 2000
+            if len(range_indices) > max_display_points:
+                step = len(range_indices) // max_display_points
+                display_indices = range_indices[::step][:max_display_points]
+                display_residuals = residuals[::step][:max_display_points].tolist()
+                display_abs = abs_residuals[::step][:max_display_points].tolist()
+                display_pct = percentage_errors[::step][:max_display_points].tolist()
+            else:
+                display_indices = range_indices
+                display_residuals = residuals.tolist()
+                display_abs = abs_residuals.tolist()
+                display_pct = percentage_errors.tolist()
+            
+            residual_data = ResidualData(
+                indices=display_indices,
+                residuals=display_residuals,
+                abs_residuals=display_abs,
+                percentage_errors=display_pct
+            )
+            
+            analyses.append(SingleErrorAnalysis(
+                result_id=res.id,
+                result_name=res.name,
+                model_name=res.algo_name,
+                metrics=MetricsResponse(**metrics),
+                distribution=distribution,
+                residual_data=residual_data
+            ))
+            
+        except Exception as e:
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason=f"分析失败: {str(e)[:50]}"))
+            continue
+    
+    range_info = {
+        "start_index": data.start_index,
+        "end_index": data.end_index,
+        "is_full_range": data.start_index is None and data.end_index is None
+    }
+    
+    return ErrorAnalysisResponse(
+        analyses=analyses,
+        skipped=skipped_list,
+        range_info=range_info
+    )
+
+
+# ============ 新增：雷达图 API ============
+
+@router.post("/radar-chart", response_model=RadarChartResponse)
+async def get_radar_chart(
+    data: CompareRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    雷达图数据接口
+    
+    返回归一化后的指标数据，方向统一为越大越好
+    同时返回排名和综合得分
+    """
+    if not data.result_ids:
+        raise HTTPException(status_code=400, detail="请提供至少一个结果ID")
+    
+    # 查询结果
+    result = await db.execute(select(Result).where(Result.id.in_(data.result_ids)))
+    results = result.scalars().all()
+    
+    # 预加载数据集
+    dataset_ids = {r.dataset_id for r in results}
+    datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
+    datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
+    
+    # 收集所有有效结果的指标
+    valid_results: List[Dict[str, Any]] = []
+    
+    for res in results:
+        dataset = datasets_map.get(res.dataset_id)
+        
+        if not can_access_result(res, dataset, current_user):
+            continue
+        
+        # 获取指标
+        metrics = None
+        if res.metrics:
+            metrics = res.metrics
+        elif os.path.exists(res.filepath) and validate_filepath(res.filepath):
+            try:
+                df = await run_in_executor(
+                    _read_csv_sync,
+                    res.filepath,
+                    ["true_value", "predicted_value"]
+                )
+                true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+                pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+                true_vals, pred_vals, _ = validate_numeric_data(
+                    true_vals, pred_vals,
+                    strategy=NaNHandlingStrategy.FILTER,
+                    min_valid_ratio=0.1
+                )
+                metrics = calculate_metrics(true_vals, pred_vals)
+            except Exception:
+                continue
+        
+        if metrics:
+            valid_results.append({
+                "result_id": res.id,
+                "result_name": res.name,
+                "model_name": res.algo_name,
+                "metrics": metrics
+            })
+    
+    if not valid_results:
+        raise HTTPException(status_code=400, detail="没有有效的结果数据")
+    
+    # 提取各指标值
+    mse_vals = [r["metrics"]["mse"] for r in valid_results]
+    rmse_vals = [r["metrics"]["rmse"] for r in valid_results]
+    mae_vals = [r["metrics"]["mae"] for r in valid_results]
+    r2_vals = [r["metrics"]["r2"] for r in valid_results]
+    mape_vals = [r["metrics"]["mape"] for r in valid_results]
+    
+    # 归一化函数（越小越好的指标转换为越大越好）
+    def normalize_lower_better(vals: List[float]) -> List[float]:
+        """归一化：原值越小，得分越高"""
+        min_v, max_v = min(vals), max(vals)
+        if max_v == min_v:
+            return [1.0] * len(vals)
+        # 反转：(max - val) / (max - min)
+        return [(max_v - v) / (max_v - min_v) for v in vals]
+    
+    def normalize_higher_better(vals: List[float]) -> List[float]:
+        """归一化：原值越大，得分越高"""
+        min_v, max_v = min(vals), max(vals)
+        if max_v == min_v:
+            return [1.0] * len(vals)
+        return [(v - min_v) / (max_v - min_v) for v in vals]
+    
+    # 归一化（MSE/RMSE/MAE/MAPE 越小越好，R² 越大越好）
+    mse_scores = normalize_lower_better(mse_vals)
+    rmse_scores = normalize_lower_better(rmse_vals)
+    mae_scores = normalize_lower_better(mae_vals)
+    r2_scores = normalize_higher_better(r2_vals)
+    mape_scores = normalize_lower_better(mape_vals)
+    
+    # 构建雷达图数据
+    radar_results: List[RadarMetrics] = []
+    for i, r in enumerate(valid_results):
+        radar_results.append(RadarMetrics(
+            result_id=r["result_id"],
+            result_name=r["result_name"],
+            model_name=r["model_name"],
+            mse_score=mse_scores[i],
+            rmse_score=rmse_scores[i],
+            mae_score=mae_scores[i],
+            r2_score=r2_scores[i],
+            mape_score=mape_scores[i],
+            raw_metrics=MetricsResponse(**r["metrics"])
+        ))
+    
+    # 计算排名
+    def get_rankings(vals: List[float], result_ids: List[int], lower_better: bool = True) -> List[Dict]:
+        indexed = list(zip(result_ids, vals))
+        sorted_list = sorted(indexed, key=lambda x: x[1], reverse=not lower_better)
+        rankings = []
+        for rank, (rid, val) in enumerate(sorted_list, 1):
+            rankings.append({"result_id": rid, "rank": rank, "value": val})
+        return rankings
+    
+    result_ids = [r["result_id"] for r in valid_results]
+    rankings = {
+        "mse": get_rankings(mse_vals, result_ids, lower_better=True),
+        "rmse": get_rankings(rmse_vals, result_ids, lower_better=True),
+        "mae": get_rankings(mae_vals, result_ids, lower_better=True),
+        "r2": get_rankings(r2_vals, result_ids, lower_better=False),
+        "mape": get_rankings(mape_vals, result_ids, lower_better=True),
+    }
+    
+    # 计算综合得分（各指标得分的平均值）
+    overall_scores = []
+    for i, r in enumerate(valid_results):
+        avg_score = (mse_scores[i] + rmse_scores[i] + mae_scores[i] + r2_scores[i] + mape_scores[i]) / 5
+        overall_scores.append({
+            "result_id": r["result_id"],
+            "result_name": r["result_name"],
+            "model_name": r["model_name"],
+            "score": avg_score
+        })
+    
+    # 按综合得分排序
+    overall_scores.sort(key=lambda x: x["score"], reverse=True)
+    for rank, item in enumerate(overall_scores, 1):
+        item["rank"] = rank
+    
+    return RadarChartResponse(
+        results=radar_results,
+        rankings=rankings,
+        overall_scores=overall_scores
+    )
+
+
+# ============ 新增：区间指标计算 API ============
+
+@router.post("/range-metrics", response_model=RangeMetricsResponse)
+async def calculate_range_metrics(
+    data: RangeMetricsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    区间指标计算接口
+    
+    计算指定区间内的评估指标
+    用于 brush 选区后的指标重算
+    """
+    if not data.result_ids:
+        raise HTTPException(status_code=400, detail="请提供至少一个结果ID")
+    
+    if data.start_index >= data.end_index:
+        raise HTTPException(status_code=400, detail="区间无效：起始索引必须小于结束索引")
+    
+    # 查询结果
+    result = await db.execute(select(Result).where(Result.id.in_(data.result_ids)))
+    results = result.scalars().all()
+    
+    # 预加载数据集
+    dataset_ids = {r.dataset_id for r in results}
+    datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
+    datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
+    
+    metrics_dict: Dict[int, MetricsResponse] = {}
+    skipped_list: List[SkippedResult] = []
+    actual_points = 0
+    
+    # 检查不存在的 ID
+    found_ids = {r.id for r in results}
+    for mid in set(data.result_ids) - found_ids:
+        skipped_list.append(SkippedResult(id=mid, name=f"ID:{mid}", reason="结果不存在"))
+    
+    for res in results:
+        dataset = datasets_map.get(res.dataset_id)
+        
+        if not can_access_result(res, dataset, current_user):
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="无权访问"))
+            continue
+        
+        if not os.path.exists(res.filepath):
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件不存在"))
+            continue
+        
+        if not validate_filepath(res.filepath):
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="文件路径不安全"))
+            continue
+        
+        try:
+            df = await run_in_executor(
+                _read_csv_sync,
+                res.filepath,
+                ["true_value", "predicted_value"]
+            )
+            
+            true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+            pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+            
+            # 过滤无效值
+            valid_mask = is_valid_numeric(true_vals) & is_valid_numeric(pred_vals)
+            true_vals_clean = true_vals[valid_mask]
+            pred_vals_clean = pred_vals[valid_mask]
+            
+            # 应用区间
+            end_idx = min(data.end_index, len(true_vals_clean))
+            if data.start_index >= len(true_vals_clean):
+                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="区间超出数据范围"))
+                continue
+            
+            true_range = true_vals_clean[data.start_index:end_idx]
+            pred_range = pred_vals_clean[data.start_index:end_idx]
+            
+            if len(true_range) == 0:
+                skipped_list.append(SkippedResult(id=res.id, name=res.name, reason="区间内无有效数据"))
+                continue
+            
+            actual_points = max(actual_points, len(true_range))
+            
+            # 计算指标
+            metrics = calculate_metrics(true_range, pred_range)
+            metrics_dict[res.id] = MetricsResponse(**metrics)
+            
+        except Exception as e:
+            skipped_list.append(SkippedResult(id=res.id, name=res.name, reason=f"计算失败: {str(e)[:50]}"))
+            continue
+    
+    return RangeMetricsResponse(
+        range_start=data.start_index,
+        range_end=data.end_index,
+        total_points=actual_points,
+        metrics=metrics_dict,
+        skipped=skipped_list
+    )
+
+
+# ============ 新增：导出对比数据 CSV ============
+
+@router.post("/export-csv")
+async def export_compare_csv(
+    data: CompareRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    导出对比数据为 CSV 格式
+    
+    返回包含所有结果的 true_value 和 predicted_value 的 CSV 数据
+    """
+    from fastapi.responses import StreamingResponse
+    import io
+    import csv
+    
+    if not data.result_ids:
+        raise HTTPException(status_code=400, detail="请提供至少一个结果ID")
+    
+    # 查询结果
+    result = await db.execute(select(Result).where(Result.id.in_(data.result_ids)))
+    results = result.scalars().all()
+    
+    # 预加载数据集
+    dataset_ids = {r.dataset_id for r in results}
+    datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
+    datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
+    
+    # 收集数据
+    all_data: Dict[int, Dict[str, Any]] = {}  # result_id -> {name, model, true_vals, pred_vals}
+    max_length = 0
+    
+    for res in results:
+        dataset = datasets_map.get(res.dataset_id)
+        
+        if not can_access_result(res, dataset, current_user):
+            continue
+        
+        if not os.path.exists(res.filepath) or not validate_filepath(res.filepath):
+            continue
+        
+        try:
+            df = await run_in_executor(
+                _read_csv_sync,
+                res.filepath,
+                ["true_value", "predicted_value"]
+            )
+            
+            true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
+            pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
+            
+            all_data[res.id] = {
+                "name": res.name,
+                "model": res.algo_name,
+                "true_vals": true_vals.tolist(),
+                "pred_vals": pred_vals.tolist()
+            }
+            max_length = max(max_length, len(true_vals))
+            
+        except Exception:
+            continue
+    
+    if not all_data:
+        raise HTTPException(status_code=400, detail="没有可导出的数据")
+    
+    # 生成 CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # 写入表头
+    header = ["index"]
+    for rid, info in all_data.items():
+        header.extend([f"{info['model']}_true", f"{info['model']}_pred"])
+    writer.writerow(header)
+    
+    # 写入数据
+    for i in range(max_length):
+        row = [i]
+        for rid, info in all_data.items():
+            true_val = info["true_vals"][i] if i < len(info["true_vals"]) else ""
+            pred_val = info["pred_vals"][i] if i < len(info["pred_vals"]) else ""
+            row.extend([true_val, pred_val])
+        writer.writerow(row)
+    
+    # 返回 CSV 文件
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=comparison_export_{int(time.time())}.csv"
+        }
+    )

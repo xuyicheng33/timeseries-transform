@@ -317,6 +317,107 @@ class CompareResponse(BaseModel):
     warnings: List[WarningInfo] = Field(default_factory=list)
 
 
+# ============ 增强可视化 Schemas ============
+class ErrorAnalysisRequest(BaseModel):
+    """误差分析请求"""
+    result_ids: List[int] = Field(default_factory=list)
+    start_index: Optional[int] = Field(default=None, ge=0, description="起始索引")
+    end_index: Optional[int] = Field(default=None, ge=0, description="结束索引")
+
+    @field_validator('result_ids')
+    @classmethod
+    def validate_result_ids(cls, v):
+        if not v:
+            raise ValueError('result_ids 不能为空')
+        if len(v) > 10:
+            raise ValueError('最多同时分析 10 个结果')
+        return v
+
+
+class ErrorDistribution(BaseModel):
+    """误差分布统计"""
+    min: float
+    max: float
+    mean: float
+    std: float
+    median: float
+    q1: float  # 25% 分位数
+    q3: float  # 75% 分位数
+    histogram: List[Dict[str, float]]  # [{bin_start, bin_end, count, percentage}]
+
+
+class ResidualData(BaseModel):
+    """残差数据"""
+    indices: List[int]
+    residuals: List[float]  # 预测值 - 真实值
+    abs_residuals: List[float]  # 绝对误差
+    percentage_errors: List[float]  # 百分比误差
+
+
+class SingleErrorAnalysis(BaseModel):
+    """单个结果的误差分析"""
+    result_id: int
+    result_name: str
+    model_name: str
+    metrics: MetricsResponse
+    distribution: ErrorDistribution
+    residual_data: ResidualData
+
+
+class ErrorAnalysisResponse(BaseModel):
+    """误差分析响应"""
+    analyses: List[SingleErrorAnalysis]
+    skipped: List[SkippedResult] = Field(default_factory=list)
+    range_info: Dict[str, Any] = Field(default_factory=dict)  # 区间信息
+
+
+class RadarMetrics(BaseModel):
+    """雷达图指标（归一化后）"""
+    result_id: int
+    result_name: str
+    model_name: str
+    # 归一化后的值 (0-1)，方向统一为越大越好
+    mse_score: float
+    rmse_score: float
+    mae_score: float
+    r2_score: float
+    mape_score: float
+    # 原始值
+    raw_metrics: MetricsResponse
+
+
+class RadarChartResponse(BaseModel):
+    """雷达图响应"""
+    results: List[RadarMetrics]
+    # 排名信息
+    rankings: Dict[str, List[Dict[str, Any]]]  # {metric_name: [{result_id, rank, value}]}
+    # 综合得分
+    overall_scores: List[Dict[str, Any]]  # [{result_id, result_name, score, rank}]
+
+
+class RangeMetricsRequest(BaseModel):
+    """区间指标计算请求"""
+    result_ids: List[int]
+    start_index: int = Field(..., ge=0)
+    end_index: int = Field(..., ge=0)
+
+    @field_validator('result_ids')
+    @classmethod
+    def validate_result_ids(cls, v):
+        if not v:
+            raise ValueError('result_ids 不能为空')
+        return v
+
+
+class RangeMetricsResponse(BaseModel):
+    """区间指标响应"""
+    range_start: int
+    range_end: int
+    total_points: int
+    metrics: Dict[int, MetricsResponse]  # result_id -> metrics
+    skipped: List[SkippedResult] = Field(default_factory=list)
+
+
 # ============ User & Auth Schemas ============
 class UserBase(BaseModel):
     """用户基础信息"""
