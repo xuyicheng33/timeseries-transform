@@ -32,23 +32,23 @@ jobs:
     - name: Check imports
       run: |
         cd backend
-        python -c "
-        import sys
-        sys.path.insert(0, '.')
-        modules = [
-            'app.main',
-            'app.config', 
-            'app.database',
-            'app.models',
-            'app.schemas',
-            'app.services.auth',
-            'app.services.utils',
-            'app.services.permissions',
-        ]
-        for m in modules:
-            __import__(m)
-            print(f'✓ {m}')
-        "
+        python - <<'PY'
+import sys
+sys.path.insert(0, '.')
+modules = [
+    'app.main',
+    'app.config', 
+    'app.database',
+    'app.models',
+    'app.schemas',
+    'app.services.auth',
+    'app.services.utils',
+    'app.services.permissions',
+]
+for m in modules:
+    __import__(m)
+    print(f'✓ {m}')
+PY
 
   frontend-check:
     name: Frontend Quality Check
