@@ -1001,9 +1001,13 @@ async def export_compare_csv(
     导出对比数据为 CSV 格式（流式输出）
     
     返回包含所有结果的 true_value 和 predicted_value 的 CSV 数据
-    - 使用流式输出避免大数据 OOM
+    - 列顺序与请求 result_ids 顺序一致
     - 列名包含 result_id 避免同名模型冲突
     - 添加 UTF-8 BOM 兼容 Excel
+    - 正确处理 numpy NaN
+    
+    注意：为了对齐各结果的行，需要预读所有数据到内存。
+    对于超大数据集，建议分批导出或使用其他方案。
     """
     from fastapi.responses import StreamingResponse
     import csv
@@ -1015,68 +1019,74 @@ async def export_compare_csv(
     # 查询结果
     result = await db.execute(select(Result).where(Result.id.in_(data.result_ids)))
     results = result.scalars().all()
+    results_map = {r.id: r for r in results}
     
     # 预加载数据集
     dataset_ids = {r.dataset_id for r in results}
     datasets_result = await db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids)))
     datasets_map: Dict[int, Dataset] = {d.id: d for d in datasets_result.scalars().all()}
     
-    # 收集有效结果的元信息和文件路径
-    valid_results: List[Dict[str, Any]] = []
+    # 按请求的 result_ids 顺序收集有效结果
+    # 这样保证列顺序与用户选择顺序一致
+    ordered_valid_ids: List[int] = []
     
-    for res in results:
-        dataset = datasets_map.get(res.dataset_id)
+    for rid in data.result_ids:
+        res = results_map.get(rid)
+        if not res:
+            continue
         
+        dataset = datasets_map.get(res.dataset_id)
         if not can_access_result(res, dataset, current_user):
             continue
         
         if not os.path.exists(res.filepath) or not validate_filepath(res.filepath):
             continue
         
-        valid_results.append({
-            "id": res.id,
-            "name": res.name,
-            "model": res.algo_name,
-            "filepath": res.filepath
-        })
+        ordered_valid_ids.append(rid)
     
-    if not valid_results:
+    if not ordered_valid_ids:
         raise HTTPException(status_code=400, detail="没有可导出的数据")
     
-    # ========== 预读取所有数据（在响应开始前完成，确保数据有效） ==========
+    # ========== 预读取所有数据（按顺序） ==========
     all_data: Dict[int, Dict[str, Any]] = {}
     max_length = 0
     
-    for info in valid_results:
+    for rid in ordered_valid_ids:
+        res = results_map[rid]
         try:
             df = await run_in_executor(
                 _read_csv_sync,
-                info["filepath"],
+                res.filepath,
                 ["true_value", "predicted_value"]
             )
             
             true_vals = pd.to_numeric(df["true_value"], errors='coerce').values
             pred_vals = pd.to_numeric(df["predicted_value"], errors='coerce').values
             
-            all_data[info["id"]] = {
-                "name": info["name"],
-                "model": info["model"],
+            all_data[rid] = {
+                "name": res.name,
+                "model": res.algo_name,
                 "true_vals": true_vals,
                 "pred_vals": pred_vals
             }
             max_length = max(max_length, len(true_vals))
             
         except Exception:
+            # 读取失败，从有效列表中移除
+            ordered_valid_ids.remove(rid)
             continue
     
     # 在开始响应前检查数据是否有效
     if not all_data:
         raise HTTPException(status_code=400, detail="所有文件读取失败，无法导出数据")
     
-    # 预生成表头（包含 result_id 避免列名冲突）
+    # 预生成表头（按 ordered_valid_ids 顺序，包含 result_id 避免列名冲突）
     header_parts = ["index"]
-    for rid, info in all_data.items():
-        # 格式: "模型名_ID_true" 和 "模型名_ID_pred"
+    for rid in ordered_valid_ids:
+        if rid not in all_data:
+            continue
+        info = all_data[rid]
+        # 格式: "模型名_rID_true" 和 "模型名_rID_pred"
         safe_model = info["model"].replace(",", "_").replace('"', "'")
         header_parts.append(f"{safe_model}_r{rid}_true")
         header_parts.append(f"{safe_model}_r{rid}_pred")
@@ -1101,15 +1111,22 @@ async def export_compare_csv(
             batch_end = min(batch_start + batch_size, max_length)
             for i in range(batch_start, batch_end):
                 row = [i]
-                for rid, info in all_data.items():
-                    true_val = info["true_vals"][i] if i < len(info["true_vals"]) else ""
-                    pred_val = info["pred_vals"][i] if i < len(info["pred_vals"]) else ""
-                    # 处理 NaN
-                    if isinstance(true_val, float) and np.isnan(true_val):
-                        true_val = ""
-                    if isinstance(pred_val, float) and np.isnan(pred_val):
-                        pred_val = ""
-                    row.extend([true_val, pred_val])
+                # 按 ordered_valid_ids 顺序遍历，保证列顺序一致
+                for rid in ordered_valid_ids:
+                    if rid not in all_data:
+                        row.extend(["", ""])
+                        continue
+                    info = all_data[rid]
+                    
+                    # 获取值
+                    true_val = info["true_vals"][i] if i < len(info["true_vals"]) else np.nan
+                    pred_val = info["pred_vals"][i] if i < len(info["pred_vals"]) else np.nan
+                    
+                    # 使用 pd.isna() 正确处理 numpy.float64 的 NaN
+                    true_str = "" if pd.isna(true_val) else str(true_val)
+                    pred_str = "" if pd.isna(pred_val) else str(pred_val)
+                    
+                    row.extend([true_str, pred_str])
                 writer.writerow(row)
             
             yield output.getvalue()
