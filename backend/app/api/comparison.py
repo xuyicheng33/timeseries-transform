@@ -66,6 +66,8 @@ class ControlledCompareResponse(BaseModel):
     parameter_name: str
     parameter_label: str
     baseline_config: Dict[str, Any]  # 基准配置（其他参数的共同值）
+    config_consistent: bool  # 其他参数是否完全一致
+    inconsistent_params: List[str]  # 不一致的参数列表
     variations: List[Dict[str, Any]]  # 不同参数值的结果
     chart_data: Dict[str, Any]  # 图表数据
 
@@ -130,6 +132,31 @@ def _safe_float(value: Any) -> Optional[float]:
         return f
     except (TypeError, ValueError):
         return None
+
+
+def _is_strictly_numeric(value: Any) -> bool:
+    """
+    判断是否为严格数值类型（排除 bool）
+    Python 中 bool 是 int 的子类，需要显式排除
+    """
+    if isinstance(value, bool):
+        return False
+    return isinstance(value, (int, float))
+
+
+def _sort_key_for_param(value: Any) -> tuple:
+    """
+    参数值排序键，确保数值正确排序
+    返回 (类型优先级, 排序值)
+    - 数值类型按数值排序
+    - 布尔类型 False < True
+    - 其他类型按字符串排序
+    """
+    if isinstance(value, bool):
+        return (1, int(value))  # False=0, True=1
+    if isinstance(value, (int, float)):
+        return (0, value)  # 数值优先，按数值排序
+    return (2, str(value))  # 其他类型按字符串排序
 
 
 def _get_config_value(config: Optional[Configuration], param: str) -> Any:
@@ -292,7 +319,7 @@ async def analyze_configurations(
         param_values = []
         all_metrics_for_sensitivity = []
         
-        for value, group in sorted(value_groups.items(), key=lambda x: str(x[0])):
+        for value, group in sorted(value_groups.items(), key=lambda x: _sort_key_for_param(x[0])):
             metrics_list = [d["metrics"] for d in group]
             means, stds = _aggregate_metrics(metrics_list)
             
@@ -309,8 +336,8 @@ async def analyze_configurations(
             if means.get("rmse") is not None:
                 all_metrics_for_sensitivity.append(means["rmse"])
         
-        # 计算敏感性得分
-        is_numeric = all(isinstance(pv.value, (int, float)) for pv in param_values)
+        # 计算敏感性得分（使用 _is_strictly_numeric 排除 bool）
+        is_numeric = all(_is_strictly_numeric(pv.value) for pv in param_values)
         sensitivity = _calculate_sensitivity(
             [pv.value for pv in param_values] if is_numeric else list(range(len(param_values))),
             all_metrics_for_sensitivity
@@ -405,6 +432,7 @@ async def controlled_comparison(
     # 检查其他参数是否一致
     baseline_config = {}
     config_consistent = True
+    inconsistent_params = []
     
     for param in other_params:
         values = set()
@@ -419,6 +447,7 @@ async def controlled_comparison(
             baseline_config[param] = list(values)[0]
         else:
             config_consistent = False
+            inconsistent_params.append(PARAMETER_LABELS.get(param, param))
             # 取众数作为基准
             from collections import Counter
             val_counts = Counter()
@@ -430,6 +459,28 @@ async def controlled_comparison(
             most_common = val_counts.most_common(1)[0][0]
             baseline_config[param] = most_common
     
+    # 如果配置不一致，只保留符合基准配置的结果
+    if not config_consistent:
+        filtered_results = []
+        for item in results_with_config:
+            match = True
+            for param in other_params:
+                val = item["params"].get(param)
+                if isinstance(val, list):
+                    val = tuple(val)
+                baseline_val = baseline_config.get(param)
+                if isinstance(baseline_val, list):
+                    baseline_val = tuple(baseline_val)
+                if val != baseline_val:
+                    match = False
+                    break
+            if match:
+                filtered_results.append(item)
+        
+        # 如果过滤后结果太少，使用原始结果但标记警告
+        if len(filtered_results) >= 2:
+            results_with_config = filtered_results
+    
     # 按控制参数值分组
     variations = []
     control_values = []
@@ -439,7 +490,7 @@ async def controlled_comparison(
         control_val = item["params"].get(data.control_parameter)
         grouped[control_val].append(item)
     
-    for control_val, items in sorted(grouped.items(), key=lambda x: str(x[0])):
+    for control_val, items in sorted(grouped.items(), key=lambda x: _sort_key_for_param(x[0])):
         metrics_list = [item["result"].metrics for item in items]
         means, stds = _aggregate_metrics(metrics_list)
         
@@ -453,13 +504,13 @@ async def controlled_comparison(
         })
         control_values.append(control_val)
     
-    # 构建图表数据
-    is_numeric = all(isinstance(v, (int, float)) for v in control_values)
+    # 构建图表数据（使用 _is_strictly_numeric 排除 bool）
+    is_numeric = all(_is_strictly_numeric(v) for v in control_values)
     
     chart_data = {
         "x_axis": {
             "name": PARAMETER_LABELS.get(data.control_parameter, data.control_parameter),
-            "data": [str(v) for v in control_values] if not is_numeric else control_values,
+            "data": [str(v) for v in control_values],  # 始终转为字符串，前端更好处理
             "is_numeric": is_numeric
         },
         "series": []
@@ -484,6 +535,8 @@ async def controlled_comparison(
             PARAMETER_LABELS.get(k, k): v 
             for k, v in baseline_config.items()
         },
+        config_consistent=config_consistent,
+        inconsistent_params=inconsistent_params,
         variations=variations,
         chart_data=chart_data
     )
@@ -562,16 +615,16 @@ async def analyze_sensitivity(
         if len(value_groups) < 2:
             continue
         
-        # 计算每个参数值的平均指标
+        # 计算每个参数值的平均指标（使用正确的排序）
         param_values = []
         metric_means = []
         
-        for val, metrics in sorted(value_groups.items(), key=lambda x: str(x[0])):
+        for val, metrics in sorted(value_groups.items(), key=lambda x: _sort_key_for_param(x[0])):
             param_values.append(val)
             metric_means.append(np.mean(metrics))
         
-        # 计算敏感性得分
-        is_numeric = all(isinstance(v, (int, float)) for v in param_values)
+        # 计算敏感性得分（使用 _is_strictly_numeric 排除 bool）
+        is_numeric = all(_is_strictly_numeric(v) for v in param_values)
         sensitivity = _calculate_sensitivity(
             param_values if is_numeric else list(range(len(param_values))),
             metric_means

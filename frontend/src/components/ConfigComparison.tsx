@@ -594,6 +594,22 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
                 <Spin spinning={controlledLoading}>
                   {controlledData ? (
                     <div>
+                      {/* 配置不一致警告 */}
+                      {!controlledData.config_consistent && (
+                        <Alert
+                          type="warning"
+                          showIcon
+                          style={{ marginBottom: 16 }}
+                          message="其他参数不完全一致"
+                          description={
+                            <span>
+                              以下参数存在差异：{controlledData.inconsistent_params.join('、')}。
+                              已自动过滤为基准配置的结果，对比结论更可靠。
+                            </span>
+                          }
+                        />
+                      )}
+
                       {/* 基准配置 */}
                       <Card
                         title={

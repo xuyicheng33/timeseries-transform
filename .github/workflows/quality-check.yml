@@ -49,6 +49,7 @@ modules = [
     'app.api.quality',
     'app.api.exploration',
     'app.api.batch',
+    'app.api.comparison',
 ]
 for m in modules:
     __import__(m)
