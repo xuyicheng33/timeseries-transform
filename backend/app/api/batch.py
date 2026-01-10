@@ -6,9 +6,10 @@ import os
 import json
 import zipfile
 import tempfile
+import aiofiles
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -19,6 +20,7 @@ from app.models import Dataset, Configuration, Result, User
 from app.config import settings
 from app.services.utils import safe_rmtree
 from app.services.executor import run_in_executor
+from app.services.security import validate_filepath
 from app.services.permissions import (
     check_write_access, check_read_access,
     ResourceType, ActionType
@@ -26,6 +28,10 @@ from app.services.permissions import (
 from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/batch", tags=["batch"])
+
+# 导入文件分块大小
+CHUNK_SIZE = 1024 * 1024  # 1MB
+MAX_IMPORT_SIZE = 500 * 1024 * 1024  # 500MB
 
 
 # ============ 请求/响应模型 ============
@@ -50,15 +56,6 @@ class BatchExportRequest(BaseModel):
     include_results: bool = Field(default=False, description="是否包含结果文件")
 
 
-class ExportMetadata(BaseModel):
-    """导出元数据"""
-    export_time: str
-    export_version: str = "1.0"
-    datasets_count: int
-    configs_count: int
-    results_count: int
-
-
 # ============ 批量删除 API ============
 
 @router.post("/datasets/delete", response_model=BatchDeleteResult)
@@ -70,13 +67,14 @@ async def batch_delete_datasets(
     """
     批量删除数据集
     
-    会同时删除关联的配置和结果
+    每个数据集单独事务处理，失败不影响其他
     """
     success_count = 0
     failed_ids = []
     errors = []
     
     for dataset_id in request.ids:
+        # 每个 ID 单独处理，失败时回滚当前操作
         try:
             # 查询数据集
             result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
@@ -95,6 +93,9 @@ async def batch_delete_datasets(
                 errors.append(f"数据集 {dataset_id}: {e.detail}")
                 continue
             
+            # 收集要删除的文件目录（commit 成功后再删）
+            dirs_to_delete = []
+            
             # 删除关联的配置
             configs = await db.execute(select(Configuration).where(Configuration.dataset_id == dataset_id))
             for config in configs.scalars().all():
@@ -102,38 +103,40 @@ async def batch_delete_datasets(
             
             # 删除关联的结果
             results_query = await db.execute(select(Result).where(Result.dataset_id == dataset_id))
-            result_dirs = []
             for res in results_query.scalars().all():
                 result_dir = settings.RESULTS_DIR / str(dataset_id) / str(res.id)
                 if result_dir.exists():
-                    result_dirs.append(str(result_dir))
+                    dirs_to_delete.append(str(result_dir))
                 await db.delete(res)
+            
+            # 数据集目录
+            dataset_dir = settings.DATASETS_DIR / str(dataset_id)
+            if dataset_dir.exists():
+                dirs_to_delete.append(str(dataset_dir))
             
             # 删除数据集
             await db.delete(dataset)
-            await db.flush()
             
-            # 清理文件
-            for result_dir in result_dirs:
-                await run_in_executor(safe_rmtree, result_dir)
+            # 提交当前数据集的删除
+            await db.commit()
             
-            dataset_dir = settings.DATASETS_DIR / str(dataset_id)
-            if dataset_dir.exists():
-                await run_in_executor(safe_rmtree, str(dataset_dir))
+            # commit 成功后再清理文件
+            for dir_path in dirs_to_delete:
+                await run_in_executor(safe_rmtree, dir_path)
             
             success_count += 1
             
         except Exception as e:
+            # 回滚当前失败的操作
+            await db.rollback()
             failed_ids.append(dataset_id)
             errors.append(f"数据集 {dataset_id}: {str(e)}")
-    
-    await db.commit()
     
     return BatchDeleteResult(
         success_count=success_count,
         failed_count=len(failed_ids),
         failed_ids=failed_ids,
-        errors=errors[:10]  # 最多返回10条错误信息
+        errors=errors[:10]
     )
 
 
@@ -170,14 +173,13 @@ async def batch_delete_configurations(
                 continue
             
             await db.delete(config)
-            await db.flush()
+            await db.commit()
             success_count += 1
             
         except Exception as e:
+            await db.rollback()
             failed_ids.append(config_id)
             errors.append(f"配置 {config_id}: {str(e)}")
-    
-    await db.commit()
     
     return BatchDeleteResult(
         success_count=success_count,
@@ -223,19 +225,18 @@ async def batch_delete_results(
             result_dir = settings.RESULTS_DIR / str(result_obj.dataset_id) / str(result_id)
             
             await db.delete(result_obj)
-            await db.flush()
+            await db.commit()
             
-            # 清理文件
+            # commit 成功后再清理文件
             if result_dir.exists():
                 await run_in_executor(safe_rmtree, str(result_dir))
             
             success_count += 1
             
         except Exception as e:
+            await db.rollback()
             failed_ids.append(result_id)
             errors.append(f"结果 {result_id}: {str(e)}")
-    
-    await db.commit()
     
     return BatchDeleteResult(
         success_count=success_count,
@@ -252,7 +253,8 @@ def _create_export_zip(
     configs: List[Configuration],
     results: List[Result],
     include_results: bool,
-    temp_dir: str
+    temp_dir: str,
+    skipped_files: List[str]
 ) -> str:
     """创建导出 ZIP 文件（同步）"""
     zip_path = os.path.join(temp_dir, "export.zip")
@@ -264,7 +266,8 @@ def _create_export_zip(
             "export_version": "1.0",
             "datasets_count": len(datasets),
             "configs_count": len(configs),
-            "results_count": len(results) if include_results else 0
+            "results_count": len(results) if include_results else 0,
+            "skipped_files": skipped_files
         }
         zf.writestr("metadata.json", json.dumps(metadata, indent=2, ensure_ascii=False))
         
@@ -284,9 +287,12 @@ def _create_export_zip(
             }
             datasets_data.append(ds_info)
             
-            # 添加数据文件
-            if os.path.exists(ds.filepath):
-                zf.write(ds.filepath, f"datasets/{ds.id}/data.csv")
+            # 添加数据文件（校验路径安全）
+            if ds.filepath and os.path.exists(ds.filepath):
+                if validate_filepath(ds.filepath):
+                    zf.write(ds.filepath, f"datasets/{ds.id}/data.csv")
+                else:
+                    skipped_files.append(f"datasets/{ds.id}: 路径不安全")
         
         zf.writestr("datasets.json", json.dumps(datasets_data, indent=2, ensure_ascii=False))
         
@@ -331,18 +337,27 @@ def _create_export_zip(
                 }
                 results_data.append(res_info)
                 
-                # 添加结果文件
-                if os.path.exists(res.filepath):
-                    zf.write(res.filepath, f"results/{res.dataset_id}/{res.id}/prediction.csv")
+                # 添加结果文件（校验路径安全）
+                if res.filepath and os.path.exists(res.filepath):
+                    if validate_filepath(res.filepath):
+                        zf.write(res.filepath, f"results/{res.dataset_id}/{res.id}/prediction.csv")
+                    else:
+                        skipped_files.append(f"results/{res.dataset_id}/{res.id}: 路径不安全")
             
             zf.writestr("results.json", json.dumps(results_data, indent=2, ensure_ascii=False))
     
     return zip_path
 
 
+def _cleanup_temp_dir(temp_dir: str):
+    """清理临时目录（用于 BackgroundTasks）"""
+    safe_rmtree(temp_dir)
+
+
 @router.post("/export")
 async def export_data(
     request: BatchExportRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -398,6 +413,8 @@ async def export_data(
     
     # 创建临时目录和 ZIP 文件
     temp_dir = tempfile.mkdtemp()
+    skipped_files: List[str] = []
+    
     try:
         zip_path = await run_in_executor(
             _create_export_zip,
@@ -405,25 +422,44 @@ async def export_data(
             configs,
             results,
             request.include_results,
-            temp_dir
+            temp_dir,
+            skipped_files
         )
         
         # 生成文件名
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"timeseries_export_{timestamp}.zip"
         
+        # 使用 BackgroundTasks 在响应完成后清理临时目录
+        background_tasks.add_task(_cleanup_temp_dir, temp_dir)
+        
         return FileResponse(
             zip_path,
             filename=filename,
-            media_type="application/zip",
-            background=None  # 不自动删除，由客户端下载完成后清理
+            media_type="application/zip"
         )
     except Exception as e:
+        # 出错时立即清理
         await run_in_executor(safe_rmtree, temp_dir)
         raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 
 
 # ============ 导入 API ============
+
+async def _save_upload_to_temp(file: UploadFile, temp_dir: str) -> str:
+    """分块保存上传文件到临时目录"""
+    zip_path = os.path.join(temp_dir, "import.zip")
+    total_size = 0
+    
+    async with aiofiles.open(zip_path, 'wb') as f:
+        while chunk := await file.read(CHUNK_SIZE):
+            total_size += len(chunk)
+            if total_size > MAX_IMPORT_SIZE:
+                raise HTTPException(status_code=400, detail=f"文件过大，最大支持 {MAX_IMPORT_SIZE // 1024 // 1024}MB")
+            await f.write(chunk)
+    
+    return zip_path
+
 
 def _parse_import_zip(zip_path: str) -> dict:
     """解析导入的 ZIP 文件（同步）"""
@@ -436,23 +472,18 @@ def _parse_import_zip(zip_path: str) -> dict:
     }
     
     with zipfile.ZipFile(zip_path, 'r') as zf:
-        # 读取元数据
         if "metadata.json" in zf.namelist():
             data["metadata"] = json.loads(zf.read("metadata.json").decode('utf-8'))
         
-        # 读取数据集信息
         if "datasets.json" in zf.namelist():
             data["datasets"] = json.loads(zf.read("datasets.json").decode('utf-8'))
         
-        # 读取配置信息
         if "configurations.json" in zf.namelist():
             data["configurations"] = json.loads(zf.read("configurations.json").decode('utf-8'))
         
-        # 读取结果信息
         if "results.json" in zf.namelist():
             data["results"] = json.loads(zf.read("results.json").decode('utf-8'))
         
-        # 记录文件列表
         for name in zf.namelist():
             if name.startswith("datasets/") and name.endswith(".csv"):
                 data["files"][name] = True
@@ -475,18 +506,11 @@ async def preview_import(
     if not file.filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="仅支持 ZIP 文件")
     
-    # 保存到临时文件
     temp_dir = tempfile.mkdtemp()
-    zip_path = os.path.join(temp_dir, "import.zip")
     
     try:
-        # 写入文件
-        content = await file.read()
-        if len(content) > 500 * 1024 * 1024:  # 500MB 限制
-            raise HTTPException(status_code=400, detail="文件过大，最大支持 500MB")
-        
-        with open(zip_path, 'wb') as f:
-            f.write(content)
+        # 分块写入临时文件
+        zip_path = await _save_upload_to_temp(file, temp_dir)
         
         # 解析 ZIP
         data = await run_in_executor(_parse_import_zip, zip_path)
@@ -519,20 +543,14 @@ async def import_data(
         raise HTTPException(status_code=400, detail="仅支持 ZIP 文件")
     
     temp_dir = tempfile.mkdtemp()
-    zip_path = os.path.join(temp_dir, "import.zip")
+    created_dirs: List[str] = []  # 记录创建的目录，失败时清理
     
     try:
-        # 写入文件
-        content = await file.read()
-        if len(content) > 500 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="文件过大，最大支持 500MB")
-        
-        with open(zip_path, 'wb') as f:
-            f.write(content)
+        # 分块写入临时文件
+        zip_path = await _save_upload_to_temp(file, temp_dir)
         
         # 解析 ZIP
         with zipfile.ZipFile(zip_path, 'r') as zf:
-            # 读取数据
             datasets_data = []
             configs_data = []
             results_data = []
@@ -556,7 +574,6 @@ async def import_data(
             for ds_info in datasets_data:
                 old_id = ds_info["id"]
                 
-                # 创建新数据集
                 new_dataset = Dataset(
                     name=ds_info["name"] + " (导入)",
                     filename=ds_info["filename"],
@@ -579,8 +596,9 @@ async def import_data(
                 if data_file_path in zf.namelist():
                     dataset_dir = settings.DATASETS_DIR / str(new_dataset.id)
                     dataset_dir.mkdir(parents=True, exist_ok=True)
-                    filepath = dataset_dir / "data.csv"
+                    created_dirs.append(str(dataset_dir))
                     
+                    filepath = dataset_dir / "data.csv"
                     with zf.open(data_file_path) as src, open(filepath, 'wb') as dst:
                         dst.write(src.read())
                     
@@ -649,8 +667,9 @@ async def import_data(
                 if result_file_path in zf.namelist():
                     result_dir = settings.RESULTS_DIR / str(new_dataset_id) / str(new_result.id)
                     result_dir.mkdir(parents=True, exist_ok=True)
-                    filepath = result_dir / "prediction.csv"
+                    created_dirs.append(str(result_dir))
                     
+                    filepath = result_dir / "prediction.csv"
                     with zf.open(result_file_path) as src, open(filepath, 'wb') as dst:
                         dst.write(src.read())
                     
@@ -672,8 +691,12 @@ async def import_data(
     except HTTPException:
         raise
     except Exception as e:
+        # 回滚数据库
         await db.rollback()
+        # 清理已创建的目录（孤儿文件）
+        for dir_path in created_dirs:
+            await run_in_executor(safe_rmtree, dir_path)
         raise HTTPException(status_code=500, detail=f"导入失败: {str(e)}")
     finally:
+        # 清理临时目录
         await run_in_executor(safe_rmtree, temp_dir)
-

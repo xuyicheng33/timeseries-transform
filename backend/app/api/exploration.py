@@ -26,6 +26,15 @@ def _read_csv_sync(filepath: str, encoding: str = "utf-8") -> pd.DataFrame:
     return pd.read_csv(filepath, encoding=encoding)
 
 
+def _safe_float(val) -> float | None:
+    """安全转换为 JSON 兼容的浮点数，NaN/Inf 转为 None"""
+    if val is None:
+        return None
+    if pd.isna(val) or np.isinf(val):
+        return None
+    return float(val)
+
+
 # ============ 数据分布分析 ============
 
 @router.get("/{dataset_id}/distribution/{column}")
@@ -47,6 +56,15 @@ async def get_column_distribution(
     dataset = await _get_dataset_with_access(dataset_id, db, current_user)
     df = await _load_dataset(dataset)
     
+    # 空数据集检查
+    if len(df) == 0:
+        return {
+            "type": "empty",
+            "column": column,
+            "total_count": 0,
+            "message": "数据集为空"
+        }
+    
     if column not in df.columns:
         raise HTTPException(status_code=400, detail=f"列 '{column}' 不存在")
     
@@ -59,14 +77,15 @@ async def get_column_distribution(
     if len(valid_data) == 0:
         # 非数值列，返回值频率统计
         value_counts = series.value_counts().head(50)
+        total = len(series)
         return {
             "type": "categorical",
             "column": column,
-            "total_count": len(series),
+            "total_count": total,
             "unique_count": series.nunique(),
             "missing_count": int(series.isna().sum()),
             "value_counts": [
-                {"value": str(k), "count": int(v), "ratio": float(v / len(series))}
+                {"value": str(k), "count": int(v), "ratio": float(v / total) if total > 0 else 0}
                 for k, v in value_counts.items()
             ]
         }
@@ -424,6 +443,20 @@ def _compute_comparison(df: pd.DataFrame, columns: List[str], normalize: bool, m
     """计算多列对比数据"""
     n = len(df)
     
+    # 空数据集检查
+    if n == 0:
+        return {
+            "series": [],
+            "stats": [],
+            "correlation": {
+                "columns": columns,
+                "matrix": []
+            },
+            "normalized": normalize,
+            "total_points": 0,
+            "sampled_points": 0
+        }
+    
     # 降采样
     if n > max_points:
         step = n // max_points
@@ -452,7 +485,7 @@ def _compute_comparison(df: pd.DataFrame, columns: List[str], normalize: bool, m
             normalized = values
         
         # 采样数据
-        sampled = [[i, float(normalized[idx]) if not np.isnan(normalized[idx]) else None] 
+        sampled = [[i, _safe_float(normalized[idx])] 
                    for i, idx in enumerate(indices)]
         
         series_data.append({
@@ -462,16 +495,25 @@ def _compute_comparison(df: pd.DataFrame, columns: List[str], normalize: bool, m
         
         stats_data.append({
             "column": col,
-            "min": float(np.nanmin(values)),
-            "max": float(np.nanmax(values)),
-            "mean": float(np.nanmean(values)),
-            "std": float(np.nanstd(values)),
+            "min": _safe_float(np.nanmin(values)),
+            "max": _safe_float(np.nanmax(values)),
+            "mean": _safe_float(np.nanmean(values)),
+            "std": _safe_float(np.nanstd(values)),
             "valid_count": int(np.sum(~np.isnan(values)))
         })
     
-    # 计算相关性
+    # 计算相关性 - 安全处理 NaN
     corr_df = df[columns].apply(pd.to_numeric, errors='coerce')
-    corr_matrix = corr_df.corr().values.tolist()
+    corr_matrix_raw = corr_df.corr()
+    
+    # 逐元素转换，NaN -> None
+    corr_matrix = []
+    for i in range(len(columns)):
+        row = []
+        for j in range(len(columns)):
+            val = corr_matrix_raw.iloc[i, j] if i < len(corr_matrix_raw) and j < len(corr_matrix_raw.columns) else None
+            row.append(_safe_float(val))
+        corr_matrix.append(row)
     
     return {
         "series": series_data,
@@ -513,13 +555,29 @@ async def get_data_overview(
 
 def _compute_overview(df: pd.DataFrame, dataset_name: str) -> dict:
     """计算数据概览"""
+    n_rows = len(df)
+    
     # 基础信息
     basic_info = {
         "name": dataset_name,
-        "rows": len(df),
+        "rows": n_rows,
         "columns": len(df.columns),
         "memory_mb": float(df.memory_usage(deep=True).sum() / 1024 / 1024)
     }
+    
+    # 空数据集检查
+    if n_rows == 0:
+        return {
+            "basic_info": basic_info,
+            "column_summary": [
+                {"name": col, "dtype": str(df[col].dtype), "inferred_type": "unknown", 
+                 "missing": 0, "missing_ratio": 0, "unique": 0}
+                for col in df.columns
+            ],
+            "numeric_summary": {},
+            "numeric_columns": [],
+            "categorical_columns": []
+        }
     
     # 列摘要
     column_summary = []
@@ -528,14 +586,16 @@ def _compute_overview(df: pd.DataFrame, dataset_name: str) -> dict:
         missing = int(df[col].isna().sum())
         unique = int(df[col].nunique())
         
-        # 推断类型
+        # 推断类型（安全除法）
+        unique_ratio = unique / n_rows if n_rows > 0 else 0
+        
         if pd.api.types.is_numeric_dtype(df[col]):
             inferred = "numeric"
         elif pd.api.types.is_datetime64_any_dtype(df[col]):
             inferred = "datetime"
         elif pd.api.types.is_bool_dtype(df[col]):
             inferred = "boolean"
-        elif unique / len(df) < 0.05 and unique < 100:
+        elif unique_ratio < 0.05 and unique < 100:
             inferred = "categorical"
         else:
             inferred = "text"
@@ -545,28 +605,26 @@ def _compute_overview(df: pd.DataFrame, dataset_name: str) -> dict:
             "dtype": dtype,
             "inferred_type": inferred,
             "missing": missing,
-            "missing_ratio": float(missing / len(df)) if len(df) > 0 else 0,
+            "missing_ratio": float(missing / n_rows) if n_rows > 0 else 0,
             "unique": unique
         })
     
     # 数值列统计
     numeric_df = df.select_dtypes(include=[np.number])
-    if len(numeric_df.columns) > 0:
+    numeric_summary = {}
+    if len(numeric_df.columns) > 0 and n_rows > 0:
         desc = numeric_df.describe()
-        numeric_summary = {}
         for col in desc.columns:
             numeric_summary[col] = {
                 "count": int(desc.loc["count", col]),
-                "mean": float(desc.loc["mean", col]),
-                "std": float(desc.loc["std", col]),
-                "min": float(desc.loc["min", col]),
-                "q1": float(desc.loc["25%", col]),
-                "median": float(desc.loc["50%", col]),
-                "q3": float(desc.loc["75%", col]),
-                "max": float(desc.loc["max", col])
+                "mean": _safe_float(desc.loc["mean", col]),
+                "std": _safe_float(desc.loc["std", col]),
+                "min": _safe_float(desc.loc["min", col]),
+                "q1": _safe_float(desc.loc["25%", col]),
+                "median": _safe_float(desc.loc["50%", col]),
+                "q3": _safe_float(desc.loc["75%", col]),
+                "max": _safe_float(desc.loc["max", col])
             }
-    else:
-        numeric_summary = {}
     
     return {
         "basic_info": basic_info,
