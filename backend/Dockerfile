@@ -3,6 +3,9 @@
 
 FROM python:3.11-slim
 
+# 使用阿里云 Debian 镜像源加速（国内服务器）
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
 # 设置工作目录
 WORKDIR /app
 
@@ -25,8 +28,8 @@ RUN groupadd --gid 1000 appgroup && \
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖
-RUN pip install --no-cache-dir -r requirements.txt
+# 安装 Python 依赖（使用阿里云 PyPI 镜像加速）
+RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制应用代码
 COPY --chown=appuser:appgroup . .
