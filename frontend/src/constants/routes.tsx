@@ -9,6 +9,7 @@ import {
   FolderOutlined,
   LineChartOutlined,
   ExperimentOutlined,
+  RocketOutlined,
 } from '@ant-design/icons'
 
 // 懒加载页面组件
@@ -19,6 +20,7 @@ const ConfigWizard = lazy(() => import('@/pages/ConfigWizard'))
 const ResultRepo = lazy(() => import('@/pages/ResultRepo'))
 const Visualization = lazy(() => import('@/pages/Visualization'))
 const ExperimentManager = lazy(() => import('@/pages/ExperimentManager'))
+const ModelTemplateManager = lazy(() => import('@/pages/ModelTemplateManager'))
 
 export interface RouteConfig {
   path: string
@@ -39,6 +41,12 @@ export const ROUTES: RouteConfig[] = [
     name: '配置向导',
     icon: <SettingOutlined />,
     element: ConfigWizard,
+  },
+  {
+    path: '/model-templates',
+    name: '模型模板',
+    icon: <RocketOutlined />,
+    element: ModelTemplateManager,
   },
   {
     path: '/results',

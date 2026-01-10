@@ -26,6 +26,7 @@ import {
   Tooltip,
   Empty,
   message,
+  Collapse,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { TransferProps } from 'antd/es/transfer'
@@ -35,9 +36,13 @@ import {
   DeleteOutlined,
   CopyOutlined,
   CheckCircleOutlined,
+  RocketOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
 
-import type { Dataset, Configuration, ConfigurationCreate, ConfigurationUpdate } from '@/types'
+import type { Dataset, Configuration, ConfigurationCreate, ConfigurationUpdate, ModelTemplateBrief } from '@/types'
+import { MODEL_CATEGORY_CONFIG, TASK_TYPE_CONFIG } from '@/types/modelTemplate'
+import type { TaskType } from '@/types/modelTemplate'
 import {
   getConfigurations,
   createConfiguration,
@@ -45,6 +50,7 @@ import {
   deleteConfiguration,
   generateFilename,
 } from '@/api/configurations'
+import { getAllModelTemplates, getModelTemplate } from '@/api/modelTemplates'
 import { formatDateTime } from '@/utils/format'
 import {
   NORMALIZATION_OPTIONS,
@@ -64,6 +70,7 @@ const STEPS = [
   { title: '归一化', description: '配置数据归一化方式' },
   { title: '异常注入', description: '配置异常注入（可选）' },
   { title: '窗口参数', description: '设置滑动窗口参数' },
+  { title: '模型模板', description: '选择模型模板（可选）' },
   { title: '预览确认', description: '预览配置并生成文件名' },
 ]
 
@@ -113,6 +120,12 @@ export default function ConfigWizard() {
   const [editForm] = Form.useForm()
   const [editLoading, setEditLoading] = useState(false)
 
+  // 模型模板状态
+  const [modelTemplates, setModelTemplates] = useState<ModelTemplateBrief[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null)
+  const [selectedTemplateDetail, setSelectedTemplateDetail] = useState<any>(null)
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+
   // ============ 数据获取 ============
   const fetchConfigurations = useCallback(async () => {
     setConfigLoading(true)
@@ -140,10 +153,23 @@ export default function ConfigWizard() {
     }
   }, [])
 
+  const fetchModelTemplates = useCallback(async () => {
+    setTemplatesLoading(true)
+    try {
+      const data = await getAllModelTemplates()
+      setModelTemplates(data)
+    } catch {
+      // 错误已在 API 层处理
+    } finally {
+      setTemplatesLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchConfigurations()
     fetchDatasets()
-  }, [fetchConfigurations, fetchDatasets])
+    fetchModelTemplates()
+  }, [fetchConfigurations, fetchDatasets, fetchModelTemplates])
 
   // ============ 向导控制 ============
   const handleWizardOpen = () => {
@@ -152,6 +178,8 @@ export default function ConfigWizard() {
     setSelectedDataset(null)
     setTargetKeys([])
     setGeneratedFilename('')
+    setSelectedTemplateId(null)
+    setSelectedTemplateDetail(null)
     form.resetFields()
     form.setFieldsValue({
       normalization: 'none',
@@ -160,6 +188,7 @@ export default function ConfigWizard() {
       stride: 1,
       target_type: 'next',
       target_k: 1,
+      model_template_id: null,
     })
   }
 
@@ -170,6 +199,8 @@ export default function ConfigWizard() {
     setSelectedDataset(null)
     setTargetKeys([])
     setGeneratedFilename('')
+    setSelectedTemplateId(null)
+    setSelectedTemplateDetail(null)
     form.resetFields()
   }
 
@@ -203,6 +234,8 @@ export default function ConfigWizard() {
           }
           await form.validateFields(fieldsToValidate)
           return true
+        case 5: // 模型模板（可选，无需验证）
+          return true
         default:
           return true
       }
@@ -219,7 +252,7 @@ export default function ConfigWizard() {
       const valid = await validateCurrentStep()
       if (!valid) return
 
-      if (currentStep === 4) {
+      if (currentStep === 5) {
         // 进入预览步骤，生成文件名
         await handleGenerateFilename()
       }
@@ -240,6 +273,21 @@ export default function ConfigWizard() {
     const dataset = datasets.find((d) => d.id === datasetId)
     setSelectedDataset(dataset || null)
     setTargetKeys([]) // 重置通道选择
+  }
+
+  // ============ 模型模板选择 ============
+  const handleTemplateChange = async (templateId: number | null) => {
+    setSelectedTemplateId(templateId)
+    if (templateId) {
+      try {
+        const detail = await getModelTemplate(templateId)
+        setSelectedTemplateDetail(detail)
+      } catch {
+        setSelectedTemplateDetail(null)
+      }
+    } else {
+      setSelectedTemplateDetail(null)
+    }
   }
 
   // ============ Transfer 配置 ============
@@ -594,11 +642,142 @@ export default function ConfigWizard() {
         )
 
       case 5:
+        // 模型模板选择（可选）
+        return (
+          <div>
+            <Alert
+              message="模型模板（可选）"
+              description="选择一个预定义的模型模板，可以帮助您快速配置训练参数。此步骤为可选，您也可以跳过。"
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+
+            <Form.Item
+              name="model_template_id"
+              label={
+                <Space>
+                  <RocketOutlined />
+                  选择模型模板
+                </Space>
+              }
+            >
+              <Select
+                placeholder="选择模型模板（可选）"
+                loading={templatesLoading}
+                onChange={handleTemplateChange}
+                allowClear
+                showSearch
+                optionFilterProp="children"
+                style={{ width: '100%' }}
+              >
+                {modelTemplates.map((template) => {
+                  const categoryConfig = MODEL_CATEGORY_CONFIG[template.category as keyof typeof MODEL_CATEGORY_CONFIG] || MODEL_CATEGORY_CONFIG.other
+                  return (
+                    <Select.Option key={template.id} value={template.id}>
+                      <Space>
+                        <span>{categoryConfig.icon}</span>
+                        <span>{template.name}</span>
+                        <Tag>{`v${template.version}`}</Tag>
+                        {template.is_system && <Tag color="gold">系统</Tag>}
+                      </Space>
+                    </Select.Option>
+                  )
+                })}
+              </Select>
+            </Form.Item>
+
+            {selectedTemplateDetail && (
+              <Card 
+                size="small" 
+                title={
+                  <Space>
+                    <SettingOutlined />
+                    模板详情: {selectedTemplateDetail.name}
+                  </Space>
+                }
+                style={{ marginTop: 16 }}
+              >
+                <Paragraph>
+                  <Text type="secondary">{selectedTemplateDetail.description || '暂无描述'}</Text>
+                </Paragraph>
+                
+                {selectedTemplateDetail.task_types?.length > 0 && (
+                  <Paragraph>
+                    <Text strong>适用任务：</Text>
+                    <Space size={[0, 4]} wrap style={{ marginLeft: 8 }}>
+                      {selectedTemplateDetail.task_types.map((type: TaskType) => {
+                        const config = TASK_TYPE_CONFIG[type]
+                        return config ? (
+                          <Tag key={type} color={config.color}>{config.label}</Tag>
+                        ) : null
+                      })}
+                    </Space>
+                  </Paragraph>
+                )}
+
+                {selectedTemplateDetail.recommended_features && (
+                  <Paragraph>
+                    <Text strong>推荐场景：</Text>
+                    <Text type="secondary" style={{ marginLeft: 8 }}>
+                      {selectedTemplateDetail.recommended_features}
+                    </Text>
+                  </Paragraph>
+                )}
+
+                <Collapse
+                  size="small"
+                  items={[
+                    {
+                      key: 'hyperparameters',
+                      label: '超参数配置',
+                      children: (
+                        <pre style={{ 
+                          background: '#f5f5f5', 
+                          padding: 8, 
+                          borderRadius: 4, 
+                          fontSize: 12,
+                          maxHeight: 150,
+                          overflow: 'auto',
+                          margin: 0
+                        }}>
+                          {JSON.stringify(selectedTemplateDetail.hyperparameters, null, 2)}
+                        </pre>
+                      ),
+                    },
+                    {
+                      key: 'training_config',
+                      label: '训练配置',
+                      children: (
+                        <pre style={{ 
+                          background: '#f5f5f5', 
+                          padding: 8, 
+                          borderRadius: 4, 
+                          fontSize: 12,
+                          maxHeight: 150,
+                          overflow: 'auto',
+                          margin: 0
+                        }}>
+                          {JSON.stringify(selectedTemplateDetail.training_config, null, 2)}
+                        </pre>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            )}
+          </div>
+        )
+
+      case 6:
         // 使用 getFieldsValue(true) 获取所有字段值，包括未渲染的
         const formValues = form.getFieldsValue(true)
         const normalizationValue = formValues.normalization
         const normalizationLabel = NORMALIZATION_OPTIONS.find((o) => o.value === normalizationValue)?.label || normalizationValue || '未设置'
         const targetTypeLabel = TARGET_TYPE_OPTIONS.find((o) => o.value === formValues.target_type)?.label || formValues.target_type || '未设置'
+        const selectedTemplateName = selectedTemplateId 
+          ? modelTemplates.find(t => t.id === selectedTemplateId)?.name 
+          : null
         return (
           <div>
             <Alert
@@ -640,6 +819,14 @@ export default function ConfigWizard() {
               <Paragraph>
                 <Text strong>目标类型：</Text> {targetTypeLabel}
                 {formValues.target_type === 'kstep' && ` (K=${formValues.target_k || 1})`}
+              </Paragraph>
+              <Paragraph>
+                <Text strong>模型模板：</Text>{' '}
+                {selectedTemplateName ? (
+                  <Tag color="blue" icon={<RocketOutlined />}>{selectedTemplateName}</Tag>
+                ) : (
+                  <Text type="secondary">未选择</Text>
+                )}
               </Paragraph>
             </Card>
 

@@ -12,6 +12,7 @@ export * from './exploration'
 export * from './batch'
 export * from './comparison'
 export * from './experiments'
+export * from './modelTemplates'
 
 export default request
 export { rawRequest }

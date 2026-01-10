@@ -44,4 +44,11 @@ from app.schemas.schemas import (
     CleaningPreviewStats,
     CleaningPreviewResponse,
     CleaningResult,
+    # 模型模板相关 schemas
+    ModelTemplateBase,
+    ModelTemplateCreate,
+    ModelTemplateUpdate,
+    ModelTemplateResponse,
+    ModelTemplateBrief,
+    PRESET_MODEL_TEMPLATES,
 )

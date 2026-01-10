@@ -895,3 +895,401 @@ class ExperimentSummary(BaseModel):
     best_mape: Optional[Dict[str, Any]] = None
     # 平均指标
     avg_metrics: Optional[MetricsResponse] = None
+
+
+# ============ 模型模板 Schemas ============
+
+class ModelTemplateBase(BaseModel):
+    """模型模板基础信息"""
+    name: str = Field(..., min_length=1, max_length=100, description="模型名称")
+    version: str = Field(default="1.0", max_length=50, description="版本号")
+    category: str = Field(default="deep_learning", max_length=50, description="类别: deep_learning, traditional, ensemble")
+    description: Optional[str] = Field(default="", max_length=2000, description="模型描述")
+    
+    # 超参数配置
+    hyperparameters: Dict[str, Any] = Field(default_factory=dict, description="模型超参数")
+    training_config: Dict[str, Any] = Field(default_factory=dict, description="训练配置")
+    
+    # 适用场景
+    task_types: List[str] = Field(default_factory=list, description="适用任务类型: prediction, reconstruction, anomaly_detection")
+    recommended_features: Optional[str] = Field(default="", max_length=1000, description="推荐的数据特征")
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('模型名称不能为空')
+        return v
+
+    @field_validator('category')
+    @classmethod
+    def validate_category(cls, v: str) -> str:
+        valid_categories = ['deep_learning', 'traditional', 'ensemble', 'hybrid', 'other']
+        if v not in valid_categories:
+            # 允许自定义类别，但给出警告
+            pass
+        return v
+
+    @field_validator('task_types')
+    @classmethod
+    def validate_task_types(cls, v: List[str]) -> List[str]:
+        valid_types = ['prediction', 'reconstruction', 'anomaly_detection', 'classification', 'regression']
+        return [t for t in v if t in valid_types] if v else []
+
+
+class ModelTemplateCreate(ModelTemplateBase):
+    """创建模型模板"""
+    is_public: bool = Field(default=False, description="是否公开")
+
+
+class ModelTemplateUpdate(BaseModel):
+    """更新模型模板"""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    version: Optional[str] = Field(default=None, max_length=50)
+    category: Optional[str] = Field(default=None, max_length=50)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    hyperparameters: Optional[Dict[str, Any]] = None
+    training_config: Optional[Dict[str, Any]] = None
+    task_types: Optional[List[str]] = None
+    recommended_features: Optional[str] = Field(default=None, max_length=1000)
+    is_public: Optional[bool] = None
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError('模型名称不能为空')
+        return v
+
+
+class ModelTemplateResponse(ModelTemplateBase):
+    """模型模板响应"""
+    id: int
+    is_system: bool = False
+    is_public: bool = False
+    user_id: Optional[int] = None
+    usage_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ModelTemplateBrief(BaseModel):
+    """模型模板简要信息（用于下拉选择）"""
+    id: int
+    name: str
+    version: str
+    category: str
+    description: str = ""
+    is_system: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============ 预置模型模板定义 ============
+
+PRESET_MODEL_TEMPLATES = [
+    {
+        "name": "LSTM",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "长短期记忆网络，适合捕捉时序数据中的长期依赖关系",
+        "hyperparameters": {
+            "hidden_size": 64,
+            "num_layers": 2,
+            "dropout": 0.2,
+            "bidirectional": False
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "mse",
+            "early_stopping": True,
+            "patience": 10
+        },
+        "task_types": ["prediction", "reconstruction"],
+        "recommended_features": "适合单变量或少量变量的时序预测，对长序列效果好",
+        "is_system": True
+    },
+    {
+        "name": "GRU",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "门控循环单元，LSTM的简化版本，训练更快",
+        "hyperparameters": {
+            "hidden_size": 64,
+            "num_layers": 2,
+            "dropout": 0.2,
+            "bidirectional": False
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "mse",
+            "early_stopping": True,
+            "patience": 10
+        },
+        "task_types": ["prediction", "reconstruction"],
+        "recommended_features": "比LSTM参数更少，训练更快，适合中等长度序列",
+        "is_system": True
+    },
+    {
+        "name": "Transformer",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "基于自注意力机制的模型，能够捕捉全局依赖关系",
+        "hyperparameters": {
+            "d_model": 64,
+            "nhead": 4,
+            "num_encoder_layers": 2,
+            "num_decoder_layers": 2,
+            "dim_feedforward": 256,
+            "dropout": 0.1
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.0001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "mse",
+            "early_stopping": True,
+            "patience": 15,
+            "warmup_steps": 1000
+        },
+        "task_types": ["prediction", "reconstruction"],
+        "recommended_features": "适合多变量时序，能捕捉复杂的时间模式，需要较多数据",
+        "is_system": True
+    },
+    {
+        "name": "TCN",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "时序卷积网络，使用因果卷积和膨胀卷积",
+        "hyperparameters": {
+            "num_channels": [64, 64, 64],
+            "kernel_size": 3,
+            "dropout": 0.2,
+            "dilation_base": 2
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "mse",
+            "early_stopping": True,
+            "patience": 10
+        },
+        "task_types": ["prediction", "reconstruction"],
+        "recommended_features": "并行计算效率高，适合长序列，感受野可控",
+        "is_system": True
+    },
+    {
+        "name": "Informer",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "高效的长序列Transformer变体，使用ProbSparse自注意力",
+        "hyperparameters": {
+            "d_model": 64,
+            "n_heads": 4,
+            "e_layers": 2,
+            "d_layers": 1,
+            "d_ff": 256,
+            "factor": 5,
+            "dropout": 0.1
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.0001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "mse",
+            "early_stopping": True,
+            "patience": 10
+        },
+        "task_types": ["prediction"],
+        "recommended_features": "专为长序列预测设计，计算复杂度低于标准Transformer",
+        "is_system": True
+    },
+    {
+        "name": "Autoformer",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "自相关机制的Transformer，自动分解时序",
+        "hyperparameters": {
+            "d_model": 64,
+            "n_heads": 4,
+            "e_layers": 2,
+            "d_layers": 1,
+            "d_ff": 256,
+            "factor": 3,
+            "dropout": 0.1,
+            "moving_avg": 25
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.0001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "mse",
+            "early_stopping": True,
+            "patience": 10
+        },
+        "task_types": ["prediction"],
+        "recommended_features": "适合具有明显周期性的时序数据",
+        "is_system": True
+    },
+    {
+        "name": "ARIMA",
+        "version": "1.0",
+        "category": "traditional",
+        "description": "自回归积分滑动平均模型，经典统计方法",
+        "hyperparameters": {
+            "p": 5,
+            "d": 1,
+            "q": 0,
+            "seasonal": False,
+            "P": 0,
+            "D": 0,
+            "Q": 0,
+            "m": 1
+        },
+        "training_config": {
+            "auto_order": True,
+            "max_p": 5,
+            "max_q": 5,
+            "information_criterion": "aic"
+        },
+        "task_types": ["prediction"],
+        "recommended_features": "适合平稳或可差分平稳的单变量时序，可解释性强",
+        "is_system": True
+    },
+    {
+        "name": "Prophet",
+        "version": "1.0",
+        "category": "traditional",
+        "description": "Facebook开发的时序预测工具，自动处理节假日和趋势",
+        "hyperparameters": {
+            "growth": "linear",
+            "seasonality_mode": "additive",
+            "yearly_seasonality": True,
+            "weekly_seasonality": True,
+            "daily_seasonality": False,
+            "changepoint_prior_scale": 0.05
+        },
+        "training_config": {
+            "interval_width": 0.95,
+            "mcmc_samples": 0
+        },
+        "task_types": ["prediction"],
+        "recommended_features": "适合有明显趋势和季节性的业务数据，如销量、流量",
+        "is_system": True
+    },
+    {
+        "name": "XGBoost",
+        "version": "1.0",
+        "category": "ensemble",
+        "description": "梯度提升树，需要手动构造时序特征",
+        "hyperparameters": {
+            "n_estimators": 100,
+            "max_depth": 6,
+            "learning_rate": 0.1,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "reg_alpha": 0,
+            "reg_lambda": 1
+        },
+        "training_config": {
+            "early_stopping_rounds": 10,
+            "eval_metric": "rmse",
+            "lag_features": [1, 2, 3, 7, 14],
+            "rolling_features": [7, 14, 30]
+        },
+        "task_types": ["prediction", "classification"],
+        "recommended_features": "需要特征工程，适合有丰富外部特征的预测任务",
+        "is_system": True
+    },
+    {
+        "name": "LightGBM",
+        "version": "1.0",
+        "category": "ensemble",
+        "description": "轻量级梯度提升框架，训练速度快",
+        "hyperparameters": {
+            "n_estimators": 100,
+            "max_depth": -1,
+            "num_leaves": 31,
+            "learning_rate": 0.1,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "reg_alpha": 0,
+            "reg_lambda": 0
+        },
+        "training_config": {
+            "early_stopping_rounds": 10,
+            "eval_metric": "rmse",
+            "lag_features": [1, 2, 3, 7, 14],
+            "rolling_features": [7, 14, 30]
+        },
+        "task_types": ["prediction", "classification"],
+        "recommended_features": "比XGBoost更快，适合大规模数据",
+        "is_system": True
+    },
+    {
+        "name": "VAE",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "变分自编码器，用于时序重构和异常检测",
+        "hyperparameters": {
+            "latent_dim": 32,
+            "encoder_hidden": [64, 32],
+            "decoder_hidden": [32, 64],
+            "dropout": 0.2,
+            "beta": 1.0
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "reconstruction + kl_divergence",
+            "early_stopping": True,
+            "patience": 10
+        },
+        "task_types": ["reconstruction", "anomaly_detection"],
+        "recommended_features": "适合时序重构和异常检测，能学习数据的潜在表示",
+        "is_system": True
+    },
+    {
+        "name": "Autoencoder",
+        "version": "1.0",
+        "category": "deep_learning",
+        "description": "自编码器，用于时序重构和降维",
+        "hyperparameters": {
+            "encoder_hidden": [64, 32, 16],
+            "decoder_hidden": [16, 32, 64],
+            "latent_dim": 16,
+            "dropout": 0.2,
+            "activation": "relu"
+        },
+        "training_config": {
+            "optimizer": "adam",
+            "learning_rate": 0.001,
+            "batch_size": 32,
+            "epochs": 100,
+            "loss_function": "mse",
+            "early_stopping": True,
+            "patience": 10
+        },
+        "task_types": ["reconstruction", "anomaly_detection"],
+        "recommended_features": "适合时序重构、降维和异常检测",
+        "is_system": True
+    }
+]

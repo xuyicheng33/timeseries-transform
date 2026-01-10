@@ -140,3 +140,22 @@ export type {
   ExperimentSummary,
   ExperimentListParams,
 } from './experiment'
+
+// ModelTemplate (模型模板)
+export type {
+  ModelCategory,
+  TaskType,
+  ModelTemplateBase,
+  ModelTemplateCreate,
+  ModelTemplateUpdate,
+  ModelTemplate,
+  ModelTemplateBrief,
+  ModelCategoryOption,
+  ModelTemplateListParams,
+  InitPresetsResponse,
+} from './modelTemplate'
+
+export {
+  MODEL_CATEGORY_CONFIG,
+  TASK_TYPE_CONFIG,
+} from './modelTemplate'
