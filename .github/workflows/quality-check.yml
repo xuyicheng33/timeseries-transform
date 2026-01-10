@@ -50,11 +50,21 @@ modules = [
     'app.api.exploration',
     'app.api.batch',
     'app.api.comparison',
+    'app.api.experiments',
 ]
 for m in modules:
     __import__(m)
     print(f'✓ {m}')
 PY
+
+    - name: Run tests
+      run: |
+        cd backend
+        pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=50
+      env:
+        DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+        JWT_SECRET_KEY: "test-secret-key-for-ci"
+        DEBUG: "false"
 
   frontend-check:
     name: Frontend Quality Check

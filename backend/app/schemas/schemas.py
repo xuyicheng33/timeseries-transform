@@ -754,3 +754,143 @@ class CleaningResult(BaseModel):
     
     # 清洗后的质量评分
     quality_score_after: int
+
+
+# ============ 实验组 Schemas ============
+
+class ExperimentBase(BaseModel):
+    """实验组基础信息"""
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = Field(default="", max_length=2000)
+    objective: Optional[str] = Field(default="", max_length=2000, description="实验目标/假设")
+    tags: List[str] = Field(default_factory=list, description="标签列表")
+    dataset_id: Optional[int] = Field(default=None, description="关联的数据集ID")
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('名称不能为空')
+        return v
+
+    @field_validator('description', 'objective')
+    @classmethod
+    def validate_optional_text(cls, v: Optional[str]) -> str:
+        if v is None:
+            return ""
+        return v.strip()
+
+    @field_validator('tags')
+    @classmethod
+    def validate_tags(cls, v: List[str]) -> List[str]:
+        # 去除空白标签，去重
+        cleaned = list(set(tag.strip() for tag in v if tag.strip()))
+        return cleaned
+
+
+class ExperimentCreate(ExperimentBase):
+    """创建实验组"""
+    result_ids: List[int] = Field(default_factory=list, description="初始关联的结果ID列表")
+
+
+class ExperimentUpdate(BaseModel):
+    """更新实验组"""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    objective: Optional[str] = Field(default=None, max_length=2000)
+    status: Optional[str] = Field(default=None, pattern=r'^(draft|running|completed|archived)$')
+    tags: Optional[List[str]] = None
+    conclusion: Optional[str] = Field(default=None, max_length=5000, description="实验结论")
+    dataset_id: Optional[int] = None
+
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError('名称不能为空')
+        return v
+
+    @field_validator('tags')
+    @classmethod
+    def validate_tags(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        if v is not None:
+            return list(set(tag.strip() for tag in v if tag.strip()))
+        return v
+
+
+class ExperimentResultBrief(BaseModel):
+    """实验组中的结果简要信息"""
+    id: int
+    name: str
+    algo_name: str = Field(..., serialization_alias="model_name")
+    algo_version: str = Field(default="", serialization_alias="model_version")
+    metrics: Dict[str, float] = Field(default_factory=dict)
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ExperimentResponse(BaseModel):
+    """实验组响应"""
+    id: int
+    name: str
+    description: str = ""
+    objective: str = ""
+    status: str = "draft"
+    tags: List[str] = Field(default_factory=list)
+    conclusion: str = ""
+    user_id: Optional[int] = None
+    dataset_id: Optional[int] = None
+    dataset_name: Optional[str] = None  # 关联数据集名称
+    result_count: int = 0  # 关联结果数量
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExperimentDetailResponse(ExperimentResponse):
+    """实验组详情响应（包含关联结果）"""
+    results: List[ExperimentResultBrief] = Field(default_factory=list)
+
+
+class ExperimentAddResults(BaseModel):
+    """添加结果到实验组"""
+    result_ids: List[int] = Field(..., min_length=1, description="要添加的结果ID列表")
+
+    @field_validator('result_ids')
+    @classmethod
+    def validate_result_ids(cls, v: List[int]) -> List[int]:
+        if not v:
+            raise ValueError('result_ids 不能为空')
+        return list(set(v))  # 去重
+
+
+class ExperimentRemoveResults(BaseModel):
+    """从实验组移除结果"""
+    result_ids: List[int] = Field(..., min_length=1, description="要移除的结果ID列表")
+
+
+class ExperimentCompareRequest(BaseModel):
+    """实验组内结果对比请求"""
+    max_points: int = Field(default=2000, ge=10, le=50000)
+    algorithm: DownsampleAlgorithm = DownsampleAlgorithm.LTTB
+
+
+class ExperimentSummary(BaseModel):
+    """实验组汇总统计"""
+    experiment_id: int
+    experiment_name: str
+    result_count: int
+    model_names: List[str] = Field(default_factory=list)
+    # 最佳指标
+    best_mse: Optional[Dict[str, Any]] = None  # {"result_id": x, "value": y, "model_name": z}
+    best_rmse: Optional[Dict[str, Any]] = None
+    best_mae: Optional[Dict[str, Any]] = None
+    best_r2: Optional[Dict[str, Any]] = None
+    best_mape: Optional[Dict[str, Any]] = None
+    # 平均指标
+    avg_metrics: Optional[MetricsResponse] = None

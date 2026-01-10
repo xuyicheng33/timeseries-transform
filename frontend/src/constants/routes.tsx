@@ -8,6 +8,7 @@ import {
   SettingOutlined,
   FolderOutlined,
   LineChartOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons'
 
 // 懒加载页面组件
@@ -17,6 +18,7 @@ const DataHub = lazy(() => import('@/pages/DataHub'))
 const ConfigWizard = lazy(() => import('@/pages/ConfigWizard'))
 const ResultRepo = lazy(() => import('@/pages/ResultRepo'))
 const Visualization = lazy(() => import('@/pages/Visualization'))
+const ExperimentManager = lazy(() => import('@/pages/ExperimentManager'))
 
 export interface RouteConfig {
   path: string
@@ -50,5 +52,10 @@ export const ROUTES: RouteConfig[] = [
     icon: <LineChartOutlined />,
     element: Visualization,
   },
+  {
+    path: '/experiments',
+    name: '实验管理',
+    icon: <ExperimentOutlined />,
+    element: ExperimentManager,
+  },
 ]
-

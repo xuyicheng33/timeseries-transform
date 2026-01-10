@@ -11,6 +11,7 @@ export * from './quality'
 export * from './exploration'
 export * from './batch'
 export * from './comparison'
+export * from './experiments'
 
 export default request
 export { rawRequest }

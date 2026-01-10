@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -7,6 +7,15 @@ from app.database import Base
 def utc_now():
     """获取当前 UTC 时间（timezone-aware）"""
     return datetime.now(timezone.utc)
+
+
+# 实验组-结果关联表（多对多）
+experiment_results = Table(
+    'experiment_results',
+    Base.metadata,
+    Column('experiment_id', Integer, ForeignKey('experiments.id', ondelete='CASCADE'), primary_key=True),
+    Column('result_id', Integer, ForeignKey('results.id', ondelete='CASCADE'), primary_key=True)
+)
 
 
 class User(Base):
@@ -27,6 +36,7 @@ class User(Base):
     # 关系
     datasets = relationship("Dataset", back_populates="user")
     results = relationship("Result", back_populates="user")
+    experiments = relationship("Experiment", back_populates="user")
 
 
 class Dataset(Base):
@@ -103,3 +113,33 @@ class Result(Base):
     user = relationship("User", back_populates="results")
     dataset = relationship("Dataset", back_populates="results")
     configuration = relationship("Configuration")
+    experiments = relationship("Experiment", secondary=experiment_results, back_populates="results")
+
+
+class Experiment(Base):
+    """实验组模型"""
+    __tablename__ = "experiments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, default="")
+    # 实验目标/假设
+    objective = Column(Text, default="")
+    # 实验状态: draft, running, completed, archived
+    status = Column(String(50), default="draft")
+    # 标签（JSON 数组）
+    tags = Column(JSON, default=list)
+    # 实验结论/备注
+    conclusion = Column(Text, default="")
+    # 用户关联
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    # 关联的数据集（可选，用于快速筛选）
+    dataset_id = Column(Integer, ForeignKey('datasets.id', ondelete='SET NULL'), nullable=True, index=True)
+    # 时间戳
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+    
+    # 关系
+    user = relationship("User", back_populates="experiments")
+    dataset = relationship("Dataset")
+    results = relationship("Result", secondary=experiment_results, back_populates="experiments")

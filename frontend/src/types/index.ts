@@ -126,3 +126,17 @@ export type {
   AnalyzableMetric,
   ParametersResponse,
 } from './comparison'
+
+// Experiment (实验组管理)
+export type {
+  ExperimentStatus,
+  Experiment,
+  ExperimentResultBrief,
+  ExperimentDetail,
+  ExperimentCreateRequest,
+  ExperimentUpdateRequest,
+  ExperimentResultsRequest,
+  BestMetricInfo,
+  ExperimentSummary,
+  ExperimentListParams,
+} from './experiment'
