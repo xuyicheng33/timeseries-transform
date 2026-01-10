@@ -3,14 +3,20 @@
 
 提供实验组的 CRUD 操作和结果关联管理
 """
+import os
+import json
+import zipfile
+import tempfile
+from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import User, Experiment, Result, Dataset, experiment_results
+from app.models import User, Experiment, Result, Dataset, Configuration, experiment_results
 from app.schemas.schemas import (
     PaginatedResponse,
     ExperimentCreate,
@@ -25,6 +31,9 @@ from app.schemas.schemas import (
 )
 from app.api.auth import get_current_user
 from app.services.permissions import check_read_access, can_access_result
+from app.services.executor import run_in_executor
+from app.services.utils import safe_rmtree
+from app.services.security import validate_filepath
 from app.config import settings
 
 
@@ -591,4 +600,272 @@ async def list_all_tags(
             all_tags.update(row)
     
     return {"tags": sorted(list(all_tags))}
+
+
+# ============ 实验组导出 ============
+
+def _create_experiment_export_zip(
+    experiment: Experiment,
+    results: List[Result],
+    dataset: Optional[Dataset],
+    configurations: List[Configuration],
+    include_data_files: bool,
+    temp_dir: str
+) -> str:
+    """创建实验组导出 ZIP 文件（同步）"""
+    zip_path = os.path.join(temp_dir, "experiment_export.zip")
+    
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 1. 实验组元数据
+        experiment_meta = {
+            "id": experiment.id,
+            "name": experiment.name,
+            "description": experiment.description or "",
+            "objective": experiment.objective or "",
+            "status": experiment.status,
+            "tags": experiment.tags or [],
+            "conclusion": experiment.conclusion or "",
+            "created_at": experiment.created_at.isoformat() if experiment.created_at else None,
+            "updated_at": experiment.updated_at.isoformat() if experiment.updated_at else None,
+            "export_time": datetime.now().isoformat(),
+            "export_version": "1.0",
+        }
+        zf.writestr("experiment.json", json.dumps(experiment_meta, indent=2, ensure_ascii=False))
+        
+        # 2. 数据集信息
+        if dataset:
+            dataset_meta = {
+                "id": dataset.id,
+                "name": dataset.name,
+                "filename": dataset.filename,
+                "description": dataset.description or "",
+                "row_count": dataset.row_count,
+                "column_count": dataset.column_count,
+                "columns": dataset.columns,
+            }
+            zf.writestr("dataset/metadata.json", json.dumps(dataset_meta, indent=2, ensure_ascii=False))
+            
+            # 数据文件
+            if include_data_files and dataset.filepath and os.path.exists(dataset.filepath):
+                if validate_filepath(dataset.filepath):
+                    zf.write(dataset.filepath, f"dataset/{dataset.filename}")
+        
+        # 3. 配置信息
+        if configurations:
+            configs_data = []
+            for cfg in configurations:
+                configs_data.append({
+                    "id": cfg.id,
+                    "name": cfg.name,
+                    "channels": cfg.channels,
+                    "normalization": cfg.normalization,
+                    "window_size": cfg.window_size,
+                    "stride": cfg.stride,
+                    "target_type": cfg.target_type,
+                    "target_k": cfg.target_k,
+                    "anomaly_enabled": cfg.anomaly_enabled,
+                    "anomaly_type": cfg.anomaly_type,
+                })
+            zf.writestr("configurations.json", json.dumps(configs_data, indent=2, ensure_ascii=False))
+        
+        # 4. 结果信息和文件
+        results_data = []
+        for res in results:
+            res_meta = {
+                "id": res.id,
+                "name": res.name,
+                "algo_name": res.algo_name,
+                "algo_version": res.algo_version or "",
+                "description": res.description or "",
+                "row_count": res.row_count,
+                "metrics": res.metrics or {},
+                "created_at": res.created_at.isoformat() if res.created_at else None,
+            }
+            results_data.append(res_meta)
+            
+            # 结果文件
+            if include_data_files and res.filepath and os.path.exists(res.filepath):
+                if validate_filepath(res.filepath):
+                    zf.write(res.filepath, f"results/{res.id}_{res.algo_name}.csv")
+        
+        zf.writestr("results.json", json.dumps(results_data, indent=2, ensure_ascii=False))
+        
+        # 5. 生成 Markdown 报告
+        report_lines = [
+            f"# 实验报告: {experiment.name}",
+            "",
+            f"**导出时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "## 实验概述",
+            "",
+            f"- **状态**: {experiment.status}",
+            f"- **目标**: {experiment.objective or '-'}",
+            f"- **描述**: {experiment.description or '-'}",
+            f"- **标签**: {', '.join(experiment.tags) if experiment.tags else '-'}",
+            "",
+        ]
+        
+        if dataset:
+            report_lines.extend([
+                "## 数据集",
+                "",
+                f"- **名称**: {dataset.name}",
+                f"- **行数**: {dataset.row_count:,}",
+                f"- **列数**: {dataset.column_count}",
+                "",
+            ])
+        
+        if results:
+            report_lines.extend([
+                "## 模型性能对比",
+                "",
+                "| 模型 | 版本 | MSE | RMSE | MAE | R² | MAPE |",
+                "|------|------|-----|------|-----|-----|------|",
+            ])
+            
+            for res in results:
+                m = res.metrics or {}
+                row = [
+                    res.algo_name,
+                    res.algo_version or "-",
+                    f"{m.get('mse', '-'):.6f}" if isinstance(m.get('mse'), (int, float)) else "-",
+                    f"{m.get('rmse', '-'):.6f}" if isinstance(m.get('rmse'), (int, float)) else "-",
+                    f"{m.get('mae', '-'):.6f}" if isinstance(m.get('mae'), (int, float)) else "-",
+                    f"{m.get('r2', '-'):.4f}" if isinstance(m.get('r2'), (int, float)) else "-",
+                    f"{m.get('mape', '-'):.2f}%" if isinstance(m.get('mape'), (int, float)) else "-",
+                ]
+                report_lines.append("| " + " | ".join(row) + " |")
+            
+            report_lines.append("")
+        
+        if experiment.conclusion:
+            report_lines.extend([
+                "## 实验结论",
+                "",
+                experiment.conclusion,
+                "",
+            ])
+        
+        report_lines.extend([
+            "---",
+            "",
+            "*本报告由时序预测平台自动生成*",
+        ])
+        
+        zf.writestr("report.md", "\n".join(report_lines))
+        
+        # 6. 生成 LaTeX 表格
+        if results:
+            latex_lines = [
+                "\\begin{table}[htbp]",
+                "\\centering",
+                f"\\caption{{实验 {experiment.name} 模型性能对比}}",
+                "\\label{tab:experiment_results}",
+                "\\begin{tabular}{lcccccc}",
+                "\\toprule",
+                "模型 & 版本 & MSE & RMSE & MAE & R² & MAPE (\\%) \\\\",
+                "\\midrule",
+            ]
+            
+            for res in results:
+                m = res.metrics or {}
+                row = [
+                    res.algo_name.replace('_', '\\_'),
+                    res.algo_version or "-",
+                    f"{m.get('mse', '-'):.6f}" if isinstance(m.get('mse'), (int, float)) else "-",
+                    f"{m.get('rmse', '-'):.6f}" if isinstance(m.get('rmse'), (int, float)) else "-",
+                    f"{m.get('mae', '-'):.6f}" if isinstance(m.get('mae'), (int, float)) else "-",
+                    f"{m.get('r2', '-'):.4f}" if isinstance(m.get('r2'), (int, float)) else "-",
+                    f"{m.get('mape', '-'):.2f}" if isinstance(m.get('mape'), (int, float)) else "-",
+                ]
+                latex_lines.append(" & ".join(row) + " \\\\")
+            
+            latex_lines.extend([
+                "\\bottomrule",
+                "\\end{tabular}",
+                "\\end{table}",
+            ])
+            
+            zf.writestr("results_table.tex", "\n".join(latex_lines))
+    
+    return zip_path
+
+
+def _cleanup_temp_dir(temp_dir: str):
+    """清理临时目录"""
+    safe_rmtree(temp_dir)
+
+
+@router.get("/{experiment_id}/export")
+async def export_experiment(
+    experiment_id: int,
+    include_data_files: bool = Query(default=True, description="是否包含数据文件"),
+    background_tasks: BackgroundTasks = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    导出实验组
+    
+    导出内容包括：
+    - experiment.json: 实验组元数据
+    - dataset/: 数据集信息和文件
+    - configurations.json: 配置信息
+    - results.json: 结果元数据
+    - results/: 结果文件
+    - report.md: Markdown 报告
+    - results_table.tex: LaTeX 表格
+    """
+    # 获取实验组（包含结果）
+    experiment = await get_experiment_or_404(experiment_id, db, current_user, load_results=True)
+    
+    # 获取数据集
+    dataset = None
+    if experiment.dataset_id:
+        ds_result = await db.execute(
+            select(Dataset).where(Dataset.id == experiment.dataset_id)
+        )
+        dataset = ds_result.scalar_one_or_none()
+    
+    # 获取配置
+    configurations = []
+    if dataset:
+        cfg_result = await db.execute(
+            select(Configuration).where(Configuration.dataset_id == dataset.id)
+        )
+        configurations = cfg_result.scalars().all()
+    
+    # 创建临时目录
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        # 创建 ZIP 文件
+        zip_path = await run_in_executor(
+            _create_experiment_export_zip,
+            experiment,
+            experiment.results,
+            dataset,
+            configurations,
+            include_data_files,
+            temp_dir
+        )
+        
+        # 生成文件名
+        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in experiment.name)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"experiment_{safe_name}_{timestamp}.zip"
+        
+        # 使用 BackgroundTasks 在响应完成后清理
+        if background_tasks:
+            background_tasks.add_task(_cleanup_temp_dir, temp_dir)
+        
+        return FileResponse(
+            zip_path,
+            filename=filename,
+            media_type="application/zip"
+        )
+    except Exception as e:
+        # 出错时立即清理
+        await run_in_executor(safe_rmtree, temp_dir)
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 

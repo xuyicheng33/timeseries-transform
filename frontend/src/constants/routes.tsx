@@ -10,6 +10,7 @@ import {
   LineChartOutlined,
   ExperimentOutlined,
   RocketOutlined,
+  FundProjectionScreenOutlined,
 } from '@ant-design/icons'
 
 // 懒加载页面组件
@@ -21,6 +22,7 @@ const ResultRepo = lazy(() => import('@/pages/ResultRepo'))
 const Visualization = lazy(() => import('@/pages/Visualization'))
 const ExperimentManager = lazy(() => import('@/pages/ExperimentManager'))
 const ModelTemplateManager = lazy(() => import('@/pages/ModelTemplateManager'))
+const AdvancedVisualization = lazy(() => import('@/pages/AdvancedVisualization'))
 
 export interface RouteConfig {
   path: string
@@ -59,6 +61,12 @@ export const ROUTES: RouteConfig[] = [
     name: '可视化对比',
     icon: <LineChartOutlined />,
     element: Visualization,
+  },
+  {
+    path: '/advanced-viz',
+    name: '高级分析',
+    icon: <FundProjectionScreenOutlined />,
+    element: AdvancedVisualization,
   },
   {
     path: '/experiments',

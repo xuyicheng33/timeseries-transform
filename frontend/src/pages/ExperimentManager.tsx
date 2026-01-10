@@ -35,6 +35,8 @@ import {
   TrophyOutlined,
   BarChartOutlined,
   FileTextOutlined,
+  FilePdfOutlined,
+  ExportOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -47,6 +49,8 @@ import {
   removeResultsFromExperiment,
   getExperimentSummary,
   getAllTags,
+  exportExperiment,
+  downloadExperimentExport,
 } from '@/api/experiments';
 import { getResults } from '@/api/results';
 import { getDatasets } from '@/api/datasets';
@@ -59,6 +63,7 @@ import type {
   ExperimentUpdateRequest,
 } from '@/types/experiment';
 import type { Result, Dataset } from '@/types';
+import ReportGenerator from '@/components/ReportGenerator';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -90,6 +95,7 @@ const ExperimentManager: React.FC = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [addResultsModalVisible, setAddResultsModalVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
 
   // 当前操作的实验组
   const [currentExperiment, setCurrentExperiment] = useState<ExperimentDetail | null>(null);
@@ -103,6 +109,7 @@ const ExperimentManager: React.FC = () => {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [availableResults, setAvailableResults] = useState<Result[]>([]);
   const [selectedResultIds, setSelectedResultIds] = useState<number[]>([]);
+  const [exporting, setExporting] = useState<number | null>(null); // 正在导出的实验 ID
 
   // 加载实验组列表
   const loadExperiments = useCallback(async () => {
@@ -269,6 +276,20 @@ const ExperimentManager: React.FC = () => {
     }
   };
 
+  // 导出实验组
+  const handleExport = async (experiment: Experiment) => {
+    setExporting(experiment.id);
+    try {
+      const blob = await exportExperiment(experiment.id, true);
+      downloadExperimentExport(blob, experiment.name);
+      message.success('导出成功');
+    } catch (error) {
+      message.error('导出失败');
+    } finally {
+      setExporting(null);
+    }
+  };
+
   // 表格列定义
   const columns: ColumnsType<Experiment> = [
     {
@@ -341,7 +362,7 @@ const ExperimentManager: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 250,
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="查看详情">
@@ -358,6 +379,27 @@ const ExperimentManager: React.FC = () => {
               size="small"
               icon={<PlusOutlined />}
               onClick={() => handleOpenAddResults(record)}
+            />
+          </Tooltip>
+          <Tooltip title="生成报告">
+            <Button
+              type="text"
+              size="small"
+              icon={<FilePdfOutlined />}
+              onClick={() => {
+                setCurrentExperiment(record as ExperimentDetail);
+                setReportModalVisible(true);
+              }}
+              disabled={record.result_count === 0}
+            />
+          </Tooltip>
+          <Tooltip title="导出实验">
+            <Button
+              type="text"
+              size="small"
+              icon={<ExportOutlined />}
+              onClick={() => handleExport(record)}
+              loading={exporting === record.id}
             />
           </Tooltip>
           <Tooltip title="编辑">
@@ -902,6 +944,14 @@ const ExperimentManager: React.FC = () => {
           pagination={{ pageSize: 10 }}
         />
       </Modal>
+
+      {/* 报告生成弹窗 */}
+      <ReportGenerator
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        experimentId={currentExperiment?.id}
+        experimentName={currentExperiment?.name}
+      />
     </div>
   );
 };

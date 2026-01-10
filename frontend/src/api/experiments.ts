@@ -93,3 +93,34 @@ export async function getAllTags(): Promise<{ tags: string[] }> {
   return request.get(`${BASE_URL}/tags/list`);
 }
 
+/**
+ * 导出实验组
+ * 返回 Blob 用于下载
+ */
+export async function exportExperiment(
+  experimentId: number,
+  includeDataFiles: boolean = true
+): Promise<Blob> {
+  const response = await request.get(`${BASE_URL}/${experimentId}/export`, {
+    params: { include_data_files: includeDataFiles },
+    responseType: 'blob',
+  });
+  return response;
+}
+
+/**
+ * 下载实验组导出文件的辅助函数
+ */
+export function downloadExperimentExport(blob: Blob, experimentName: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const safeName = experimentName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, '_');
+  const timestamp = new Date().toISOString().slice(0, 10);
+  link.download = `experiment_${safeName}_${timestamp}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+

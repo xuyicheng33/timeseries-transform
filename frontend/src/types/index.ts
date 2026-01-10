@@ -159,3 +159,42 @@ export {
   MODEL_CATEGORY_CONFIG,
   TASK_TYPE_CONFIG,
 } from './modelTemplate'
+
+// Report (实验报告)
+export type {
+  ReportConfig,
+  ReportFormat,
+  ExperimentReportRequest,
+  MultiResultReportRequest,
+  LatexTableResponse,
+} from './report'
+
+export {
+  DEFAULT_REPORT_CONFIG,
+  REPORT_FORMAT_OPTIONS,
+} from './report'
+
+// Advanced Visualization (高级可视化)
+export type {
+  FeatureImportanceMethod,
+  FeatureImportanceRequest,
+  FeatureImportance,
+  FeatureImportanceResponse,
+  ConfidenceIntervalRequest,
+  ConfidenceIntervalPoint,
+  ConfidenceIntervalResponse,
+  ErrorHeatmapRequest,
+  HeatmapCell,
+  ErrorHeatmapData,
+  ErrorHeatmapResponse,
+  DecompositionType,
+  PredictionDecompositionRequest,
+  DecompositionComponent,
+  PredictionDecompositionResponse,
+} from './advancedViz'
+
+export {
+  FEATURE_IMPORTANCE_METHODS,
+  CONFIDENCE_LEVELS,
+  DECOMPOSITION_COLORS,
+} from './advancedViz'

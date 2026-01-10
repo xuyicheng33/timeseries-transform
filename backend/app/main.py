@@ -6,7 +6,7 @@ from app.config import settings, init_directories
 from app.database import init_db, close_db
 from app.services.executor import shutdown_executor
 from app.services.auth import init_jwt_secret
-from app.api import datasets, configurations, results, visualization, auth, quality, exploration, batch, comparison, experiments, model_templates
+from app.api import datasets, configurations, results, visualization, auth, quality, exploration, batch, comparison, experiments, model_templates, reports, advanced_viz
 
 
 @asynccontextmanager
@@ -63,6 +63,8 @@ app.include_router(batch.router)  # 批量操作路由
 app.include_router(comparison.router)  # 配置对比分析路由
 app.include_router(experiments.router)  # 实验组管理路由
 app.include_router(model_templates.router)  # 模型模板路由
+app.include_router(reports.router)  # 实验报告生成路由
+app.include_router(advanced_viz.router)  # 高级可视化路由
 
 
 @app.get("/")
