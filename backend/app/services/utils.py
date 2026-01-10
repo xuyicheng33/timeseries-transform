@@ -440,6 +440,8 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
         "robust": "Robust",
         "maxabs": "MaxAbs",
         "log": "Log",
+        "log1p": "Log1p",
+        "sqrt": "Sqrt",
         "boxcox": "BoxCox",
         "yeojohnson": "YeoJohn",
         "quantile": "Quantile",

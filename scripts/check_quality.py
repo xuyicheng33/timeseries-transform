@@ -136,6 +136,7 @@ def check_python_imports() -> bool:
         "app.api.results",
         "app.api.visualization",
         "app.api.quality",
+        "app.api.exploration",
     ]
     
     errors = []

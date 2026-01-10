@@ -38,6 +38,7 @@ import {
   GlobalOutlined,
   LockOutlined,
   SafetyCertificateOutlined,
+  LineChartOutlined,
 } from '@ant-design/icons'
 
 import type { Dataset, DatasetPreview, DatasetUpdate, DataQualityReport, OutlierMethod, CleaningResult } from '@/types'
@@ -55,6 +56,7 @@ import { formatFileSize, formatDateTime } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
 import DataQualityReportComponent from '@/components/DataQualityReport'
 import DataCleaningModal from '@/components/DataCleaningModal'
+import DataExploration from '@/components/DataExploration'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -96,6 +98,10 @@ export default function DataHub() {
   const [qualityReport, setQualityReport] = useState<DataQualityReport | null>(null)
   const [qualityLoading, setQualityLoading] = useState(false)
   const [cleaningModalOpen, setCleaningModalOpen] = useState(false)
+
+  // 数据探索相关
+  const [explorationDrawerOpen, setExplorationDrawerOpen] = useState(false)
+  const [explorationDataset, setExplorationDataset] = useState<Dataset | null>(null)
 
   // ============ 数据获取 ============
   const fetchDatasets = useCallback(async () => {
@@ -346,6 +352,17 @@ export default function DataHub() {
     }
   }
 
+  // ============ 数据探索功能 ============
+  const handleExploration = (dataset: Dataset) => {
+    setExplorationDataset(dataset)
+    setExplorationDrawerOpen(true)
+  }
+
+  const handleExplorationDrawerClose = () => {
+    setExplorationDrawerOpen(false)
+    setExplorationDataset(null)
+  }
+
   // ============ 删除功能 ============
   const handleDelete = async (dataset: Dataset) => {
     try {
@@ -467,6 +484,14 @@ export default function DataHub() {
               size="small"
               icon={<EyeOutlined />}
               onClick={() => handlePreview(record)}
+            />
+          </Tooltip>
+          <Tooltip title="数据探索">
+            <Button
+              type="text"
+              size="small"
+              icon={<LineChartOutlined />}
+              onClick={() => handleExploration(record)}
             />
           </Tooltip>
           <Tooltip title="质量检测">
@@ -785,6 +810,29 @@ export default function DataHub() {
           onSuccess={handleCleaningSuccess}
         />
       )}
+
+      {/* 数据探索抽屉 */}
+      <Drawer
+        title={
+          <Space>
+            <LineChartOutlined />
+            数据探索 - {explorationDataset?.name}
+          </Space>
+        }
+        placement="right"
+        width={1100}
+        open={explorationDrawerOpen}
+        onClose={handleExplorationDrawerClose}
+        destroyOnClose
+      >
+        {explorationDataset && (
+          <DataExploration
+            datasetId={explorationDataset.id}
+            datasetName={explorationDataset.name}
+            columns={explorationDataset.columns}
+          />
+        )}
+      </Drawer>
     </div>
   )
 }
