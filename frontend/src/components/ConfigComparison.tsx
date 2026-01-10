@@ -19,7 +19,6 @@ import {
   Empty,
   Spin,
   Progress,
-  Tooltip,
   Descriptions,
   message,
 } from 'antd'
@@ -48,7 +47,7 @@ import {
   analyzeSensitivity,
 } from '@/api/comparison'
 
-const { Title, Text, Paragraph } = Typography
+const { Text } = Typography
 
 // 图表颜色
 const CHART_COLORS = [
@@ -206,74 +205,6 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
           formatter: (params: any) => `${(params.value * 100).toFixed(1)}%`,
         },
       }],
-    }
-  }
-
-  // 参数-指标关系图
-  const getParameterMetricOption = (param: ParameterAnalysis): EChartsOption => {
-    if (!param.values.length) return {}
-    
-    const xData = param.values.map(v => String(v.value))
-    
-    return {
-      title: {
-        text: `${param.parameter_label} vs 指标`,
-        left: 'center',
-      },
-      tooltip: {
-        trigger: 'axis',
-      },
-      legend: {
-        top: 30,
-        data: ['RMSE', 'MAE', 'R²'],
-      },
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        top: 70,
-        containLabel: true,
-      },
-      xAxis: {
-        type: 'category',
-        name: param.parameter_label,
-        data: xData,
-      },
-      yAxis: [
-        {
-          type: 'value',
-          name: 'RMSE / MAE',
-          position: 'left',
-        },
-        {
-          type: 'value',
-          name: 'R²',
-          position: 'right',
-          max: 1,
-          min: 0,
-        },
-      ],
-      series: [
-        {
-          name: 'RMSE',
-          type: param.is_numeric ? 'line' : 'bar',
-          data: param.values.map(v => v.metrics.rmse?.toFixed(4) || null),
-          itemStyle: { color: CHART_COLORS[0] },
-        },
-        {
-          name: 'MAE',
-          type: param.is_numeric ? 'line' : 'bar',
-          data: param.values.map(v => v.metrics.mae?.toFixed(4) || null),
-          itemStyle: { color: CHART_COLORS[1] },
-        },
-        {
-          name: 'R²',
-          type: param.is_numeric ? 'line' : 'bar',
-          yAxisIndex: 1,
-          data: param.values.map(v => v.metrics.r2?.toFixed(4) || null),
-          itemStyle: { color: CHART_COLORS[2] },
-        },
-      ],
     }
   }
 

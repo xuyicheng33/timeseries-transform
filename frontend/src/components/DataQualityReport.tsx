@@ -37,7 +37,6 @@ import type {
   ColumnMissingStats,
   ColumnOutlierStats,
   ColumnBasicStats,
-  QualitySuggestion,
   OutlierMethod,
 } from '@/types'
 import { QUALITY_LEVEL_CONFIG, OUTLIER_METHOD_OPTIONS } from '@/types'

@@ -28,10 +28,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import {
   ArrowRightOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
   DeleteOutlined,
-  EditOutlined,
 } from '@ant-design/icons'
 
 import type {
@@ -40,10 +37,7 @@ import type {
   CleaningPreviewRow,
   CleaningPreviewStats,
   CleaningResult,
-  DataQualityReport,
   OutlierMethod,
-  OutlierAction,
-  MissingStrategy,
 } from '@/types'
 import {
   DEFAULT_CLEANING_CONFIG,
@@ -53,7 +47,7 @@ import {
 } from '@/types'
 import { previewCleaning, applyCleaning } from '@/api/quality'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 interface DataCleaningModalProps {
   visible: boolean
@@ -68,7 +62,7 @@ export default function DataCleaningModal({
   visible,
   datasetId,
   datasetName,
-  qualityReport,
+  qualityReport: _qualityReport,
   onClose,
   onSuccess,
 }: DataCleaningModalProps) {

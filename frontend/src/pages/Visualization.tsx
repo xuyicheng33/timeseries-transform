@@ -28,7 +28,6 @@ import type { ColumnsType } from 'antd/es/table'
 import {
   LineChartOutlined,
   DownloadOutlined,
-  ReloadOutlined,
   WarningOutlined,
   RadarChartOutlined,
   BarChartOutlined,
@@ -1175,7 +1174,7 @@ export default function Visualization() {
                         dataSource={Object.entries(rangeMetrics.metrics).map(([id, metrics]) => {
                           const result = results.find((r) => r.id === Number(id))
                           return {
-                            key: id,
+                            key: Number(id),
                             name: result?.name || `ID:${id}`,
                             model_name: result?.model_name || '-',
                             ...metrics,
