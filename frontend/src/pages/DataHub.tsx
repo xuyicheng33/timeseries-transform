@@ -3,7 +3,7 @@
  * 功能：数据集的上传、预览、下载、管理和数据质量检测
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Card,
   Table,
@@ -39,6 +39,8 @@ import {
   LockOutlined,
   SafetyCertificateOutlined,
   LineChartOutlined,
+  ExportOutlined,
+  ImportOutlined,
 } from '@ant-design/icons'
 
 import type { Dataset, DatasetPreview, DatasetUpdate, DataQualityReport, OutlierMethod, CleaningResult } from '@/types'
@@ -51,6 +53,7 @@ import {
   getDatasetDownloadPath,
 } from '@/api/datasets'
 import { getQualityReport } from '@/api/quality'
+import { batchDeleteDatasets, exportData, previewImport, importData } from '@/api/batch'
 import { download } from '@/utils/download'
 import { formatFileSize, formatDateTime } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
@@ -102,6 +105,19 @@ export default function DataHub() {
   // 数据探索相关
   const [explorationDrawerOpen, setExplorationDrawerOpen] = useState(false)
   const [explorationDataset, setExplorationDataset] = useState<Dataset | null>(null)
+
+  // 批量操作相关
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
+  const [batchDeleting, setBatchDeleting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importPreview, setImportPreview] = useState<{
+    datasets_count: number
+    configurations_count: number
+    results_count: number
+  } | null>(null)
+  const [importing, setImporting] = useState(false)
 
   // ============ 数据获取 ============
   const fetchDatasets = useCallback(async () => {
@@ -363,6 +379,111 @@ export default function DataHub() {
     setExplorationDataset(null)
   }
 
+  // ============ 批量操作功能 ============
+  const handleBatchDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请先选择要删除的数据集')
+      return
+    }
+
+    setBatchDeleting(true)
+    try {
+      const result = await batchDeleteDatasets(selectedRowKeys as number[])
+      if (result.success_count > 0) {
+        message.success(`成功删除 ${result.success_count} 个数据集`)
+      }
+      if (result.failed_count > 0) {
+        message.warning(`${result.failed_count} 个数据集删除失败`)
+      }
+      setSelectedRowKeys([])
+      fetchDatasets()
+    } catch {
+      message.error('批量删除失败')
+    } finally {
+      setBatchDeleting(false)
+    }
+  }
+
+  const handleExport = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请先选择要导出的数据集')
+      return
+    }
+
+    setExporting(true)
+    try {
+      const blob = await exportData({
+        dataset_ids: selectedRowKeys as number[],
+        include_configs: true,
+        include_results: true
+      })
+      
+      // 创建下载链接
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `timeseries_export_${new Date().toISOString().slice(0, 10)}.zip`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      message.success('导出成功')
+    } catch {
+      message.error('导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleImportModalOpen = () => {
+    setImportModalOpen(true)
+    setImportFile(null)
+    setImportPreview(null)
+  }
+
+  const handleImportModalClose = () => {
+    setImportModalOpen(false)
+    setImportFile(null)
+    setImportPreview(null)
+  }
+
+  const handleImportFileChange = async (file: File) => {
+    setImportFile(file)
+    try {
+      const preview = await previewImport(file)
+      setImportPreview({
+        datasets_count: preview.datasets_count,
+        configurations_count: preview.configurations_count,
+        results_count: preview.results_count
+      })
+    } catch {
+      message.error('解析导入文件失败')
+      setImportFile(null)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!importFile) {
+      message.warning('请先选择导入文件')
+      return
+    }
+
+    setImporting(true)
+    try {
+      const result = await importData(importFile)
+      message.success(
+        `导入成功：${result.imported_datasets} 个数据集，${result.imported_configurations} 个配置，${result.imported_results} 个结果`
+      )
+      handleImportModalClose()
+      fetchDatasets()
+    } catch {
+      message.error('导入失败')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   // ============ 删除功能 ============
   const handleDelete = async (dataset: Dataset) => {
     try {
@@ -547,11 +668,51 @@ export default function DataHub() {
             </Title>
             <Text type="secondary">管理时间序列数据集，支持上传、预览、下载</Text>
           </div>
-          <Button type="primary" icon={<UploadOutlined />} onClick={handleUploadModalOpen}>
-            上传数据集
-          </Button>
+          <Space>
+            <Button icon={<ImportOutlined />} onClick={handleImportModalOpen}>
+              导入
+            </Button>
+            <Button type="primary" icon={<UploadOutlined />} onClick={handleUploadModalOpen}>
+              上传数据集
+            </Button>
+          </Space>
         </div>
       </Card>
+
+      {/* 批量操作栏 */}
+      {selectedRowKeys.length > 0 && (
+        <Card style={{ marginBottom: 16 }} size="small">
+          <Space>
+            <Text>已选择 {selectedRowKeys.length} 项</Text>
+            <Button
+              icon={<ExportOutlined />}
+              onClick={handleExport}
+              loading={exporting}
+            >
+              导出选中
+            </Button>
+            <Popconfirm
+              title="批量删除"
+              description={`确定要删除选中的 ${selectedRowKeys.length} 个数据集吗？相关的配置和结果也会被删除。`}
+              onConfirm={handleBatchDelete}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                loading={batchDeleting}
+              >
+                批量删除
+              </Button>
+            </Popconfirm>
+            <Button type="link" onClick={() => setSelectedRowKeys([])}>
+              取消选择
+            </Button>
+          </Space>
+        </Card>
+      )}
 
       {/* 数据集列表 */}
       <Card>
@@ -561,6 +722,10 @@ export default function DataHub() {
           rowKey="id"
           loading={loading}
           scroll={{ x: 1400 }}
+          rowSelection={{
+            selectedRowKeys,
+            onChange: (keys) => setSelectedRowKeys(keys),
+          }}
           pagination={{
             current: currentPage,
             pageSize: pageSize,
@@ -833,6 +998,55 @@ export default function DataHub() {
           />
         )}
       </Drawer>
+
+      {/* 导入 Modal */}
+      <Modal
+        title="导入数据"
+        open={importModalOpen}
+        onCancel={handleImportModalClose}
+        onOk={handleImport}
+        okText="导入"
+        cancelText="取消"
+        confirmLoading={importing}
+        okButtonProps={{ disabled: !importFile }}
+      >
+        <Form layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="选择导入文件" required>
+            <Dragger
+              accept=".zip"
+              maxCount={1}
+              beforeUpload={(file) => {
+                handleImportFileChange(file)
+                return false
+              }}
+              onRemove={() => {
+                setImportFile(null)
+                setImportPreview(null)
+              }}
+              fileList={importFile ? [{ uid: '-1', name: importFile.name, status: 'done' }] : []}
+              disabled={importing}
+            >
+              <p className="ant-upload-drag-icon">
+                <ImportOutlined />
+              </p>
+              <p className="ant-upload-text">点击或拖拽 ZIP 文件到此区域</p>
+              <p className="ant-upload-hint">
+                支持导入之前导出的数据包
+              </p>
+            </Dragger>
+          </Form.Item>
+
+          {importPreview && (
+            <Card size="small" title="导入预览">
+              <Space direction="vertical">
+                <Text>数据集: {importPreview.datasets_count} 个</Text>
+                <Text>配置: {importPreview.configurations_count} 个</Text>
+                <Text>结果: {importPreview.results_count} 个</Text>
+              </Space>
+            </Card>
+          )}
+        </Form>
+      </Modal>
     </div>
   )
 }

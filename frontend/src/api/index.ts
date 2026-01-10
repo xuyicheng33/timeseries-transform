@@ -9,6 +9,7 @@ export { tokenManager } from './token'
 // 导出各模块 API
 export * from './quality'
 export * from './exploration'
+export * from './batch'
 
 export default request
 export { rawRequest }
