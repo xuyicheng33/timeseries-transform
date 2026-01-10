@@ -37,6 +37,7 @@ import type {
   CleaningPreviewRow,
   CleaningPreviewStats,
   CleaningResult,
+  DataQualityReport,
   OutlierMethod,
 } from '@/types'
 import {
