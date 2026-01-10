@@ -15,7 +15,7 @@ from app.database import get_db
 from app.models import Dataset, Configuration, Result, User
 from app.schemas import DatasetCreate, DatasetUpdate, DatasetResponse, DatasetPreview, PaginatedResponse
 from app.config import settings
-from app.services.utils import count_csv_rows, sanitize_filename, safe_rmtree, validate_form_field, validate_description
+from app.services.utils import count_csv_rows, sanitize_filename, sanitize_filename_for_header, safe_rmtree, validate_form_field, validate_description
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
 from app.services.permissions import (
@@ -282,7 +282,9 @@ async def download_dataset(
     if not validate_filepath(dataset.filepath):
         raise HTTPException(status_code=403, detail="文件路径不安全")
     
-    return FileResponse(dataset.filepath, filename=dataset.filename, media_type="text/csv")
+    # 使用安全的文件名（防止 Header 注入）
+    safe_download_name = sanitize_filename_for_header(dataset.filename)
+    return FileResponse(dataset.filepath, filename=safe_download_name, media_type="text/csv")
 
 
 @router.put("/{dataset_id}", response_model=DatasetResponse)

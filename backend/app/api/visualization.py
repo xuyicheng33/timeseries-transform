@@ -26,7 +26,8 @@ from app.schemas import (
 from app.config import settings
 from app.services.utils import (
     downsample, calculate_metrics, 
-    validate_numeric_data, NaNHandlingStrategy, is_valid_numeric
+    validate_numeric_data, NaNHandlingStrategy, is_valid_numeric,
+    escape_csv_header
 )
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
@@ -178,8 +179,8 @@ def _fire_and_forget_cleanup():
 
 
 def _compute_data_hash(values: np.ndarray) -> str:
-    """计算数据的哈希值，用于校验一致性"""
-    return hashlib.md5(values.tobytes()).hexdigest()[:16]
+    """计算数据的哈希值，用于校验一致性（使用 SHA256，不截断）"""
+    return hashlib.sha256(values.tobytes()).hexdigest()
 
 
 @router.post("/compare", response_model=CompareResponse)
@@ -1092,11 +1093,13 @@ async def export_compare_csv(
         raise HTTPException(status_code=400, detail="所有文件读取失败，无法导出数据")
     
     # 预生成表头（按 export_ids 顺序，包含 result_id 避免列名冲突）
+    # 使用 escape_csv_header 防止公式注入
     header_parts = ["index"]
     for rid in export_ids:
         info = all_data[rid]
         # 格式: "模型名_rID_true" 和 "模型名_rID_pred"
-        safe_model = info["model"].replace(",", "_").replace('"', "'")
+        # 使用 escape_csv_header 转义模型名，防止公式注入
+        safe_model = escape_csv_header(info["model"])
         header_parts.append(f"{safe_model}_r{rid}_true")
         header_parts.append(f"{safe_model}_r{rid}_pred")
     

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Generic, TypeVar
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict, EmailStr
 
 from app.schemas.enums import (
     NormalizationType, TargetType, AnomalyType, 
@@ -455,7 +455,7 @@ class RangeMetricsResponse(BaseModel):
 class UserBase(BaseModel):
     """用户基础信息"""
     username: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-zA-Z0-9_]+$')
-    email: str = Field(..., max_length=255)
+    email: EmailStr = Field(..., max_length=255)  # 使用 EmailStr 进行邮箱格式校验
     full_name: Optional[str] = Field(default="", max_length=100)
 
 
@@ -474,7 +474,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """用户信息更新"""
     full_name: Optional[str] = Field(default=None, max_length=100)
-    email: Optional[str] = Field(default=None, max_length=255)
+    email: Optional[EmailStr] = Field(default=None, max_length=255)  # 使用 EmailStr
 
 
 class UserPasswordUpdate(BaseModel):

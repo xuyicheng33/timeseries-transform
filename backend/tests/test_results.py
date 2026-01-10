@@ -52,8 +52,9 @@ class TestResultList:
     @pytest.mark.asyncio
     async def test_list_results_filter_by_model(self, client: AsyncClient, auth_headers: dict, test_result: Result):
         """测试按模型名称筛选"""
+        # 后端使用 algo_name 作为查询参数
         response = await client.get(
-            "/api/results?model_name=TestModel",
+            "/api/results?algo_name=TestModel",
             headers=auth_headers
         )
         
@@ -62,7 +63,7 @@ class TestResultList:
         assert data["total"] == 1
         
         # 筛选不存在的模型
-        response = await client.get("/api/results?model_name=NonExistent", headers=auth_headers)
+        response = await client.get("/api/results?algo_name=NonExistent", headers=auth_headers)
         assert response.status_code == 200
         assert response.json()["total"] == 0
 

@@ -354,15 +354,21 @@ async def increment_usage(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """增加模板使用次数（内部调用）"""
+    """增加模板使用次数（仅当用户有权访问该模板时）"""
     result = await db.execute(
         select(ModelTemplate).where(ModelTemplate.id == template_id)
     )
     template = result.scalar_one_or_none()
     
-    if template:
-        template.usage_count = (template.usage_count or 0) + 1
-        await db.commit()
+    if not template:
+        raise HTTPException(status_code=404, detail="模型模板不存在")
+    
+    # 权限检查：只有能访问模板的用户才能增加使用次数
+    if not (template.is_system or template.is_public or template.user_id == current_user.id):
+        raise HTTPException(status_code=403, detail="无权访问此模板")
+    
+    template.usage_count = (template.usage_count or 0) + 1
+    await db.commit()
     
     return {"success": True}
 

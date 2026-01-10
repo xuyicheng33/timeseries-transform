@@ -17,7 +17,7 @@ from app.models import Result, Dataset, Configuration, User
 from app.schemas import ResultCreate, ResultUpdate, ResultResponse, PaginatedResponse
 from app.config import settings
 from app.services.utils import (
-    calculate_metrics, sanitize_filename, safe_rmtree, 
+    calculate_metrics, sanitize_filename, sanitize_filename_for_header, safe_rmtree, 
     validate_form_field, validate_description,
     validate_numeric_data, NaNHandlingStrategy
 )
@@ -321,7 +321,9 @@ async def download_result(
     if not validate_filepath(result_obj.filepath):
         raise HTTPException(status_code=403, detail="文件路径不安全")
     
-    return FileResponse(result_obj.filepath, filename=result_obj.filename, media_type="text/csv")
+    # 使用安全的文件名（防止 Header 注入）
+    safe_download_name = sanitize_filename_for_header(result_obj.filename)
+    return FileResponse(result_obj.filepath, filename=safe_download_name, media_type="text/csv")
 
 
 @router.put("/{result_id}", response_model=ResultResponse)

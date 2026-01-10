@@ -20,7 +20,7 @@ class TestAuthRegister:
             "full_name": "New User"
         })
         
-        assert response.status_code == 200
+        assert response.status_code == 201  # 注册成功返回 201 Created
         data = response.json()
         assert data["username"] == "newuser"
         assert data["email"] == "newuser@example.com"
@@ -61,6 +61,7 @@ class TestAuthRegister:
             "password": "password123"
         })
         
+        # 使用 EmailStr 校验后返回 422
         assert response.status_code == 422  # Validation error
     
     @pytest.mark.asyncio
@@ -217,8 +218,9 @@ class TestAuthChangePassword:
     @pytest.mark.asyncio
     async def test_change_password_success(self, client: AsyncClient, auth_headers: dict):
         """测试修改密码"""
-        response = await client.post("/api/auth/change-password", headers=auth_headers, json={
-            "current_password": "testpassword123",
+        # 正确的接口是 PUT /api/auth/me/password
+        response = await client.put("/api/auth/me/password", headers=auth_headers, json={
+            "old_password": "testpassword123",
             "new_password": "newpassword456"
         })
         
@@ -234,11 +236,11 @@ class TestAuthChangePassword:
     @pytest.mark.asyncio
     async def test_change_password_wrong_current(self, client: AsyncClient, auth_headers: dict):
         """测试当前密码错误"""
-        response = await client.post("/api/auth/change-password", headers=auth_headers, json={
-            "current_password": "wrongpassword",
+        response = await client.put("/api/auth/me/password", headers=auth_headers, json={
+            "old_password": "wrongpassword",
             "new_password": "newpassword456"
         })
         
         assert response.status_code == 400
-        assert "当前密码错误" in response.json()["detail"]
+        assert "原密码错误" in response.json()["detail"]
 

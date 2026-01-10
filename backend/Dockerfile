@@ -18,6 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# 创建非 root 用户（安全最佳实践）
+RUN groupadd --gid 1000 appgroup && \
+    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+
 # 复制依赖文件
 COPY requirements.txt .
 
@@ -25,10 +29,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
-COPY . .
+COPY --chown=appuser:appgroup . .
 
-# 创建数据和上传目录
-RUN mkdir -p data uploads/datasets uploads/results uploads/cache
+# 创建数据和上传目录，并设置权限
+RUN mkdir -p data uploads/datasets uploads/results uploads/cache && \
+    chown -R appuser:appgroup data uploads
+
+# 切换到非 root 用户
+USER appuser
 
 # 暴露端口
 EXPOSE 8000

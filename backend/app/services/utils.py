@@ -3,6 +3,7 @@
 包含降采样、指标计算、文件处理等通用功能
 """
 import csv
+import os
 import re
 import shutil
 import numpy as np
@@ -49,10 +50,10 @@ def validate_form_field(value: str, field_name: str, max_length: int = 255,
         raise HTTPException(status_code=400, detail=f"{field_name}长度不能超过{max_length}个字符")
     
     # 危险字符校验（防止注入）
-    # 允许中文、字母、数字、常见标点
-    dangerous_pattern = r'[\x00-\x08\x0b\x0c\x0e-\x1f]'  # 控制字符
+    # 包含：控制字符、CR、LF、TAB（防止 Header 注入、日志污染、CSV 结构破坏）
+    dangerous_pattern = r'[\x00-\x1f\x7f]'  # 所有控制字符（包括 \r\n\t）
     if re.search(dangerous_pattern, value):
-        raise HTTPException(status_code=400, detail=f"{field_name}包含非法字符")
+        raise HTTPException(status_code=400, detail=f"{field_name}包含非法字符（不允许换行符、制表符等控制字符）")
     
     return value
 
@@ -65,7 +66,10 @@ def validate_description(value: str, max_length: int = 1000) -> str:
 # ============ 文件名处理 ============
 
 def sanitize_filename(filename: str) -> str:
-    """清理文件名，移除非法字符"""
+    """
+    清理文件名，移除非法字符
+    用于存储时的文件名净化
+    """
     # 移除 Windows 和 Unix 不允许的字符
     # Windows: \ / : * ? " < > |
     # 保留中文、字母、数字、下划线、连字符、点
@@ -78,6 +82,25 @@ def sanitize_filename(filename: str) -> str:
     if not safe_name:
         safe_name = "unnamed_file"
     return safe_name
+
+
+def sanitize_filename_for_header(filename: str) -> str:
+    """
+    清理文件名用于 HTTP Header（Content-Disposition）
+    更严格的净化，防止 Header 注入
+    """
+    # 先进行基础净化
+    safe_name = sanitize_filename(filename)
+    # 移除所有控制字符（包括 \r \n \t）
+    safe_name = re.sub(r'[\x00-\x1f\x7f]', '', safe_name)
+    # 移除可能导致 Header 注入的字符
+    safe_name = re.sub(r'[;\r\n]', '', safe_name)
+    # 限制长度（避免过长的文件名）
+    if len(safe_name) > 200:
+        # 保留扩展名
+        name, ext = os.path.splitext(safe_name)
+        safe_name = name[:200-len(ext)] + ext
+    return safe_name or "download"
 
 
 def safe_rmtree(path: str) -> bool:
@@ -470,6 +493,60 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
 
 
 # ============ CSV 处理 ============
+
+# CSV 公式注入危险前缀字符
+CSV_FORMULA_PREFIXES = ('=', '+', '-', '@', '\t', '\r', '\n')
+
+
+def escape_csv_value(value: str) -> str:
+    """
+    转义 CSV 单元格值，防止公式注入攻击
+    
+    当 CSV 被 Excel/表格软件打开时，以 = + - @ 等开头的单元格
+    可能被解释为公式执行，导致安全风险。
+    
+    常见做法：在危险前缀前添加单引号 ' 使其被视为文本
+    
+    Args:
+        value: 原始单元格值
+    
+    Returns:
+        转义后的安全值
+    """
+    if not value:
+        return value
+    
+    # 检查是否以危险字符开头
+    if value.startswith(CSV_FORMULA_PREFIXES):
+        # 在前面添加单引号，Excel 会将其视为文本前缀
+        return "'" + value
+    
+    return value
+
+
+def escape_csv_header(header: str) -> str:
+    """
+    转义 CSV 表头，防止公式注入
+    同时移除可能破坏 CSV 结构的字符
+    
+    Args:
+        header: 原始表头
+    
+    Returns:
+        安全的表头字符串
+    """
+    if not header:
+        return "column"
+    
+    # 移除换行符和制表符（可能破坏 CSV 结构）
+    safe_header = re.sub(r'[\r\n\t]', ' ', header)
+    # 移除逗号和引号（CSV 分隔符和引用符）
+    safe_header = safe_header.replace(',', '_').replace('"', "'")
+    # 转义公式前缀
+    safe_header = escape_csv_value(safe_header)
+    
+    return safe_header or "column"
+
 
 def count_csv_rows(filepath: str, encoding: str = 'utf-8') -> int:
     """准确统计CSV行数 - 使用 csv.reader 正确处理字段内换行"""
