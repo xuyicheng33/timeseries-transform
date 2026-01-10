@@ -1,15 +1,16 @@
 """
 实验报告生成 API
 
-提供 Markdown 和 PDF 格式的实验报告生成功能
+提供 Markdown、HTML、LaTeX 格式的实验报告生成功能
 """
 import os
 import io
-import tempfile
+import html
+import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -32,7 +33,6 @@ class ReportConfig(BaseModel):
     include_summary: bool = Field(default=True, description="包含汇总统计")
     include_metrics_table: bool = Field(default=True, description="包含指标对比表")
     include_best_model: bool = Field(default=True, description="包含最佳模型分析")
-    include_config_details: bool = Field(default=False, description="包含配置详情")
     include_dataset_info: bool = Field(default=True, description="包含数据集信息")
     include_conclusion: bool = Field(default=True, description="包含实验结论")
     custom_title: Optional[str] = Field(default=None, description="自定义标题")
@@ -259,6 +259,13 @@ def _generate_latex_table(results_data: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _escape_html(text: str) -> str:
+    """HTML 转义，防止 XSS 注入"""
+    if text is None:
+        return ""
+    return html.escape(str(text))
+
+
 def _generate_html_report(
     title: str,
     author: str,
@@ -268,21 +275,21 @@ def _generate_html_report(
     results_data: List[Dict[str, Any]],
     config: ReportConfig
 ) -> str:
-    """生成 HTML 格式报告"""
-    # 先生成 Markdown，然后转换为简单 HTML
-    md_content = _generate_markdown_report(
-        title, author, generated_at, experiment_info, dataset_info, results_data, config
-    )
+    """生成 HTML 格式报告（带 XSS 防护）"""
+    # 转义所有用户输入
+    safe_title = _escape_html(title)
+    safe_author = _escape_html(author)
+    safe_generated_at = _escape_html(generated_at)
     
-    # 简单的 Markdown 到 HTML 转换
-    html_lines = []
-    html_lines.append("<!DOCTYPE html>")
-    html_lines.append("<html lang='zh-CN'>")
-    html_lines.append("<head>")
-    html_lines.append("<meta charset='UTF-8'>")
-    html_lines.append(f"<title>{title}</title>")
-    html_lines.append("<style>")
-    html_lines.append("""
+    # 简单的 HTML 模板
+    html_parts = []
+    html_parts.append("<!DOCTYPE html>")
+    html_parts.append("<html lang='zh-CN'>")
+    html_parts.append("<head>")
+    html_parts.append("<meta charset='UTF-8'>")
+    html_parts.append(f"<title>{safe_title}</title>")
+    html_parts.append("<style>")
+    html_parts.append("""
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                max-width: 900px; margin: 0 auto; padding: 20px; line-height: 1.6; }
         h1 { color: #1a1a1a; border-bottom: 2px solid #1890ff; padding-bottom: 10px; }
@@ -297,90 +304,147 @@ def _generate_html_report(
         .best { background-color: #e6ffe6; font-weight: bold; }
         hr { border: none; border-top: 1px solid #ddd; margin: 30px 0; }
         .footer { color: #888; font-size: 0.9em; text-align: center; }
+        ul { padding-left: 20px; }
+        li { margin: 5px 0; }
     """)
-    html_lines.append("</style>")
-    html_lines.append("</head>")
-    html_lines.append("<body>")
+    html_parts.append("</style>")
+    html_parts.append("</head>")
+    html_parts.append("<body>")
     
-    # 简单转换 Markdown
-    in_table = False
-    table_lines = []
+    # 标题
+    html_parts.append(f"<h1>{safe_title}</h1>")
+    html_parts.append(f"<p><strong>作者</strong>: {safe_author}</p>")
+    html_parts.append(f"<p><strong>生成时间</strong>: {safe_generated_at}</p>")
     
-    for line in md_content.split('\n'):
-        if line.startswith('# '):
-            html_lines.append(f"<h1>{line[2:]}</h1>")
-        elif line.startswith('## '):
-            html_lines.append(f"<h2>{line[3:]}</h2>")
-        elif line.startswith('### '):
-            html_lines.append(f"<h3>{line[4:]}</h3>")
-        elif line.startswith('| '):
-            if not in_table:
-                in_table = True
-                table_lines = []
-            table_lines.append(line)
-        elif in_table and not line.startswith('|'):
-            # 结束表格
-            html_lines.append(_convert_md_table_to_html(table_lines))
-            in_table = False
-            table_lines = []
-            if line.strip():
-                html_lines.append(f"<p>{_convert_inline_md(line)}</p>")
-        elif line.startswith('- '):
-            html_lines.append(f"<li>{_convert_inline_md(line[2:])}</li>")
-        elif line.startswith('---'):
-            html_lines.append("<hr>")
-        elif line.startswith('*') and line.endswith('*'):
-            html_lines.append(f"<p class='footer'><em>{line[1:-1]}</em></p>")
-        elif line.strip():
-            html_lines.append(f"<p>{_convert_inline_md(line)}</p>")
+    # 实验信息
+    if experiment_info:
+        html_parts.append("<h2>实验概述</h2>")
+        html_parts.append("<ul>")
+        html_parts.append(f"<li><strong>实验名称</strong>: {_escape_html(experiment_info.get('name', '-'))}</li>")
+        html_parts.append(f"<li><strong>实验状态</strong>: {_escape_html(experiment_info.get('status', '-'))}</li>")
+        if experiment_info.get('objective'):
+            html_parts.append(f"<li><strong>实验目标</strong>: {_escape_html(experiment_info.get('objective'))}</li>")
+        if experiment_info.get('description'):
+            html_parts.append(f"<li><strong>实验描述</strong>: {_escape_html(experiment_info.get('description'))}</li>")
+        if experiment_info.get('tags'):
+            tags_str = ", ".join(_escape_html(t) for t in experiment_info.get('tags', []))
+            html_parts.append(f"<li><strong>标签</strong>: {tags_str}</li>")
+        html_parts.append("</ul>")
     
-    if in_table:
-        html_lines.append(_convert_md_table_to_html(table_lines))
+    # 数据集信息
+    if config.include_dataset_info and dataset_info:
+        html_parts.append("<h2>数据集信息</h2>")
+        html_parts.append("<ul>")
+        html_parts.append(f"<li><strong>数据集名称</strong>: {_escape_html(dataset_info.get('name', '-'))}</li>")
+        html_parts.append(f"<li><strong>数据行数</strong>: {dataset_info.get('row_count', 0):,}</li>")
+        html_parts.append(f"<li><strong>数据列数</strong>: {dataset_info.get('column_count', 0)}</li>")
+        if dataset_info.get('columns'):
+            cols = dataset_info.get('columns', [])
+            if len(cols) <= 10:
+                cols_str = ", ".join(_escape_html(c) for c in cols)
+            else:
+                cols_str = ", ".join(_escape_html(c) for c in cols[:10]) + f"... (共 {len(cols)} 列)"
+            html_parts.append(f"<li><strong>列名</strong>: {cols_str}</li>")
+        html_parts.append("</ul>")
     
-    html_lines.append("</body>")
-    html_lines.append("</html>")
+    # 汇总统计
+    if config.include_summary and results_data:
+        html_parts.append("<h2>实验汇总</h2>")
+        html_parts.append("<ul>")
+        html_parts.append(f"<li><strong>模型数量</strong>: {len(results_data)}</li>")
+        model_names = list(set(_escape_html(r.get('algo_name', 'unknown')) for r in results_data))
+        html_parts.append(f"<li><strong>涉及模型</strong>: {', '.join(model_names)}</li>")
+        html_parts.append("</ul>")
     
-    return "\n".join(html_lines)
-
-
-def _convert_md_table_to_html(table_lines: List[str]) -> str:
-    """将 Markdown 表格转换为 HTML"""
-    if len(table_lines) < 2:
-        return ""
+    # 指标对比表
+    if config.include_metrics_table and results_data:
+        html_parts.append("<h2>模型性能对比</h2>")
+        html_parts.append("<table>")
+        html_parts.append("<thead><tr>")
+        html_parts.append("<th>模型</th><th>版本</th><th>MSE</th><th>RMSE</th><th>MAE</th><th>R²</th><th>MAPE (%)</th>")
+        html_parts.append("</tr></thead>")
+        html_parts.append("<tbody>")
+        
+        for r in results_data:
+            metrics = r.get('metrics', {})
+            html_parts.append("<tr>")
+            html_parts.append(f"<td>{_escape_html(r.get('algo_name', '-'))}</td>")
+            html_parts.append(f"<td>{_escape_html(r.get('algo_version', '-') or '-')}</td>")
+            html_parts.append(f"<td>{_format_number(metrics.get('mse'))}</td>")
+            html_parts.append(f"<td>{_format_number(metrics.get('rmse'))}</td>")
+            html_parts.append(f"<td>{_format_number(metrics.get('mae'))}</td>")
+            html_parts.append(f"<td>{_format_number(metrics.get('r2'), 4)}</td>")
+            html_parts.append(f"<td>{_format_number(metrics.get('mape'), 2)}</td>")
+            html_parts.append("</tr>")
+        
+        html_parts.append("</tbody></table>")
     
-    html = ["<table>"]
+    # 最佳模型分析
+    if config.include_best_model and results_data:
+        html_parts.append("<h2>最佳模型分析</h2>")
+        
+        def find_best(key: str, minimize: bool = True):
+            valid = [(r, r.get('metrics', {}).get(key)) for r in results_data if r.get('metrics', {}).get(key) is not None]
+            if not valid:
+                return None
+            if minimize:
+                return min(valid, key=lambda x: x[1])
+            return max(valid, key=lambda x: x[1])
+        
+        best_mse = find_best('mse', True)
+        best_rmse = find_best('rmse', True)
+        best_mae = find_best('mae', True)
+        best_r2 = find_best('r2', False)
+        best_mape = find_best('mape', True)
+        
+        html_parts.append("<table>")
+        html_parts.append("<thead><tr><th>指标</th><th>最佳模型</th><th>最佳值</th></tr></thead>")
+        html_parts.append("<tbody>")
+        
+        if best_mse:
+            html_parts.append(f"<tr><td>MSE</td><td>{_escape_html(best_mse[0].get('algo_name'))}</td><td>{_format_number(best_mse[1])}</td></tr>")
+        if best_rmse:
+            html_parts.append(f"<tr><td>RMSE</td><td>{_escape_html(best_rmse[0].get('algo_name'))}</td><td>{_format_number(best_rmse[1])}</td></tr>")
+        if best_mae:
+            html_parts.append(f"<tr><td>MAE</td><td>{_escape_html(best_mae[0].get('algo_name'))}</td><td>{_format_number(best_mae[1])}</td></tr>")
+        if best_r2:
+            html_parts.append(f"<tr><td>R²</td><td>{_escape_html(best_r2[0].get('algo_name'))}</td><td>{_format_number(best_r2[1], 4)}</td></tr>")
+        if best_mape:
+            html_parts.append(f"<tr><td>MAPE</td><td>{_escape_html(best_mape[0].get('algo_name'))}</td><td>{_format_number(best_mape[1], 2)}%</td></tr>")
+        
+        html_parts.append("</tbody></table>")
+        
+        if best_r2:
+            html_parts.append(f"<p><strong>综合推荐</strong>: 基于 R² 指标，<strong>{_escape_html(best_r2[0].get('algo_name'))}</strong> 表现最佳，")
+            html_parts.append(f"R² = {_format_number(best_r2[1], 4)}，表示模型解释了 {best_r2[1]*100:.2f}% 的数据方差。</p>")
     
-    # 表头
-    header_cells = [c.strip() for c in table_lines[0].split('|')[1:-1]]
-    html.append("<thead><tr>")
-    for cell in header_cells:
-        html.append(f"<th>{cell}</th>")
-    html.append("</tr></thead>")
+    # 实验结论
+    if config.include_conclusion and experiment_info and experiment_info.get('conclusion'):
+        html_parts.append("<h2>实验结论</h2>")
+        html_parts.append(f"<p>{_escape_html(experiment_info.get('conclusion'))}</p>")
     
-    # 表体（跳过分隔行）
-    html.append("<tbody>")
-    for line in table_lines[2:]:
-        cells = [c.strip() for c in line.split('|')[1:-1]]
-        html.append("<tr>")
-        for cell in cells:
-            html.append(f"<td>{cell}</td>")
-        html.append("</tr>")
-    html.append("</tbody>")
+    # 附录：各模型详情
+    html_parts.append("<h2>附录：模型详情</h2>")
     
-    html.append("</table>")
-    return "\n".join(html)
-
-
-def _convert_inline_md(text: str) -> str:
-    """转换行内 Markdown 格式"""
-    import re
-    # **bold**
-    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-    # *italic*
-    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
-    # `code`
-    text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
-    return text
+    for i, r in enumerate(results_data, 1):
+        html_parts.append(f"<h3>{i}. {_escape_html(r.get('name', 'Unknown'))}</h3>")
+        html_parts.append("<ul>")
+        html_parts.append(f"<li><strong>模型</strong>: {_escape_html(r.get('algo_name', '-'))}</li>")
+        html_parts.append(f"<li><strong>版本</strong>: {_escape_html(r.get('algo_version', '-') or '-')}</li>")
+        html_parts.append(f"<li><strong>数据行数</strong>: {r.get('row_count', 0):,}</li>")
+        html_parts.append(f"<li><strong>创建时间</strong>: {_escape_html(r.get('created_at', '-'))}</li>")
+        if r.get('description'):
+            html_parts.append(f"<li><strong>描述</strong>: {_escape_html(r.get('description'))}</li>")
+        html_parts.append("</ul>")
+    
+    # 页脚
+    html_parts.append("<hr>")
+    html_parts.append(f"<p class='footer'><em>本报告由时序预测平台自动生成 | {safe_generated_at}</em></p>")
+    
+    html_parts.append("</body>")
+    html_parts.append("</html>")
+    
+    return "\n".join(html_parts)
 
 
 # ============ API 端点 ============

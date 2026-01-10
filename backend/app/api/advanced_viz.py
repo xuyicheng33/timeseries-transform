@@ -199,38 +199,98 @@ def _calculate_gradient_importance(df: pd.DataFrame, target_col: str = "predicte
     return importance
 
 
+def _norm_ppf(p: float) -> float:
+    """
+    标准正态分布的分位点函数（逆 CDF）
+    使用 Python 3.8+ 标准库 statistics.NormalDist
+    """
+    from statistics import NormalDist
+    return NormalDist().inv_cdf(p)
+
+
 def _calculate_rolling_confidence_interval(
     residuals: np.ndarray,
     predictions: np.ndarray,
     window_size: int,
     confidence_level: float
 ) -> tuple:
-    """计算滑动窗口置信区间"""
-    from scipy import stats
-    
+    """计算滑动窗口置信区间（不依赖 SciPy）"""
     n = len(residuals)
     lower_bounds = np.zeros(n)
     upper_bounds = np.zeros(n)
     
-    # 计算 z 值
-    z = stats.norm.ppf((1 + confidence_level) / 2)
+    # 计算 z 值（使用标准库）
+    z = _norm_ppf((1 + confidence_level) / 2)
     
-    for i in range(n):
-        # 确定窗口范围
-        start = max(0, i - window_size // 2)
-        end = min(n, i + window_size // 2)
-        
-        window_residuals = residuals[start:end]
-        
-        if len(window_residuals) > 1:
-            std = np.std(window_residuals)
-        else:
-            std = np.std(residuals)  # 使用全局标准差
-        
-        lower_bounds[i] = predictions[i] - z * std
-        upper_bounds[i] = predictions[i] + z * std
+    # 使用 pandas 滑动窗口计算标准差（更高效）
+    residuals_series = pd.Series(residuals)
+    rolling_std = residuals_series.rolling(
+        window=window_size, center=True, min_periods=1
+    ).std().fillna(residuals_series.std()).values
+    
+    lower_bounds = predictions - z * rolling_std
+    upper_bounds = predictions + z * rolling_std
     
     return lower_bounds, upper_bounds
+
+
+def _find_peaks_simple(arr: np.ndarray, height: float = 0.3, distance: int = 10) -> List[int]:
+    """
+    简单的峰值检测（不依赖 SciPy）
+    
+    Args:
+        arr: 输入数组
+        height: 最小峰值高度
+        distance: 峰值之间的最小距离
+    
+    Returns:
+        峰值索引列表
+    """
+    peaks = []
+    n = len(arr)
+    
+    for i in range(1, n - 1):
+        # 检查是否是局部最大值
+        if arr[i] > arr[i - 1] and arr[i] > arr[i + 1]:
+            # 检查高度阈值
+            if arr[i] >= height:
+                # 检查与上一个峰值的距离
+                if not peaks or (i - peaks[-1]) >= distance:
+                    peaks.append(i)
+    
+    return peaks
+
+
+def _autocorr_fft(x: np.ndarray, max_lag: int = None) -> np.ndarray:
+    """
+    使用 FFT 计算自相关（O(n log n) 而非 O(n²)）
+    
+    Args:
+        x: 输入序列
+        max_lag: 最大滞后（默认为序列长度的一半）
+    
+    Returns:
+        归一化的自相关数组
+    """
+    n = len(x)
+    if max_lag is None:
+        max_lag = n // 2
+    
+    # 去均值
+    x = x - np.mean(x)
+    
+    # 使用 FFT 计算自相关
+    # 补零到 2n 以避免循环卷积
+    fft_size = 2 ** int(np.ceil(np.log2(2 * n - 1)))
+    fft_x = np.fft.fft(x, fft_size)
+    autocorr = np.fft.ifft(fft_x * np.conj(fft_x)).real
+    
+    # 取前 max_lag 个值并归一化
+    autocorr = autocorr[:max_lag]
+    if autocorr[0] != 0:
+        autocorr = autocorr / autocorr[0]
+    
+    return autocorr
 
 
 def _downsample_uniform(data: List[Any], max_points: int) -> List[Any]:
@@ -509,27 +569,28 @@ async def generate_error_heatmap(
         errors = item["errors"]
         length = item["length"]
         
-        # 时间分箱
+        # 使用 np.histogram2d 一次性计算 2D 直方图（高效）
+        time_values = np.arange(length)
         time_bins = np.linspace(0, length, request.bins + 1)
-        time_indices = np.digitize(np.arange(length), time_bins) - 1
-        time_indices = np.clip(time_indices, 0, request.bins - 1)
         
-        # 误差分箱
-        error_indices = np.digitize(errors, error_bins) - 1
-        error_indices = np.clip(error_indices, 0, request.bins - 1)
+        # histogram2d 返回 (counts, x_edges, y_edges)
+        hist, _, _ = np.histogram2d(
+            time_values, errors,
+            bins=[time_bins, error_bins]
+        )
         
-        # 统计每个单元格的数量
+        # 构建 cells 列表
         cells = []
         total = len(errors)
         
         for x in range(request.bins):
             for y in range(request.bins):
-                count = np.sum((time_indices == x) & (error_indices == y))
+                count = int(hist[x, y])
                 if count > 0:
                     cells.append(HeatmapCell(
                         x_bin=x,
                         y_bin=y,
-                        count=int(count),
+                        count=count,
                         percentage=round(count / total * 100, 2)
                     ))
         
@@ -564,8 +625,6 @@ async def decompose_prediction(
     
     将预测结果分解为趋势、季节性和残差组件
     """
-    from scipy import signal
-    
     # 获取结果
     result = await db.execute(
         select(Result).where(Result.id == request.result_id)
@@ -621,7 +680,7 @@ async def decompose_prediction(
     window = min(50, len(pred_vals) // 10)
     if window < 3:
         window = 3
-    trend = pd.Series(pred_vals).rolling(window=window, center=True).mean().fillna(method='bfill').fillna(method='ffill').values
+    trend = pd.Series(pred_vals).rolling(window=window, center=True).mean().bfill().ffill().values
     
     components.append(DecompositionComponent(
         name="trend",
@@ -635,13 +694,12 @@ async def decompose_prediction(
     # 自动检测周期（如果未指定）
     if detected_period is None:
         try:
-            # 使用自相关检测周期
-            autocorr = np.correlate(detrended, detrended, mode='full')
-            autocorr = autocorr[len(autocorr)//2:]
-            autocorr = autocorr / autocorr[0]
+            # 使用 FFT 自相关检测周期（限制最大 lag 避免性能问题）
+            max_lag = min(len(detrended) // 2, 1000)
+            autocorr = _autocorr_fft(detrended, max_lag=max_lag)
             
-            # 找第一个显著峰值
-            peaks, _ = signal.find_peaks(autocorr, height=0.3, distance=10)
+            # 找第一个显著峰值（使用简单峰值检测）
+            peaks = _find_peaks_simple(autocorr, height=0.3, distance=10)
             if len(peaks) > 0:
                 detected_period = int(peaks[0])
         except Exception:

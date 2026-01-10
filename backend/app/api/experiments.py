@@ -42,6 +42,27 @@ router = APIRouter(prefix="/api/experiments", tags=["experiments"])
 
 # ============ 辅助函数 ============
 
+import re
+
+def _sanitize_filename(name: str) -> str:
+    """
+    净化文件名，防止 Zip Slip 攻击
+    只允许字母、数字、下划线、连字符和点
+    """
+    if not name:
+        return "unknown"
+    # 移除路径分隔符和危险字符
+    safe_name = re.sub(r'[^\w\-.]', '_', name)
+    # 移除连续的点（防止 ..）
+    safe_name = re.sub(r'\.{2,}', '.', safe_name)
+    # 移除开头的点和连字符
+    safe_name = safe_name.lstrip('.-')
+    # 限制长度
+    if len(safe_name) > 100:
+        safe_name = safe_name[:100]
+    return safe_name or "unknown"
+
+
 async def check_result_access(result_id: int, db: AsyncSession, user: User) -> Result:
     """检查用户是否有权访问结果，返回结果对象"""
     result = await db.execute(
@@ -683,10 +704,11 @@ def _create_experiment_export_zip(
             }
             results_data.append(res_meta)
             
-            # 结果文件
+            # 结果文件（使用净化后的文件名防止 Zip Slip）
             if include_data_files and res.filepath and os.path.exists(res.filepath):
                 if validate_filepath(res.filepath):
-                    zf.write(res.filepath, f"results/{res.id}_{res.algo_name}.csv")
+                    safe_algo_name = _sanitize_filename(res.algo_name)
+                    zf.write(res.filepath, f"results/{res.id}_{safe_algo_name}.csv")
         
         zf.writestr("results.json", json.dumps(results_data, indent=2, ensure_ascii=False))
         

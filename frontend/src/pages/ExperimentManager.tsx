@@ -35,7 +35,6 @@ import {
   TrophyOutlined,
   BarChartOutlined,
   FileTextOutlined,
-  FilePdfOutlined,
   ExportOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -385,7 +384,7 @@ const ExperimentManager: React.FC = () => {
             <Button
               type="text"
               size="small"
-              icon={<FilePdfOutlined />}
+              icon={<FileTextOutlined />}
               onClick={() => {
                 setCurrentExperiment(record as ExperimentDetail);
                 setReportModalVisible(true);

@@ -77,7 +77,6 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
         include_summary: values.include_summary,
         include_metrics_table: values.include_metrics_table,
         include_best_model: values.include_best_model,
-        include_config_details: values.include_config_details,
         include_dataset_info: values.include_dataset_info,
         include_conclusion: values.include_conclusion,
         custom_title: values.custom_title || undefined,
@@ -240,14 +239,6 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
               <Switch checkedChildren="实验结论" unCheckedChildren="实验结论" defaultChecked />
             </Form.Item>
           )}
-
-          <Form.Item
-            name="include_config_details"
-            valuePropName="checked"
-            style={{ marginBottom: 8 }}
-          >
-            <Switch checkedChildren="配置详情" unCheckedChildren="配置详情" />
-          </Form.Item>
         </div>
 
         <Divider orientation="left" plain>

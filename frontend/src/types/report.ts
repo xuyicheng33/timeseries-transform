@@ -7,7 +7,6 @@ export interface ReportConfig {
   include_summary?: boolean;
   include_metrics_table?: boolean;
   include_best_model?: boolean;
-  include_config_details?: boolean;
   include_dataset_info?: boolean;
   include_conclusion?: boolean;
   custom_title?: string;
@@ -44,7 +43,6 @@ export const DEFAULT_REPORT_CONFIG: ReportConfig = {
   include_summary: true,
   include_metrics_table: true,
   include_best_model: true,
-  include_config_details: false,
   include_dataset_info: true,
   include_conclusion: true,
 };
