@@ -41,8 +41,8 @@ RUN chown -R appuser:appgroup /usr/share/nginx/html && \
 # 切换到非 root 用户
 USER appuser
 
-# 暴露端口（注意：非 root 用户无法绑定 80 端口，需要在 nginx.conf 中改为 8080 或使用端口映射）
-EXPOSE 80
+# 暴露端口（使用 8080 非特权端口，通过 docker-compose 映射到宿主机 80）
+EXPOSE 8080
 
 # 启动 Nginx
 CMD ["nginx", "-g", "daemon off;"]
