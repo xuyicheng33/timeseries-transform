@@ -7,6 +7,7 @@ import os
 import sys
 import asyncio
 import tempfile
+import shutil
 from typing import AsyncGenerator, Generator
 from pathlib import Path
 
@@ -28,6 +29,50 @@ from app.services.auth import get_password_hash
 
 # 使用内存数据库进行测试
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+# 测试专用上传目录（隔离生产数据）
+TEST_UPLOAD_DIR = Path(__file__).parent.parent / "uploads_test"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_upload_dir():
+    """设置测试上传目录（session 级别，自动清理）"""
+    # 创建测试目录
+    TEST_UPLOAD_DIR.mkdir(exist_ok=True)
+    (TEST_UPLOAD_DIR / "datasets").mkdir(exist_ok=True)
+    (TEST_UPLOAD_DIR / "results").mkdir(exist_ok=True)
+    (TEST_UPLOAD_DIR / "cache").mkdir(exist_ok=True)
+    
+    # 设置环境变量让应用使用测试目录
+    original_upload_dir = os.environ.get("UPLOAD_DIR")
+    os.environ["UPLOAD_DIR"] = str(TEST_UPLOAD_DIR)
+    
+    yield
+    
+    # 清理测试目录
+    if TEST_UPLOAD_DIR.exists():
+        shutil.rmtree(TEST_UPLOAD_DIR, ignore_errors=True)
+    
+    # 恢复环境变量
+    if original_upload_dir:
+        os.environ["UPLOAD_DIR"] = original_upload_dir
+    elif "UPLOAD_DIR" in os.environ:
+        del os.environ["UPLOAD_DIR"]
+
+
+@pytest.fixture(scope="function")
+def clean_test_uploads():
+    """每个测试函数后清理上传的文件"""
+    yield
+    # 清理测试上传目录中的文件（保留目录结构）
+    for subdir in ["datasets", "results", "cache"]:
+        dir_path = TEST_UPLOAD_DIR / subdir
+        if dir_path.exists():
+            for item in dir_path.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item, ignore_errors=True)
+                else:
+                    item.unlink(missing_ok=True)
 
 
 @pytest.fixture(scope="session")

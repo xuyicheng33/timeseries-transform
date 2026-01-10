@@ -147,7 +147,7 @@ const ExperimentManager: React.FC = () => {
   // 加载可用结果列表
   const loadAvailableResults = async () => {
     try {
-      const response = await getResults(undefined, undefined, 1, 200);
+      const response = await getResults(undefined, undefined, 1, 100);
       setAvailableResults(response.items);
     } catch (error) {
       console.error('加载结果列表失败', error);

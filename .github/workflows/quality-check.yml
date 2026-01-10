@@ -65,6 +65,7 @@ PY
         DATABASE_URL: "sqlite+aiosqlite:///:memory:"
         JWT_SECRET_KEY: "test-secret-key-for-ci"
         DEBUG: "false"
+        ENABLE_DATA_ISOLATION: "true"
 
   frontend-check:
     name: Frontend Quality Check

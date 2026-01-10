@@ -855,6 +855,7 @@ class ExperimentResponse(BaseModel):
 class ExperimentDetailResponse(ExperimentResponse):
     """实验组详情响应（包含关联结果）"""
     results: List[ExperimentResultBrief] = Field(default_factory=list)
+    skipped_result_ids: List[int] = Field(default_factory=list, description="跳过的结果ID（无权限或已存在）")
 
 
 class ExperimentAddResults(BaseModel):

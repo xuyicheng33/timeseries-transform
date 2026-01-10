@@ -13,7 +13,7 @@ import type {
   ExperimentListParams,
 } from '@/types/experiment';
 
-const BASE_URL = '/api/experiments';
+const BASE_URL = '/experiments';
 
 /**
  * 获取实验组列表

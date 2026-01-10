@@ -25,6 +25,7 @@ from app.schemas.schemas import (
 )
 from app.api.auth import get_current_user
 from app.services.permissions import check_read_access, can_access_result
+from app.config import settings
 
 
 router = APIRouter(prefix="/api/experiments", tags=["experiments"])
@@ -128,11 +129,15 @@ async def list_experiments(
         query = query.where(Experiment.dataset_id == dataset_id)
         count_query = count_query.where(Experiment.dataset_id == dataset_id)
     
-    # 标签筛选（JSON 数组包含）
+    # 标签筛选（SQLite JSON 数组查询）
     if tag:
-        # SQLite JSON 查询
-        query = query.where(Experiment.tags.contains(tag))
-        count_query = count_query.where(Experiment.tags.contains(tag))
+        # 使用 JSON 函数检查数组是否包含指定值
+        # SQLite: json_each + EXISTS 或 LIKE 模式匹配
+        # 这里使用 LIKE 模式匹配 JSON 数组字符串，更兼容
+        tag_pattern = f'%"{tag}"%'
+        from sqlalchemy import cast, String
+        query = query.where(cast(Experiment.tags, String).like(tag_pattern))
+        count_query = count_query.where(cast(Experiment.tags, String).like(tag_pattern))
     
     # 搜索
     if search:
@@ -157,26 +162,38 @@ async def list_experiments(
     result = await db.execute(query)
     experiments = result.scalars().all()
     
-    # 获取每个实验组的结果数量和数据集名称
+    if not experiments:
+        return PaginatedResponse(items=[], total=total, page=page, page_size=page_size)
+    
+    # 批量获取结果数量（避免 N+1）
+    exp_ids = [exp.id for exp in experiments]
+    result_counts_query = await db.execute(
+        select(
+            experiment_results.c.experiment_id,
+            func.count(experiment_results.c.result_id).label('count')
+        ).where(
+            experiment_results.c.experiment_id.in_(exp_ids)
+        ).group_by(experiment_results.c.experiment_id)
+    )
+    result_counts = {row.experiment_id: row.count for row in result_counts_query}
+    
+    # 批量获取数据集名称（避免 N+1）
+    dataset_ids = [exp.dataset_id for exp in experiments if exp.dataset_id]
+    dataset_names = {}
+    if dataset_ids:
+        ds_result = await db.execute(
+            select(Dataset.id, Dataset.name).where(Dataset.id.in_(dataset_ids))
+        )
+        dataset_names = {row.id: row.name for row in ds_result}
+    
+    # 构建响应
     items = []
     for exp in experiments:
-        # 结果数量
-        count_result = await db.execute(
-            select(func.count()).select_from(experiment_results).where(
-                experiment_results.c.experiment_id == exp.id
-            )
-        )
-        result_count = count_result.scalar()
-        
-        # 数据集名称
-        dataset_name = None
-        if exp.dataset_id:
-            ds_result = await db.execute(
-                select(Dataset.name).where(Dataset.id == exp.dataset_id)
-            )
-            dataset_name = ds_result.scalar()
-        
-        items.append(build_experiment_response(exp, result_count, dataset_name))
+        items.append(build_experiment_response(
+            exp,
+            result_count=result_counts.get(exp.id, 0),
+            dataset_name=dataset_names.get(exp.dataset_id) if exp.dataset_id else None
+        ))
     
     return PaginatedResponse(
         items=items,
@@ -202,9 +219,12 @@ async def create_experiment(
         dataset = ds_result.scalar_one_or_none()
         if not dataset:
             raise HTTPException(status_code=404, detail="数据集不存在")
-        # 检查数据集权限
-        if dataset.user_id != current_user.id and not dataset.is_public and not current_user.is_admin:
-            raise HTTPException(status_code=403, detail="无权访问此数据集")
+        # 检查数据集读取权限（遵循共享模式规则）
+        # 共享模式：所有登录用户可读
+        # 隔离模式：只能访问自己的或公开的
+        if settings.ENABLE_DATA_ISOLATION:
+            if dataset.user_id != current_user.id and not dataset.is_public and not current_user.is_admin:
+                raise HTTPException(status_code=403, detail="无权访问此数据集")
         dataset_name = dataset.name
     
     # 创建实验组
@@ -222,6 +242,7 @@ async def create_experiment(
     
     # 添加初始结果
     added_results = []
+    skipped_result_ids = []
     if data.result_ids:
         for result_id in data.result_ids:
             # 验证结果存在且有权限
@@ -237,7 +258,7 @@ async def create_experiment(
                     created_at=result.created_at
                 ))
             except HTTPException:
-                continue  # 跳过无权限的结果
+                skipped_result_ids.append(result_id)  # 记录跳过的结果
     
     await db.commit()
     await db.refresh(experiment)
@@ -256,7 +277,8 @@ async def create_experiment(
         result_count=len(added_results),
         created_at=experiment.created_at,
         updated_at=experiment.updated_at,
-        results=added_results
+        results=added_results,
+        skipped_result_ids=skipped_result_ids
     )
 
 
@@ -331,8 +353,10 @@ async def update_experiment(
             dataset = ds_result.scalar_one_or_none()
             if not dataset:
                 raise HTTPException(status_code=404, detail="数据集不存在")
-            if dataset.user_id != current_user.id and not dataset.is_public and not current_user.is_admin:
-                raise HTTPException(status_code=403, detail="无权访问此数据集")
+            # 检查数据集读取权限（遵循共享模式规则）
+            if settings.ENABLE_DATA_ISOLATION:
+                if dataset.user_id != current_user.id and not dataset.is_public and not current_user.is_admin:
+                    raise HTTPException(status_code=403, detail="无权访问此数据集")
             dataset_name = dataset.name
     elif experiment.dataset_id:
         ds_result = await db.execute(
@@ -386,11 +410,11 @@ async def add_results_to_experiment(
     
     existing_ids = {r.id for r in experiment.results}
     added = []
-    skipped = []
+    skipped_result_ids = []
     
     for result_id in data.result_ids:
         if result_id in existing_ids:
-            skipped.append(result_id)
+            skipped_result_ids.append(result_id)  # 已存在
             continue
         
         try:
@@ -399,7 +423,7 @@ async def add_results_to_experiment(
             added.append(result)
             existing_ids.add(result_id)
         except HTTPException:
-            skipped.append(result_id)
+            skipped_result_ids.append(result_id)  # 无权限或不存在
     
     await db.commit()
     await db.refresh(experiment)
@@ -444,7 +468,8 @@ async def add_results_to_experiment(
         result_count=len(results),
         created_at=experiment.created_at,
         updated_at=experiment.updated_at,
-        results=results
+        results=results,
+        skipped_result_ids=skipped_result_ids
     )
 
 
@@ -458,12 +483,15 @@ async def remove_results_from_experiment(
     """从实验组移除结果"""
     experiment = await get_experiment_or_404(experiment_id, db, current_user, load_results=True)
     
-    # 移除指定结果
-    experiment.results = [r for r in experiment.results if r.id not in data.result_ids]
+    # 计算实际移除数量
+    original_count = len(experiment.results)
+    ids_to_remove = set(data.result_ids)
+    experiment.results = [r for r in experiment.results if r.id not in ids_to_remove]
+    actual_removed = original_count - len(experiment.results)
     
     await db.commit()
     
-    return {"message": f"已移除 {len(data.result_ids)} 个结果"}
+    return {"message": f"已移除 {actual_removed} 个结果", "removed_count": actual_removed}
 
 
 # ============ 实验组分析 ============
