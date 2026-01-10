@@ -105,7 +105,7 @@ export async function exportExperiment(
     params: { include_data_files: includeDataFiles },
     responseType: 'blob',
   });
-  return response;
+  return response.data;
 }
 
 /**

@@ -21,7 +21,7 @@ export async function generateExperimentReport(
   const response = await request.post(`${BASE_URL}/experiment`, data, {
     responseType: 'blob',
   });
-  return response;
+  return response.data;
 }
 
 /**
@@ -34,7 +34,7 @@ export async function generateResultsReport(
   const response = await request.post(`${BASE_URL}/results`, data, {
     responseType: 'blob',
   });
-  return response;
+  return response.data;
 }
 
 /**

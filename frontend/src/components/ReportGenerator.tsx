@@ -15,7 +15,6 @@ import {
   Divider,
   Typography,
   Tooltip,
-  Spin,
 } from 'antd';
 import {
   FileTextOutlined,
@@ -40,7 +39,7 @@ import type {
 } from '@/types/report';
 import { DEFAULT_REPORT_CONFIG, REPORT_FORMAT_OPTIONS } from '@/types/report';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
 interface ReportGeneratorProps {
@@ -192,7 +191,7 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
           </Select>
         </Form.Item>
 
-        <Divider orientation="left" plain>
+        <Divider style={{ textAlign: 'left' }} plain>
           报告内容
         </Divider>
 
@@ -241,7 +240,7 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
           )}
         </div>
 
-        <Divider orientation="left" plain>
+        <Divider style={{ textAlign: 'left' }} plain>
           自定义信息
         </Divider>
 
@@ -256,7 +255,7 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
         {/* LaTeX 快捷功能 */}
         {isExperimentMode && (
           <>
-            <Divider orientation="left" plain>
+            <Divider style={{ textAlign: 'left' }} plain>
               LaTeX 快捷工具
             </Divider>
             <Space direction="vertical" style={{ width: '100%' }}>

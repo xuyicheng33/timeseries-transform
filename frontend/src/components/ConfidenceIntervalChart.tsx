@@ -59,7 +59,7 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
     const predicted = data.data.map(d => d.predicted);
     const trueValues = data.data.map(d => d.true_value);
     const lowerBounds = data.data.map(d => d.lower_bound);
-    const upperBounds = data.data.map(d => d.upper_bound);
+    // upperBounds 通过 bandData 计算使用
 
     // 置信区间带数据
     const bandData = data.data.map(d => [d.lower_bound, d.upper_bound]);
