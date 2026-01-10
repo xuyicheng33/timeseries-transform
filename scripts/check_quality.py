@@ -128,11 +128,14 @@ def check_python_imports() -> bool:
         "app.services.auth",
         "app.services.utils",
         "app.services.permissions",
+        "app.services.quality",
+        "app.services.cleaning",
         "app.api.auth",
         "app.api.datasets",
         "app.api.configurations",
         "app.api.results",
         "app.api.visualization",
+        "app.api.quality",
     ]
     
     errors = []

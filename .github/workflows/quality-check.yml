@@ -44,6 +44,9 @@ modules = [
     'app.services.auth',
     'app.services.utils',
     'app.services.permissions',
+    'app.services.quality',
+    'app.services.cleaning',
+    'app.api.quality',
 ]
 for m in modules:
     __import__(m)

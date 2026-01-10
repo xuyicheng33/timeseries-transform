@@ -430,7 +430,21 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
     parts.append(f"Win{window_size}")
     parts.append(f"Str{stride}")
     
-    norm_map = {"none": "NoNorm", "minmax": "MinMax", "zscore": "ZScore", "head": "Head", "decimal": "Decimal"}
+    norm_map = {
+        "none": "NoNorm", 
+        "minmax": "MinMax", 
+        "zscore": "ZScore", 
+        "head": "Head", 
+        "decimal": "Decimal",
+        # 扩展归一化方法
+        "robust": "Robust",
+        "maxabs": "MaxAbs",
+        "log": "Log",
+        "boxcox": "BoxCox",
+        "yeojohnson": "YeoJohn",
+        "quantile": "Quantile",
+        "rank": "Rank"
+    }
     parts.append(norm_map.get(normalization, "NoNorm"))
     
     if anomaly_enabled and anomaly_type:

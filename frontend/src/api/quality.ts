@@ -19,8 +19,9 @@ export async function getQualityReport(
   datasetId: number,
   outlierMethod: OutlierMethod = 'iqr'
 ): Promise<DataQualityReport> {
-  return request.get(`/api/quality/${datasetId}/report`, {
-    params: { outlier_method: outlierMethod }
+  return request.get(`/quality/${datasetId}/report`, {
+    params: { outlier_method: outlierMethod },
+    timeout: 300000  // 5分钟超时，大数据集分析耗时
   })
 }
 
@@ -31,7 +32,9 @@ export async function generateQualityReport(
   datasetId: number,
   config: QualityCheckRequest
 ): Promise<DataQualityReport> {
-  return request.post(`/api/quality/${datasetId}/report`, config)
+  return request.post(`/quality/${datasetId}/report`, config, {
+    timeout: 300000  // 5分钟超时
+  })
 }
 
 /**
@@ -41,7 +44,9 @@ export async function previewCleaning(
   datasetId: number,
   config: CleaningConfig
 ): Promise<CleaningPreviewResponse> {
-  return request.post(`/api/quality/${datasetId}/clean/preview`, config)
+  return request.post(`/quality/${datasetId}/clean/preview`, config, {
+    timeout: 300000  // 5分钟超时
+  })
 }
 
 /**
@@ -51,7 +56,9 @@ export async function applyCleaning(
   datasetId: number,
   config: CleaningConfig
 ): Promise<CleaningResult> {
-  return request.post(`/api/quality/${datasetId}/clean/apply`, config)
+  return request.post(`/quality/${datasetId}/clean/apply`, config, {
+    timeout: 300000  // 5分钟超时
+  })
 }
 
 /**
@@ -68,7 +75,7 @@ export async function getOutlierDetails(
     upper_pct?: number
   }
 ): Promise<OutlierDetailsResponse> {
-  return request.get(`/api/quality/${datasetId}/outliers`, {
+  return request.get(`/quality/${datasetId}/outliers`, {
     params: {
       column,
       method: options?.method || 'iqr',
@@ -76,7 +83,8 @@ export async function getOutlierDetails(
       threshold: options?.threshold || 3.0,
       lower_pct: options?.lower_pct || 1,
       upper_pct: options?.upper_pct || 99,
-    }
+    },
+    timeout: 300000  // 5分钟超时
   })
 }
 
