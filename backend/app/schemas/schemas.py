@@ -518,3 +518,239 @@ class TokenRefresh(BaseModel):
 class TokenData(BaseModel):
     """Token 数据"""
     user_id: Optional[int] = None
+
+
+# ============ 数据质量检测 Schemas ============
+
+class ColumnMissingStats(BaseModel):
+    """单列缺失值统计"""
+    column: str
+    missing_count: int
+    missing_ratio: float  # 0-1
+    total_count: int
+
+
+class ColumnOutlierStats(BaseModel):
+    """单列异常值统计"""
+    column: str
+    outlier_count: int
+    outlier_ratio: float  # 0-1
+    outlier_indices: List[int] = Field(default_factory=list, description="异常值索引（最多返回100个）")
+    lower_bound: Optional[float] = None
+    upper_bound: Optional[float] = None
+    min_value: float
+    max_value: float
+    mean_value: float
+    std_value: float
+
+
+class ColumnTypeInfo(BaseModel):
+    """列类型信息"""
+    column: str
+    inferred_type: str  # numeric / datetime / categorical / text / boolean
+    original_dtype: str  # pandas dtype
+    unique_count: int
+    unique_ratio: float  # 唯一值比例
+    sample_values: List[Any] = Field(default_factory=list, description="示例值（最多5个）")
+
+
+class ColumnBasicStats(BaseModel):
+    """列基础统计信息"""
+    column: str
+    dtype: str
+    count: int
+    missing_count: int
+    missing_ratio: float
+    # 数值型统计
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    min: Optional[float] = None
+    q1: Optional[float] = None  # 25%
+    median: Optional[float] = None  # 50%
+    q3: Optional[float] = None  # 75%
+    max: Optional[float] = None
+    # 分类型统计
+    unique_count: Optional[int] = None
+    top_value: Optional[str] = None
+    top_freq: Optional[int] = None
+
+
+class TimeSeriesAnalysis(BaseModel):
+    """时序特征分析"""
+    time_column: Optional[str] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    frequency: Optional[str] = None  # 推断的频率 (如 "1H", "1D")
+    total_duration: Optional[str] = None
+    gaps_count: int = 0  # 时间间隔不规则的数量
+    is_regular: bool = True  # 是否规则时序
+
+
+class QualitySuggestion(BaseModel):
+    """质量改进建议"""
+    level: str  # "warning" / "error" / "info"
+    column: Optional[str] = None
+    issue: str
+    suggestion: str
+    auto_fixable: bool = False  # 是否可自动修复
+
+
+class DataQualityReport(BaseModel):
+    """数据质量报告"""
+    # 基础信息
+    dataset_id: int
+    dataset_name: str
+    total_rows: int
+    total_columns: int
+    
+    # 缺失值分析
+    missing_stats: List[ColumnMissingStats] = Field(default_factory=list)
+    total_missing_cells: int = 0
+    total_missing_ratio: float = 0.0
+    
+    # 异常值分析
+    outlier_method: str = "iqr"
+    outlier_stats: List[ColumnOutlierStats] = Field(default_factory=list)
+    total_outlier_cells: int = 0
+    total_outlier_ratio: float = 0.0
+    
+    # 列类型信息
+    column_types: List[ColumnTypeInfo] = Field(default_factory=list)
+    numeric_columns: List[str] = Field(default_factory=list)
+    categorical_columns: List[str] = Field(default_factory=list)
+    datetime_columns: List[str] = Field(default_factory=list)
+    
+    # 列统计信息
+    column_stats: List[ColumnBasicStats] = Field(default_factory=list)
+    
+    # 时序分析（如果检测到时间列）
+    time_analysis: Optional[TimeSeriesAnalysis] = None
+    
+    # 重复值
+    duplicate_rows: int = 0
+    duplicate_ratio: float = 0.0
+    
+    # 质量评分
+    quality_score: int = Field(ge=0, le=100)
+    quality_level: str  # excellent / good / fair / poor
+    
+    # 建议
+    suggestions: List[QualitySuggestion] = Field(default_factory=list)
+    
+    # 生成时间
+    generated_at: datetime = Field(default_factory=lambda: datetime.now())
+
+
+class QualityCheckRequest(BaseModel):
+    """质量检测请求"""
+    outlier_method: str = "iqr"  # iqr / zscore / mad / percentile
+    outlier_params: Dict[str, Any] = Field(default_factory=dict)
+    # IQR: {"multiplier": 1.5}
+    # Z-Score: {"threshold": 3.0}
+    # MAD: {"threshold": 3.5}
+    # Percentile: {"lower": 1, "upper": 99}
+    
+    check_columns: Optional[List[str]] = None  # None 表示检测所有列
+    include_suggestions: bool = True
+
+
+# ============ 数据清洗 Schemas ============
+
+class ColumnCleaningConfig(BaseModel):
+    """单列清洗配置"""
+    column: str
+    
+    # 缺失值处理
+    missing_strategy: Optional[str] = None  # 使用枚举值
+    missing_fill_value: Optional[float] = None
+    
+    # 异常值处理
+    outlier_action: Optional[str] = None  # 使用枚举值
+    outlier_clip_lower: Optional[float] = None
+    outlier_clip_upper: Optional[float] = None
+
+
+class CleaningConfig(BaseModel):
+    """数据清洗配置"""
+    # 全局缺失值处理
+    missing_strategy: str = "keep"  # keep / drop_row / fill_mean / fill_median / fill_forward / fill_backward / fill_value
+    missing_fill_value: Optional[float] = None
+    missing_drop_threshold: float = Field(default=0.5, ge=0, le=1, description="缺失率超过此值的列将被删除")
+    
+    # 全局异常值处理
+    outlier_method: str = "iqr"  # iqr / zscore / mad / percentile / threshold
+    outlier_action: str = "keep"  # keep / remove / clip / replace_mean / replace_median
+    outlier_params: Dict[str, Any] = Field(default_factory=lambda: {"multiplier": 1.5})
+    
+    # 重复值处理
+    drop_duplicates: bool = False
+    duplicate_keep: str = "first"  # first / last / none
+    
+    # 列特定配置（覆盖全局配置）
+    column_configs: List[ColumnCleaningConfig] = Field(default_factory=list)
+    
+    # 要处理的列（None 表示所有数值列）
+    target_columns: Optional[List[str]] = None
+    
+    # 输出选项
+    create_new_dataset: bool = True  # True: 创建新数据集, False: 覆盖原数据集
+    new_dataset_suffix: str = "_cleaned"
+
+
+class CleaningPreviewRow(BaseModel):
+    """清洗预览行"""
+    index: int
+    column: str
+    original_value: Optional[Any] = None
+    new_value: Optional[Any] = None
+    action: str  # "removed" / "filled" / "clipped" / "replaced"
+
+
+class CleaningPreviewStats(BaseModel):
+    """清洗预览统计"""
+    column: str
+    original_missing: int
+    after_missing: int
+    original_outliers: int
+    after_outliers: int
+    rows_affected: int
+
+
+class CleaningPreviewResponse(BaseModel):
+    """清洗预览响应"""
+    # 预览变更
+    preview_changes: List[CleaningPreviewRow] = Field(default_factory=list, description="变更预览（最多100条）")
+    
+    # 统计信息
+    stats: List[CleaningPreviewStats] = Field(default_factory=list)
+    
+    # 汇总
+    total_rows_before: int
+    total_rows_after: int
+    rows_removed: int
+    cells_modified: int
+    columns_removed: List[str] = Field(default_factory=list)
+    
+    # 预估质量提升
+    quality_score_before: int
+    quality_score_after: int
+
+
+class CleaningResult(BaseModel):
+    """清洗执行结果"""
+    success: bool
+    message: str
+    
+    # 新数据集信息（如果创建了新数据集）
+    new_dataset_id: Optional[int] = None
+    new_dataset_name: Optional[str] = None
+    
+    # 清洗统计
+    rows_before: int
+    rows_after: int
+    rows_removed: int
+    cells_modified: int
+    columns_removed: List[str] = Field(default_factory=list)
+    
+    # 清洗后的质量评分
+    quality_score_after: int

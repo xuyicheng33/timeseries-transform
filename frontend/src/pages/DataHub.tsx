@@ -1,6 +1,6 @@
 /**
  * 数据中心页面
- * 功能：数据集的上传、预览、下载和管理
+ * 功能：数据集的上传、预览、下载、管理和数据质量检测
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -22,6 +22,8 @@ import {
   Descriptions,
   Empty,
   Switch,
+  Drawer,
+  Spin,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { UploadFile, UploadProps } from 'antd/es/upload'
@@ -35,9 +37,10 @@ import {
   FileTextOutlined,
   GlobalOutlined,
   LockOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons'
 
-import type { Dataset, DatasetPreview, DatasetUpdate } from '@/types'
+import type { Dataset, DatasetPreview, DatasetUpdate, DataQualityReport, OutlierMethod, CleaningResult } from '@/types'
 import {
   getDatasets,
   uploadDataset,
@@ -46,9 +49,12 @@ import {
   deleteDataset,
   getDatasetDownloadPath,
 } from '@/api/datasets'
+import { getQualityReport } from '@/api/quality'
 import { download } from '@/utils/download'
 import { formatFileSize, formatDateTime } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
+import DataQualityReportComponent from '@/components/DataQualityReport'
+import DataCleaningModal from '@/components/DataCleaningModal'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -83,6 +89,13 @@ export default function DataHub() {
   const [editForm] = Form.useForm()
   const [editingDataset, setEditingDataset] = useState<Dataset | null>(null)
   const [editLoading, setEditLoading] = useState(false)
+
+  // 数据质量相关
+  const [qualityDrawerOpen, setQualityDrawerOpen] = useState(false)
+  const [qualityDataset, setQualityDataset] = useState<Dataset | null>(null)
+  const [qualityReport, setQualityReport] = useState<DataQualityReport | null>(null)
+  const [qualityLoading, setQualityLoading] = useState(false)
+  const [cleaningModalOpen, setCleaningModalOpen] = useState(false)
 
   // ============ 数据获取 ============
   const fetchDatasets = useCallback(async () => {
@@ -277,6 +290,62 @@ export default function DataHub() {
     }
   }
 
+  // ============ 数据质量检测功能 ============
+  const handleQualityCheck = async (dataset: Dataset, method: OutlierMethod = 'iqr') => {
+    setQualityDataset(dataset)
+    setQualityDrawerOpen(true)
+    setQualityLoading(true)
+    setQualityReport(null)
+
+    try {
+      const report = await getQualityReport(dataset.id, method)
+      setQualityReport(report)
+    } catch {
+      message.error('获取质量报告失败')
+    } finally {
+      setQualityLoading(false)
+    }
+  }
+
+  const handleQualityRefresh = async (method: OutlierMethod) => {
+    if (!qualityDataset) return
+    setQualityLoading(true)
+
+    try {
+      const report = await getQualityReport(qualityDataset.id, method)
+      setQualityReport(report)
+      message.success('质量报告已刷新')
+    } catch {
+      message.error('刷新失败')
+    } finally {
+      setQualityLoading(false)
+    }
+  }
+
+  const handleQualityDrawerClose = () => {
+    setQualityDrawerOpen(false)
+    setQualityDataset(null)
+    setQualityReport(null)
+  }
+
+  const handleOpenCleaning = () => {
+    setCleaningModalOpen(true)
+  }
+
+  const handleCleaningSuccess = (result: CleaningResult) => {
+    setCleaningModalOpen(false)
+    // 刷新数据集列表
+    fetchDatasets()
+    // 如果创建了新数据集，提示用户
+    if (result.new_dataset_id) {
+      message.success(`已创建新数据集: ${result.new_dataset_name}`)
+    }
+    // 刷新质量报告
+    if (qualityDataset) {
+      handleQualityCheck(qualityDataset)
+    }
+  }
+
   // ============ 删除功能 ============
   const handleDelete = async (dataset: Dataset) => {
     try {
@@ -388,7 +457,7 @@ export default function DataHub() {
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 220,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -398,6 +467,14 @@ export default function DataHub() {
               size="small"
               icon={<EyeOutlined />}
               onClick={() => handlePreview(record)}
+            />
+          </Tooltip>
+          <Tooltip title="质量检测">
+            <Button
+              type="text"
+              size="small"
+              icon={<SafetyCertificateOutlined />}
+              onClick={() => handleQualityCheck(record)}
             />
           </Tooltip>
           <Tooltip title="下载">
@@ -665,6 +742,49 @@ export default function DataHub() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* 数据质量检测抽屉 */}
+      <Drawer
+        title={
+          <Space>
+            <SafetyCertificateOutlined />
+            数据质量检测 - {qualityDataset?.name}
+          </Space>
+        }
+        placement="right"
+        width={900}
+        open={qualityDrawerOpen}
+        onClose={handleQualityDrawerClose}
+        destroyOnClose
+      >
+        {qualityLoading && !qualityReport ? (
+          <div style={{ textAlign: 'center', padding: 100 }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16 }}>
+              <Text type="secondary">正在分析数据质量...</Text>
+            </div>
+          </div>
+        ) : (
+          <DataQualityReportComponent
+            report={qualityReport}
+            loading={qualityLoading}
+            onRefresh={handleQualityRefresh}
+            onOpenCleaning={handleOpenCleaning}
+          />
+        )}
+      </Drawer>
+
+      {/* 数据清洗弹窗 */}
+      {qualityDataset && (
+        <DataCleaningModal
+          visible={cleaningModalOpen}
+          datasetId={qualityDataset.id}
+          datasetName={qualityDataset.name}
+          qualityReport={qualityReport}
+          onClose={() => setCleaningModalOpen(false)}
+          onSuccess={handleCleaningSuccess}
+        />
+      )}
     </div>
   )
 }

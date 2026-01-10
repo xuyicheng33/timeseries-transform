@@ -6,6 +6,12 @@ from app.schemas.enums import (
     InjectionAlgorithm,
     SequenceLogic,
     DownsampleAlgorithm,
+    # 数据质量相关枚举
+    OutlierMethod,
+    OutlierAction,
+    MissingStrategy,
+    QualityLevel,
+    ColumnDataType,
 )
 
 # 显式导出新增的 schemas
@@ -23,4 +29,19 @@ from app.schemas.schemas import (
     OverallScore,
     RangeMetricsRequest,
     RangeMetricsResponse,
+    # 数据质量相关 schemas
+    ColumnMissingStats,
+    ColumnOutlierStats,
+    ColumnTypeInfo,
+    ColumnBasicStats,
+    TimeSeriesAnalysis,
+    QualitySuggestion,
+    DataQualityReport,
+    QualityCheckRequest,
+    ColumnCleaningConfig,
+    CleaningConfig,
+    CleaningPreviewRow,
+    CleaningPreviewStats,
+    CleaningPreviewResponse,
+    CleaningResult,
 )

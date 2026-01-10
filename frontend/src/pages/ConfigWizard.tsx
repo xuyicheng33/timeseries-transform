@@ -48,6 +48,7 @@ import {
 import { formatDateTime } from '@/utils/format'
 import {
   NORMALIZATION_OPTIONS,
+  NORMALIZATION_GROUPS,
   TARGET_TYPE_OPTIONS,
   ANOMALY_TYPE_OPTIONS,
   INJECTION_ALGORITHM_OPTIONS,
@@ -432,20 +433,56 @@ export default function ConfigWizard() {
 
       case 2:
         return (
-          <Form.Item
-            name="normalization"
-            label="归一化方式"
-            rules={[{ required: true, message: '请选择归一化方式' }]}
-            initialValue="none"
-          >
-            <Radio.Group>
-              {NORMALIZATION_OPTIONS.map((opt) => (
-                <Radio key={opt.value} value={opt.value} style={{ display: 'block', marginBottom: 8 }}>
-                  {opt.label}
-                </Radio>
-              ))}
-            </Radio.Group>
-          </Form.Item>
+          <div>
+            <Form.Item
+              name="normalization"
+              label="归一化方式"
+              rules={[{ required: true, message: '请选择归一化方式' }]}
+              initialValue="none"
+              tooltip="选择适合您数据特征的归一化方法"
+            >
+              <Select
+                placeholder="请选择归一化方式"
+                style={{ width: '100%' }}
+                optionLabelProp="label"
+              >
+                {NORMALIZATION_GROUPS.map((group) => (
+                  <Select.OptGroup key={group.label} label={group.label}>
+                    {group.options.map((opt) => {
+                      const fullOpt = NORMALIZATION_OPTIONS.find(o => o.value === opt.value)
+                      return (
+                        <Select.Option key={opt.value} value={opt.value} label={opt.label}>
+                          <div>
+                            <Text strong>{opt.label}</Text>
+                            {fullOpt?.description && (
+                              <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                                - {fullOpt.description}
+                              </Text>
+                            )}
+                          </div>
+                        </Select.Option>
+                      )
+                    })}
+                  </Select.OptGroup>
+                ))}
+              </Select>
+            </Form.Item>
+            
+            <Alert
+              message="归一化方法说明"
+              description={
+                <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
+                  <li><Text strong>基础方法：</Text>MinMax、Z-Score 适用于大多数场景</li>
+                  <li><Text strong>鲁棒方法：</Text>Robust、MaxAbs 对异常值不敏感</li>
+                  <li><Text strong>变换方法：</Text>Log、Box-Cox 适合长尾分布或偏态数据</li>
+                  <li><Text strong>分布变换：</Text>Quantile、Rank 将数据映射到特定分布</li>
+                </ul>
+              }
+              type="info"
+              showIcon
+              style={{ marginTop: 16 }}
+            />
+          </div>
         )
 
       case 3:

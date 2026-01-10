@@ -6,5 +6,8 @@
 import request, { rawRequest } from './request'
 export { tokenManager } from './token'
 
+// 导出各模块 API
+export * from './quality'
+
 export default request
 export { rawRequest }
