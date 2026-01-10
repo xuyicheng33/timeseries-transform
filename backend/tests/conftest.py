@@ -19,10 +19,21 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 # 确保可以导入 app 模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# ============ 测试上传目录配置（必须在导入 app 之前设置）============
+
+# 测试专用上传目录（隔离生产数据）
+TEST_UPLOAD_DIR = Path(__file__).parent.parent / "uploads_test"
+
+# 在导入 app 之前，先设置环境变量
+# 这样 Settings() 实例化时会读取到测试目录
+os.environ["UPLOAD_DIR"] = str(TEST_UPLOAD_DIR)
+
+# 现在才导入 app 模块（此时 settings 会使用测试目录）
 from app.database import Base, get_db
 from app.main import app
 from app.models import User, Dataset, Configuration, Result
 from app.services.auth import get_password_hash
+from app.config import settings
 
 
 # ============ 测试数据库配置 ============
@@ -30,39 +41,34 @@ from app.services.auth import get_password_hash
 # 使用内存数据库进行测试
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
-# 测试专用上传目录（隔离生产数据）
-TEST_UPLOAD_DIR = Path(__file__).parent.parent / "uploads_test"
-
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_upload_dir():
     """设置测试上传目录（session 级别，自动清理）"""
+    # 确保 settings 使用的是测试目录
+    # 由于 pydantic-settings 可能不支持 UPLOAD_DIR 环境变量直接映射到 Path，
+    # 我们需要在运行时修改 settings 实例
+    settings.UPLOAD_DIR = TEST_UPLOAD_DIR
+    settings.DATASETS_DIR = TEST_UPLOAD_DIR / "datasets"
+    settings.RESULTS_DIR = TEST_UPLOAD_DIR / "results"
+    settings.CACHE_DIR = TEST_UPLOAD_DIR / "cache"
+    
     # 创建测试目录
     TEST_UPLOAD_DIR.mkdir(exist_ok=True)
-    (TEST_UPLOAD_DIR / "datasets").mkdir(exist_ok=True)
-    (TEST_UPLOAD_DIR / "results").mkdir(exist_ok=True)
-    (TEST_UPLOAD_DIR / "cache").mkdir(exist_ok=True)
-    
-    # 设置环境变量让应用使用测试目录
-    original_upload_dir = os.environ.get("UPLOAD_DIR")
-    os.environ["UPLOAD_DIR"] = str(TEST_UPLOAD_DIR)
+    settings.DATASETS_DIR.mkdir(exist_ok=True)
+    settings.RESULTS_DIR.mkdir(exist_ok=True)
+    settings.CACHE_DIR.mkdir(exist_ok=True)
     
     yield
     
     # 清理测试目录
     if TEST_UPLOAD_DIR.exists():
         shutil.rmtree(TEST_UPLOAD_DIR, ignore_errors=True)
-    
-    # 恢复环境变量
-    if original_upload_dir:
-        os.environ["UPLOAD_DIR"] = original_upload_dir
-    elif "UPLOAD_DIR" in os.environ:
-        del os.environ["UPLOAD_DIR"]
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def clean_test_uploads():
-    """每个测试函数后清理上传的文件"""
+    """每个测试函数后清理上传的文件（autouse=True 自动应用）"""
     yield
     # 清理测试上传目录中的文件（保留目录结构）
     for subdir in ["datasets", "results", "cache"]:
