@@ -10,6 +10,7 @@ export { tokenManager } from './token'
 export * from './quality'
 export * from './exploration'
 export * from './batch'
+export * from './comparison'
 
 export default request
 export { rawRequest }

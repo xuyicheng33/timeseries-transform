@@ -35,6 +35,7 @@ import {
   FileExcelOutlined,
   FilterOutlined,
   TrophyOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
@@ -61,6 +62,7 @@ import {
 import { formatMetric } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
 import { DOWNSAMPLE_ALGORITHM_OPTIONS, METRIC_NAMES } from '@/constants'
+import ConfigComparison from '@/components/ConfigComparison'
 
 const { Title, Text } = Typography
 
@@ -1192,6 +1194,18 @@ export default function Visualization() {
                     />
                   )}
                 </div>
+              ),
+            },
+            {
+              key: 'config',
+              label: (
+                <span>
+                  <ExperimentOutlined />
+                  配置对比
+                </span>
+              ),
+              children: (
+                <ConfigComparison resultIds={selectedResultIds} />
               ),
             },
           ]}

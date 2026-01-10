@@ -138,6 +138,7 @@ def check_python_imports() -> bool:
         "app.api.quality",
         "app.api.exploration",
         "app.api.batch",
+        "app.api.comparison",
     ]
     
     errors = []

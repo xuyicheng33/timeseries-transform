@@ -107,3 +107,22 @@ export {
   MISSING_STRATEGY_OPTIONS,
   QUALITY_LEVEL_CONFIG,
 } from './quality'
+
+// Comparison (配置对比分析)
+export type {
+  ParameterValue,
+  ParameterAnalysis,
+  ResultDetail,
+  ConfigCompareResponse,
+  ControlledVariation,
+  ChartAxisData,
+  ChartSeriesData,
+  ControlledChartData,
+  ControlledCompareResponse,
+  ValueMetricPair,
+  SensitivityItem,
+  SensitivityResponse,
+  AnalyzableParameter,
+  AnalyzableMetric,
+  ParametersResponse,
+} from './comparison'
