@@ -159,8 +159,8 @@ export default function ResultRepo() {
           handleShowMetrics(foundResult)
           // 清除 URL 参数
           setSearchParams({}, { replace: true })
-        } else if (results.length > 0) {
-          // 结果已加载但未找到，可能在其他页，尝试通过 API 获取
+        } else {
+          // 结果未在当前列表中，直接通过 API 获取
           import('@/api/results').then(({ getResult }) => {
             getResult(resultId).then(result => {
               if (result) {

@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "Time Series Analysis Platform"
+    APP_NAME: str = "Demo"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
     
