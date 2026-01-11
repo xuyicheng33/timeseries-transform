@@ -23,7 +23,12 @@ export async function generateExperimentReport(
   const response = await rawRequest.post(`${BASE_URL}/experiment`, data, {
     responseType: 'blob',
   });
-  return response.data;
+  // 确保返回的是 Blob 对象
+  if (response.data instanceof Blob) {
+    return response.data;
+  }
+  // 如果不是 Blob，尝试转换（处理某些浏览器的兼容性问题）
+  return new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
 }
 
 /**
@@ -37,7 +42,12 @@ export async function generateResultsReport(
   const response = await rawRequest.post(`${BASE_URL}/results`, data, {
     responseType: 'blob',
   });
-  return response.data;
+  // 确保返回的是 Blob 对象
+  if (response.data instanceof Blob) {
+    return response.data;
+  }
+  // 如果不是 Blob，尝试转换
+  return new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
 }
 
 /**

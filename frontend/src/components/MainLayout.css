@@ -1,5 +1,5 @@
 /**
- * 主布局样式
+ * 主布局样式 - 简洁专业风格
  */
 
 .main-layout {
@@ -7,9 +7,9 @@
 }
 
 .main-header {
-  background: #001529;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 0 24px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -40,14 +40,15 @@
 }
 
 .user-dropdown:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
 .app-title {
   color: #fff !important;
   margin: 0 !important;
   font-weight: 600;
-  font-size: 20px;
+  font-size: 18px;
+  letter-spacing: 0.5px;
 }
 
 .app-subtitle {
@@ -58,7 +59,7 @@
 
 .main-sider {
   background: #fff;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
   overflow: auto;
   height: calc(100vh - 64px);
   position: sticky;
@@ -74,10 +75,16 @@
   border-radius: 8px;
   margin-bottom: 4px;
   font-weight: 500;
+  color: #4a5568;
+}
+
+.main-menu .ant-menu-item:hover {
+  background: #f7f8fc;
+  color: #667eea;
 }
 
 .main-menu .ant-menu-item-selected {
-  background: #1890ff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
 }
 
@@ -85,8 +92,13 @@
   color: #fff;
 }
 
+.main-menu .ant-menu-item-selected:hover {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+  color: #fff;
+}
+
 .main-content {
-  background: #f5f7fa;
+  background: #f8f9fc;
   min-height: calc(100vh - 64px);
   overflow: auto;
 }

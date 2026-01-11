@@ -8,6 +8,7 @@ import {
   Button,
   Space,
   Input,
+  InputNumber,
   Select,
   Tag,
   Modal,
@@ -142,13 +143,28 @@ const ModelTemplateManager: React.FC = () => {
   // 创建模板
   const handleCreate = async (values: any) => {
     try {
+      // 合并简化字段和高级 JSON 字段
+      const baseHyperparams: Record<string, any> = {};
+      if (values.hidden_size) baseHyperparams.hidden_size = values.hidden_size;
+      if (values.num_layers) baseHyperparams.num_layers = values.num_layers;
+      if (values.dropout !== undefined) baseHyperparams.dropout = values.dropout;
+      
+      const baseTrainingConfig: Record<string, any> = {};
+      if (values.learning_rate) baseTrainingConfig.learning_rate = values.learning_rate;
+      if (values.batch_size) baseTrainingConfig.batch_size = values.batch_size;
+      if (values.epochs) baseTrainingConfig.epochs = values.epochs;
+      
+      // 合并高级 JSON 配置
+      const advancedHyperparams = values.hyperparameters ? JSON.parse(values.hyperparameters) : {};
+      const advancedTrainingConfig = values.training_config ? JSON.parse(values.training_config) : {};
+      
       const data: ModelTemplateCreate = {
         name: values.name,
         version: values.version || '1.0',
         category: values.category || 'deep_learning',
         description: values.description || '',
-        hyperparameters: values.hyperparameters ? JSON.parse(values.hyperparameters) : {},
-        training_config: values.training_config ? JSON.parse(values.training_config) : {},
+        hyperparameters: { ...baseHyperparams, ...advancedHyperparams },
+        training_config: { ...baseTrainingConfig, ...advancedTrainingConfig },
         task_types: values.task_types || [],
         recommended_features: values.recommended_features || '',
         is_public: values.is_public || false,
@@ -182,13 +198,28 @@ const ModelTemplateManager: React.FC = () => {
   // 编辑模板
   const handleEdit = async (template: ModelTemplate) => {
     setCurrentTemplate(template);
+    const hp = template.hyperparameters || {};
+    const tc = template.training_config || {};
+    
+    // 提取常用字段
+    const { hidden_size, num_layers, dropout, ...restHp } = hp;
+    const { learning_rate, batch_size, epochs, ...restTc } = tc;
+    
     editForm.setFieldsValue({
       name: template.name,
       version: template.version,
       category: template.category,
       description: template.description,
-      hyperparameters: JSON.stringify(template.hyperparameters, null, 2),
-      training_config: JSON.stringify(template.training_config, null, 2),
+      // 常用字段
+      hidden_size,
+      num_layers,
+      dropout,
+      learning_rate,
+      batch_size,
+      epochs,
+      // 高级 JSON 字段（只包含剩余的配置）
+      hyperparameters: Object.keys(restHp).length > 0 ? JSON.stringify(restHp, null, 2) : '',
+      training_config: Object.keys(restTc).length > 0 ? JSON.stringify(restTc, null, 2) : '',
       task_types: template.task_types,
       recommended_features: template.recommended_features,
       is_public: template.is_public,
@@ -199,13 +230,28 @@ const ModelTemplateManager: React.FC = () => {
   const handleEditSubmit = async (values: any) => {
     if (!currentTemplate) return;
     try {
+      // 合并简化字段和高级 JSON 字段
+      const baseHyperparams: Record<string, any> = {};
+      if (values.hidden_size) baseHyperparams.hidden_size = values.hidden_size;
+      if (values.num_layers) baseHyperparams.num_layers = values.num_layers;
+      if (values.dropout !== undefined) baseHyperparams.dropout = values.dropout;
+      
+      const baseTrainingConfig: Record<string, any> = {};
+      if (values.learning_rate) baseTrainingConfig.learning_rate = values.learning_rate;
+      if (values.batch_size) baseTrainingConfig.batch_size = values.batch_size;
+      if (values.epochs) baseTrainingConfig.epochs = values.epochs;
+      
+      // 合并高级 JSON 配置
+      const advancedHyperparams = values.hyperparameters ? JSON.parse(values.hyperparameters) : {};
+      const advancedTrainingConfig = values.training_config ? JSON.parse(values.training_config) : {};
+      
       const data: ModelTemplateUpdate = {
         name: values.name,
         version: values.version,
         category: values.category,
         description: values.description,
-        hyperparameters: values.hyperparameters ? JSON.parse(values.hyperparameters) : undefined,
-        training_config: values.training_config ? JSON.parse(values.training_config) : undefined,
+        hyperparameters: { ...baseHyperparams, ...advancedHyperparams },
+        training_config: { ...baseTrainingConfig, ...advancedTrainingConfig },
         task_types: values.task_types,
         recommended_features: values.recommended_features,
         is_public: values.is_public,
@@ -445,72 +491,108 @@ const ModelTemplateManager: React.FC = () => {
         <TextArea rows={2} placeholder="模型描述" />
       </Form.Item>
 
-      <Form.Item
-        name="hyperparameters"
-        label={
-          <Space>
-            <SettingOutlined />
-            超参数 (JSON)
-          </Space>
-        }
-        rules={[
-          {
-            validator: async (_, value) => {
-              if (value) {
-                try {
-                  JSON.parse(value);
-                } catch {
-                  throw new Error('请输入有效的 JSON 格式');
-                }
-              }
-            },
-          },
-        ]}
-      >
-        <TextArea
-          rows={6}
-          placeholder={`{
-  "hidden_size": 64,
-  "num_layers": 2,
-  "dropout": 0.2
-}`}
-          style={{ fontFamily: 'monospace' }}
-        />
-      </Form.Item>
+      {/* 常用超参数 - 简化输入 */}
+      <Divider orientation="left" plain style={{ fontSize: 13 }}>
+        <Space><SettingOutlined />常用超参数</Space>
+      </Divider>
+      
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name="hidden_size" label="隐藏层大小 (hidden_size)">
+            <InputNumber min={1} max={2048} placeholder="64" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="num_layers" label="层数 (num_layers)">
+            <InputNumber min={1} max={24} placeholder="2" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="dropout" label="Dropout">
+            <InputNumber min={0} max={1} step={0.1} placeholder="0.2" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+      </Row>
 
-      <Form.Item
-        name="training_config"
-        label={
-          <Space>
-            <CodeOutlined />
-            训练配置 (JSON)
-          </Space>
-        }
-        rules={[
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name="learning_rate" label="学习率 (learning_rate)">
+            <InputNumber min={0.00001} max={1} step={0.0001} placeholder="0.001" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="batch_size" label="批大小 (batch_size)">
+            <InputNumber min={1} max={1024} placeholder="32" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="epochs" label="训练轮数 (epochs)">
+            <InputNumber min={1} max={1000} placeholder="100" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Collapse
+        size="small"
+        style={{ marginBottom: 16 }}
+        items={[
           {
-            validator: async (_, value) => {
-              if (value) {
-                try {
-                  JSON.parse(value);
-                } catch {
-                  throw new Error('请输入有效的 JSON 格式');
-                }
-              }
-            },
+            key: 'advanced',
+            label: '高级配置 (JSON 格式，可选)',
+            children: (
+              <>
+                <Form.Item
+                  name="hyperparameters"
+                  label="其他超参数 (JSON)"
+                  rules={[
+                    {
+                      validator: async (_, value) => {
+                        if (value) {
+                          try {
+                            JSON.parse(value);
+                          } catch {
+                            throw new Error('请输入有效的 JSON 格式');
+                          }
+                        }
+                      },
+                    },
+                  ]}
+                >
+                  <TextArea
+                    rows={4}
+                    placeholder={`{"attention_heads": 8, "ff_dim": 256}`}
+                    style={{ fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="training_config"
+                  label="其他训练配置 (JSON)"
+                  rules={[
+                    {
+                      validator: async (_, value) => {
+                        if (value) {
+                          try {
+                            JSON.parse(value);
+                          } catch {
+                            throw new Error('请输入有效的 JSON 格式');
+                          }
+                        }
+                      },
+                    },
+                  ]}
+                >
+                  <TextArea
+                    rows={4}
+                    placeholder={`{"optimizer": "adam", "scheduler": "cosine"}`}
+                    style={{ fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                </Form.Item>
+              </>
+            ),
           },
         ]}
-      >
-        <TextArea
-          rows={6}
-          placeholder={`{
-  "optimizer": "adam",
-  "learning_rate": 0.001,
-  "batch_size": 32,
-  "epochs": 100
-}`}
-          style={{ fontFamily: 'monospace' }}
-        />
-      </Form.Item>
+      />
 
       <Form.Item name="recommended_features" label="推荐使用场景">
         <TextArea rows={2} placeholder="描述该模型适合什么样的数据特征" />

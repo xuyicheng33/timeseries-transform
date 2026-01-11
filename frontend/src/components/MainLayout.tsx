@@ -67,7 +67,7 @@ export default function MainLayout() {
         <div className="header-content">
           <div className="header-left">
             <Title level={3} className="app-title">
-              Demo
+              时序分析平台
             </Title>
           </div>
           <div className="header-right">

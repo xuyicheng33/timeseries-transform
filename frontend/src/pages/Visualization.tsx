@@ -952,11 +952,22 @@ export default function Visualization() {
                           导出 JPG
                         </Button>
                       </Space>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 12 }}>
+                        提示：双击图表可恢复初始视图，使用鼠标滚轮或底部滑块可缩放
+                      </Text>
                       <ReactECharts
                         ref={chartRef}
                         option={getChartOption()}
                         style={{ height: 500 }}
                         notMerge
+                        onEvents={{
+                          dblclick: () => {
+                            const chart = chartRef.current?.getEchartsInstance()
+                            if (chart) {
+                              chart.dispatchAction({ type: 'restore' })
+                            }
+                          }
+                        }}
                       />
                     </div>
                   ) : (
@@ -1023,11 +1034,22 @@ export default function Visualization() {
 
                       {/* 残差时序图 */}
                       <Card title="残差时序图" size="small" style={{ marginBottom: 16 }}>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 12 }}>
+                          提示：双击图表可恢复初始视图
+                        </Text>
                         <ReactECharts
                           ref={residualChartRef}
                           option={getResidualChartOption()}
                           style={{ height: 400 }}
                           notMerge
+                          onEvents={{
+                            dblclick: () => {
+                              const chart = residualChartRef.current?.getEchartsInstance()
+                              if (chart) {
+                                chart.dispatchAction({ type: 'restore' })
+                              }
+                            }
+                          }}
                         />
                       </Card>
 

@@ -10,8 +10,6 @@ import {
   Button,
   Card,
   Typography,
-  Space,
-  Divider,
   message,
 } from 'antd'
 import {
@@ -19,7 +17,6 @@ import {
   LockOutlined,
   MailOutlined,
   IdcardOutlined,
-  UserAddOutlined,
   LineChartOutlined,
 } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
@@ -62,27 +59,38 @@ export default function Register() {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        background: '#f0f2f5',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         padding: 24,
       }}
     >
       <Card
         style={{
           width: '100%',
-          maxWidth: 420,
-          borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          maxWidth: 400,
+          borderRadius: 12,
+          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+          border: 'none',
         }}
-        styles={{ body: { padding: '40px 32px' } }}
+        styles={{ body: { padding: '40px 36px' } }}
       >
         {/* Logo 和标题 */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Space align="center" size={12}>
-            <LineChartOutlined style={{ fontSize: 32, color: '#1890ff' }} />
-            <Title level={3} style={{ margin: 0, color: '#333' }}>
-              注册账号
-            </Title>
-          </Space>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ 
+            width: 56, 
+            height: 56, 
+            borderRadius: 12, 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <LineChartOutlined style={{ fontSize: 28, color: '#fff' }} />
+          </div>
+          <Title level={3} style={{ margin: 0, color: '#1a1a2e', fontWeight: 600 }}>
+            创建账号
+          </Title>
+          <Text type="secondary" style={{ fontSize: 14 }}>注册以开始使用</Text>
         </div>
 
         {/* 注册表单 */}
@@ -170,16 +178,19 @@ export default function Register() {
             />
           </Form.Item>
 
-          <Form.Item style={{ marginBottom: 16 }}>
+          <Form.Item style={{ marginBottom: 20 }}>
             <Button
               type="primary"
               htmlType="submit"
               loading={loading}
-              icon={<UserAddOutlined />}
               block
               style={{
-                height: 44,
-                borderRadius: 6,
+                height: 46,
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                fontWeight: 500,
+                fontSize: 15,
               }}
             >
               注册
@@ -187,23 +198,14 @@ export default function Register() {
           </Form.Item>
         </Form>
 
-        <Divider plain>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <Text type="secondary" style={{ fontSize: 13 }}>
             已有账号？
+            <Link to="/login" style={{ marginLeft: 4, fontWeight: 500 }}>
+              立即登录
+            </Link>
           </Text>
-        </Divider>
-
-        <Link to="/login">
-          <Button
-            block
-            style={{
-              height: 44,
-              borderRadius: 6,
-            }}
-          >
-            返回登录
-          </Button>
-        </Link>
+        </div>
       </Card>
     </div>
   )

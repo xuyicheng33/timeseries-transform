@@ -10,7 +10,6 @@ import {
   Button,
   Form,
   Select,
-  Transfer,
   Radio,
   Switch,
   InputNumber,
@@ -29,7 +28,6 @@ import {
   Collapse,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import type { TransferProps } from 'antd/es/transfer'
 import {
   PlusOutlined,
   EditOutlined,
@@ -73,12 +71,6 @@ const STEPS = [
   { title: '模型模板', description: '选择模型模板（可选）' },
   { title: '预览确认', description: '预览配置并生成文件名' },
 ]
-
-// Transfer 数据项类型
-interface TransferItem {
-  key: string
-  title: string
-}
 
 export default function ConfigWizard() {
   // ============ 状态定义 ============
@@ -467,20 +459,29 @@ export default function ConfigWizard() {
         return (
           <div>
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-              从左侧选择要使用的数据列，移动到右侧
+              选择要使用的数据列（可多选）
             </Text>
-            <Transfer
-              dataSource={transferDataSource}
-              titles={['可用列', '已选列']}
-              targetKeys={targetKeys}
-              onChange={handleTransferChange}
-              render={(item) => item.title}
-              listStyle={{ width: 280, height: 350 }}
+            <Select
+              mode="multiple"
+              placeholder="请选择要使用的通道"
+              value={targetKeys}
+              onChange={(values) => setTargetKeys(values)}
+              style={{ width: '100%' }}
               showSearch
-              filterOption={(inputValue, item) =>
-                item.title.toLowerCase().includes(inputValue.toLowerCase())
-              }
-            />
+              optionFilterProp="children"
+              maxTagCount="responsive"
+            >
+              {selectedDataset?.columns.map((col) => (
+                <Select.Option key={col} value={col}>
+                  {col}
+                </Select.Option>
+              ))}
+            </Select>
+            {targetKeys.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <Text type="secondary">已选择 {targetKeys.length} 个通道</Text>
+              </div>
+            )}
           </div>
         )
 

@@ -36,6 +36,7 @@ import {
   ExperimentOutlined,
   EyeOutlined,
   QuestionCircleOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons'
 
 import type { Dataset, Configuration, Result, ResultUpdate, Metrics } from '@/types'
@@ -459,10 +460,18 @@ export default function ResultRepo() {
     {
       title: '操作',
       key: 'action',
-      width: 180,
+      width: 200,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
+          <Tooltip title="指标详情">
+            <Button
+              type="text"
+              size="small"
+              icon={<BarChartOutlined />}
+              onClick={() => handleShowMetrics(record)}
+            />
+          </Tooltip>
           <Tooltip title="预览数据">
             <Button
               type="text"
@@ -615,7 +624,13 @@ export default function ResultRepo() {
               </p>
               <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
               <p className="ant-upload-hint">
-                支持两种格式：1) 包含 true_value 和 predicted_value 列；2) 仅包含 predicted_value 列（需指定目标列）
+                支持 CSV 格式，文件需包含以下列之一：
+              </p>
+              <p className="ant-upload-hint" style={{ fontSize: 12, color: '#666' }}>
+                格式1: true_value + predicted_value 列（完整格式，可直接计算指标）
+              </p>
+              <p className="ant-upload-hint" style={{ fontSize: 12, color: '#666' }}>
+                格式2: 仅 predicted_value 列（需选择目标列，系统自动从数据集获取真实值）
               </p>
             </Dragger>
           </Form.Item>

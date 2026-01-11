@@ -724,6 +724,29 @@ const ExperimentManager: React.FC = () => {
                 ),
                 children: currentSummary ? (
                   <div>
+                    {/* 快捷操作按钮 */}
+                    {currentExperiment.results && currentExperiment.results.length > 0 && (
+                      <Space style={{ marginBottom: 16 }}>
+                        <Button
+                          type="primary"
+                          icon={<BarChartOutlined />}
+                          onClick={() => {
+                            const ids = currentExperiment.results.map(r => r.id).join(',');
+                            window.open(`/visualization?ids=${ids}`, '_blank');
+                          }}
+                        >
+                          可视化对比
+                        </Button>
+                        <Button
+                          icon={<FileTextOutlined />}
+                          onClick={() => {
+                            setReportModalVisible(true);
+                          }}
+                        >
+                          生成报告
+                        </Button>
+                      </Space>
+                    )}
                     <Row gutter={[16, 16]}>
                       <Col span={8}>
                         <Card size="small">
@@ -884,14 +907,32 @@ const ExperimentManager: React.FC = () => {
                             title: '操作',
                             key: 'action',
                             render: (_, record) => (
-                              <Popconfirm
-                                title="确定从实验组中移除此结果？"
-                                onConfirm={() => handleRemoveResult(record.id)}
-                              >
-                                <Button type="text" size="small" danger>
-                                  移除
-                                </Button>
-                              </Popconfirm>
+                              <Space size="small">
+                                <Tooltip title="查看详情">
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<EyeOutlined />}
+                                    onClick={() => window.open(`/results?id=${record.id}`, '_blank')}
+                                  />
+                                </Tooltip>
+                                <Tooltip title="可视化">
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<BarChartOutlined />}
+                                    onClick={() => window.open(`/visualization?ids=${record.id}`, '_blank')}
+                                  />
+                                </Tooltip>
+                                <Popconfirm
+                                  title="确定从实验组中移除此结果？"
+                                  onConfirm={() => handleRemoveResult(record.id)}
+                                >
+                                  <Tooltip title="移除">
+                                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                                  </Tooltip>
+                                </Popconfirm>
+                              </Space>
                             ),
                           },
                         ]}
