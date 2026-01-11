@@ -1,15 +1,23 @@
 /**
- * 主布局样式 - 简洁专业风格
+ * 主布局样式 - 简洁专业风格（单色主题）
  */
+
+/* 品牌色 CSS 变量 */
+:root {
+  --brand-primary: #4f46e5;
+  --brand-primary-hover: #4338ca;
+  --brand-primary-light: #e0e7ff;
+  --brand-primary-bg: #eef2ff;
+}
 
 .main-layout {
   min-height: 100vh;
 }
 
 .main-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-primary);
   padding: 0 24px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -79,12 +87,12 @@
 }
 
 .main-menu .ant-menu-item:hover {
-  background: #f7f8fc;
-  color: #667eea;
+  background: var(--brand-primary-bg);
+  color: var(--brand-primary);
 }
 
 .main-menu .ant-menu-item-selected {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-primary);
   color: #fff;
 }
 
@@ -93,7 +101,7 @@
 }
 
 .main-menu .ant-menu-item-selected:hover {
-  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+  background: var(--brand-primary-hover);
   color: #fff;
 }
 

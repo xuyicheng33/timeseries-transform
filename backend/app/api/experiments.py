@@ -274,21 +274,42 @@ async def create_experiment(
     added_results = []
     skipped_result_ids = []
     if data.result_ids:
+        # 获取配置名称映射
+        config_ids_to_fetch = []
+        results_to_add = []
+        
         for result_id in data.result_ids:
             # 验证结果存在且有权限
             try:
                 result = await check_result_access(result_id, db, current_user)
                 experiment.results.append(result)
-                added_results.append(ExperimentResultBrief(
-                    id=result.id,
-                    name=result.name,
-                    algo_name=result.algo_name,
-                    algo_version=result.algo_version or "",
-                    metrics=result.metrics or {},
-                    created_at=result.created_at
-                ))
+                results_to_add.append(result)
+                if result.configuration_id:
+                    config_ids_to_fetch.append(result.configuration_id)
             except HTTPException:
                 skipped_result_ids.append(result_id)  # 记录跳过的结果
+        
+        # 批量获取配置名称
+        config_names = {}
+        if config_ids_to_fetch:
+            cfg_result = await db.execute(
+                select(Configuration.id, Configuration.name).where(Configuration.id.in_(config_ids_to_fetch))
+            )
+            config_names = {row.id: row.name for row in cfg_result}
+        
+        # 构建结果简要信息
+        for result in results_to_add:
+            added_results.append(ExperimentResultBrief(
+                id=result.id,
+                name=result.name,
+                algo_name=result.algo_name,
+                algo_version=result.algo_version or "",
+                metrics=result.metrics or {},
+                configuration_id=result.configuration_id,
+                configuration_name=config_names.get(result.configuration_id) if result.configuration_id else None,
+                dataset_id=result.dataset_id,
+                created_at=result.created_at
+            ))
     
     await db.commit()
     await db.refresh(experiment)
@@ -329,6 +350,15 @@ async def get_experiment(
         )
         dataset_name = ds_result.scalar()
     
+    # 批量获取配置名称
+    config_ids = [r.configuration_id for r in experiment.results if r.configuration_id]
+    config_names = {}
+    if config_ids:
+        cfg_result = await db.execute(
+            select(Configuration.id, Configuration.name).where(Configuration.id.in_(config_ids))
+        )
+        config_names = {row.id: row.name for row in cfg_result}
+    
     # 构建结果列表
     results = [
         ExperimentResultBrief(
@@ -337,6 +367,9 @@ async def get_experiment(
             algo_name=r.algo_name,
             algo_version=r.algo_version or "",
             metrics=r.metrics or {},
+            configuration_id=r.configuration_id,
+            configuration_name=config_names.get(r.configuration_id) if r.configuration_id else None,
+            dataset_id=r.dataset_id,
             created_at=r.created_at
         )
         for r in experiment.results
@@ -435,8 +468,15 @@ async def add_results_to_experiment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """添加结果到实验组"""
+    """添加结果到实验组（强制要求同一数据集）"""
     experiment = await get_experiment_or_404(experiment_id, db, current_user, load_results=True)
+    
+    # 获取实验组关联的数据集 ID（如果有）
+    experiment_dataset_id = experiment.dataset_id
+    
+    # 如果实验组已有结果，获取第一个结果的数据集作为基准
+    if not experiment_dataset_id and experiment.results:
+        experiment_dataset_id = experiment.results[0].dataset_id
     
     existing_ids = {r.id for r in experiment.results}
     added = []
@@ -449,11 +489,25 @@ async def add_results_to_experiment(
         
         try:
             result = await check_result_access(result_id, db, current_user)
+            
+            # 检查数据集一致性
+            if experiment_dataset_id and result.dataset_id != experiment_dataset_id:
+                skipped_result_ids.append(result_id)  # 数据集不一致
+                continue
+            
+            # 如果是第一个结果，设置基准数据集
+            if not experiment_dataset_id:
+                experiment_dataset_id = result.dataset_id
+            
             experiment.results.append(result)
             added.append(result)
             existing_ids.add(result_id)
         except HTTPException:
             skipped_result_ids.append(result_id)  # 无权限或不存在
+    
+    # 如果实验组没有关联数据集，自动关联第一个结果的数据集
+    if not experiment.dataset_id and experiment_dataset_id:
+        experiment.dataset_id = experiment_dataset_id
     
     await db.commit()
     await db.refresh(experiment)
@@ -472,6 +526,15 @@ async def add_results_to_experiment(
         )
         dataset_name = ds_result.scalar()
     
+    # 批量获取配置名称
+    config_ids = [r.configuration_id for r in experiment.results if r.configuration_id]
+    config_names = {}
+    if config_ids:
+        cfg_result = await db.execute(
+            select(Configuration.id, Configuration.name).where(Configuration.id.in_(config_ids))
+        )
+        config_names = {row.id: row.name for row in cfg_result}
+    
     results = [
         ExperimentResultBrief(
             id=r.id,
@@ -479,6 +542,9 @@ async def add_results_to_experiment(
             algo_name=r.algo_name,
             algo_version=r.algo_version or "",
             metrics=r.metrics or {},
+            configuration_id=r.configuration_id,
+            configuration_name=config_names.get(r.configuration_id) if r.configuration_id else None,
+            dataset_id=r.dataset_id,
             created_at=r.created_at
         )
         for r in experiment.results

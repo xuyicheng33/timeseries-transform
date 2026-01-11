@@ -1,7 +1,7 @@
 /**
  * 实验组管理 API
  */
-import request from './request';
+import request, { rawRequest } from './request';
 import type { PaginatedResponse } from '@/types/api';
 import type {
   Experiment,
@@ -101,10 +101,17 @@ export async function exportExperiment(
   experimentId: number,
   includeDataFiles: boolean = true
 ): Promise<Blob> {
-  const response = await request.get(`${BASE_URL}/${experimentId}/export`, {
+  // 使用 rawRequest 保留完整响应（包含 headers），避免被拦截器解包
+  const response = await rawRequest.get(`${BASE_URL}/${experimentId}/export`, {
     params: { include_data_files: includeDataFiles },
     responseType: 'blob',
   });
+  
+  // 校验返回的是否为 Blob
+  if (!(response.data instanceof Blob)) {
+    throw new Error('导出失败：返回数据格式错误');
+  }
+  
   return response.data;
 }
 

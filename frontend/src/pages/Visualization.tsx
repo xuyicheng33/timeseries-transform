@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Card,
   Select,
@@ -81,6 +82,9 @@ const RADAR_INDICATORS = [
 ]
 
 export default function Visualization() {
+  // ============ URL 参数 ============
+  const [searchParams, setSearchParams] = useSearchParams()
+  
   // ============ 状态定义 ============
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [results, setResults] = useState<Result[]>([])
@@ -92,6 +96,9 @@ export default function Visualization() {
   
   // 选中的结果
   const [selectedResultIds, setSelectedResultIds] = useState<number[]>([])
+  
+  // 是否已处理 URL 参数（避免重复触发）
+  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false)
 
   // 降采样配置
   const [maxPoints, setMaxPoints] = useState(APP_CONFIG.VISUALIZATION.DEFAULT_POINTS)
@@ -155,24 +162,77 @@ export default function Visualization() {
 
   useEffect(() => {
     fetchResults()
-    // 切换数据集时清空选择
-    setSelectedResultIds([])
-    setCompareData(null)
-    setErrorData(null)
-    setRadarData(null)
-    setRangeMetrics(null)
+    // 切换数据集时清空选择（但不清空 URL 参数触发的选择）
+    if (urlParamsProcessed) {
+      setSelectedResultIds([])
+      setCompareData(null)
+      setErrorData(null)
+      setRadarData(null)
+      setRangeMetrics(null)
+    }
   }, [fetchResults, selectedDatasetId])
 
-  // 筛选后的结果列表
-  const filteredResults = useMemo(() => {
-    if (!selectedDatasetId) return results
-    return results.filter(r => r.dataset_id === selectedDatasetId)
-  }, [results, selectedDatasetId])
+  // ============ 处理 URL 参数 ?ids= ============
+  useEffect(() => {
+    // 等待结果加载完成且未处理过 URL 参数
+    if (resultsLoading || results.length === 0 || urlParamsProcessed) {
+      return
+    }
 
-  // ============ 对比功能 ============
-  const handleCompare = async () => {
-    if (selectedResultIds.length === 0) {
-      message.warning('请至少选择一个结果')
+    const idsParam = searchParams.get('ids')
+    if (!idsParam) {
+      setUrlParamsProcessed(true)
+      return
+    }
+
+    // 解析 ids 参数（格式：ids=1,2,3）
+    const ids = idsParam
+      .split(',')
+      .map(id => parseInt(id.trim(), 10))
+      .filter(id => !isNaN(id) && id > 0)
+
+    if (ids.length === 0) {
+      setUrlParamsProcessed(true)
+      return
+    }
+
+    // 验证 ids 是否存在于结果列表中
+    const validIds = ids.filter(id => results.some(r => r.id === id))
+    
+    if (validIds.length === 0) {
+      message.warning('URL 中指定的结果 ID 不存在或无权访问')
+      setUrlParamsProcessed(true)
+      // 清除无效的 URL 参数
+      setSearchParams({})
+      return
+    }
+
+    if (validIds.length !== ids.length) {
+      message.info(`部分结果 ID 不存在，已自动过滤（${validIds.length}/${ids.length}）`)
+    }
+
+    // 限制最大数量
+    const limitedIds = validIds.slice(0, APP_CONFIG.VISUALIZATION.MAX_RESULTS)
+    if (validIds.length > APP_CONFIG.VISUALIZATION.MAX_RESULTS) {
+      message.warning(`最多支持 ${APP_CONFIG.VISUALIZATION.MAX_RESULTS} 个结果对比，已截取前 ${APP_CONFIG.VISUALIZATION.MAX_RESULTS} 个`)
+    }
+
+    // 设置选中的结果
+    setSelectedResultIds(limitedIds)
+    setUrlParamsProcessed(true)
+
+    // 自动触发对比
+    message.info('正在加载对比数据...')
+    
+    // 使用 setTimeout 确保状态更新后再触发对比
+    setTimeout(() => {
+      triggerCompare(limitedIds)
+    }, 100)
+  }, [results, resultsLoading, searchParams, urlParamsProcessed])
+
+  // 抽取对比逻辑为独立函数，支持传入 ids
+  const triggerCompare = async (ids: number[]) => {
+    if (ids.length === 0) {
       return
     }
 
@@ -181,18 +241,17 @@ export default function Visualization() {
     setRadarLoading(true)
 
     try {
-      // 并行请求所有数据
       const [compareRes, errorRes, radarRes] = await Promise.all([
         compareResults({
-          result_ids: selectedResultIds,
+          result_ids: ids,
           max_points: maxPoints,
           algorithm,
         }),
         analyzeErrors({
-          result_ids: selectedResultIds,
+          result_ids: ids,
         }),
         getRadarChart({
-          result_ids: selectedResultIds,
+          result_ids: ids,
           max_points: maxPoints,
           algorithm,
         }),
@@ -211,6 +270,21 @@ export default function Visualization() {
       setErrorLoading(false)
       setRadarLoading(false)
     }
+  }
+
+  // 筛选后的结果列表
+  const filteredResults = useMemo(() => {
+    if (!selectedDatasetId) return results
+    return results.filter(r => r.dataset_id === selectedDatasetId)
+  }, [results, selectedDatasetId])
+
+  // ============ 对比功能 ============
+  const handleCompare = async () => {
+    if (selectedResultIds.length === 0) {
+      message.warning('请至少选择一个结果')
+      return
+    }
+    await triggerCompare(selectedResultIds)
   }
 
   // ============ 区间指标计算 ============

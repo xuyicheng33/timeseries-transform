@@ -29,6 +29,9 @@ export interface ExperimentResultBrief {
   model_name: string;
   model_version: string;
   metrics: Record<string, number>;
+  configuration_id: number | null;
+  configuration_name: string | null;
+  dataset_id: number | null;
   created_at: string;
 }
 

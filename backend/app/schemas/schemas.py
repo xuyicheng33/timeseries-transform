@@ -828,6 +828,9 @@ class ExperimentResultBrief(BaseModel):
     algo_name: str = Field(..., serialization_alias="model_name")
     algo_version: str = Field(default="", serialization_alias="model_version")
     metrics: Dict[str, float] = Field(default_factory=dict)
+    configuration_id: Optional[int] = None
+    configuration_name: Optional[str] = None
+    dataset_id: Optional[int] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

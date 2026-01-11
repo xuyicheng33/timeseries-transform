@@ -350,9 +350,24 @@ export default function ResultRepo() {
     }))
   }
 
-  // 渲染指标卡片
+  // 渲染指标卡片（指标详情弹窗）
+  // 根据指标方向判断是否为"好"值：R² 越大越好，其余越小越好
   const renderMetricsCards = (metrics: Metrics) => {
     const metricKeys: (keyof Metrics)[] = ['mse', 'rmse', 'mae', 'r2', 'mape']
+    
+    // 判断指标是否为"好"值
+    const isGoodValue = (key: keyof Metrics, value: number): boolean => {
+      if (key === 'r2') {
+        return value > 0.9 // R² > 0.9 为好
+      } else if (key === 'mape') {
+        return value < 10 // MAPE < 10% 为好
+      } else {
+        // MSE, RMSE, MAE 越小越好，但需要根据数据规模判断
+        // 这里简单判断：如果值很小则认为好
+        return value < 0.1
+      }
+    }
+    
     return (
       <Row gutter={[16, 16]}>
         {metricKeys.map((key) => (
@@ -366,7 +381,7 @@ export default function ResultRepo() {
                 }
                 value={formatMetric(metrics[key], key)}
                 valueStyle={{
-                  color: key === 'r2' && metrics[key] > 0.9 ? '#3f8600' : undefined,
+                  color: isGoodValue(key, metrics[key]) ? '#3f8600' : undefined,
                   fontSize: 20,
                 }}
               />
@@ -433,13 +448,25 @@ export default function ResultRepo() {
           return <Text type="secondary">-</Text>
         }
         const metrics = record.metrics as Metrics
+        // MSE 越小越好，简单判断：< 0.1 为绿色，< 1 为蓝色
+        const getMseColor = (mse: number) => {
+          if (mse < 0.1) return 'green'
+          if (mse < 1) return 'blue'
+          return 'default'
+        }
+        // R² 越大越好
+        const getR2Color = (r2: number) => {
+          if (r2 > 0.9) return 'green'
+          if (r2 > 0.7) return 'blue'
+          return 'default'
+        }
         return (
           <Space size={4} wrap>
             <Tooltip title={`MSE: ${formatMetric(metrics.mse, 'mse')}`}>
-              <Tag>MSE: {formatMetric(metrics.mse, 'mse')}</Tag>
+              <Tag color={getMseColor(metrics.mse)}>MSE: {formatMetric(metrics.mse, 'mse')}</Tag>
             </Tooltip>
             <Tooltip title={`R²: ${formatMetric(metrics.r2, 'r2')}`}>
-              <Tag color={metrics.r2 > 0.9 ? 'green' : metrics.r2 > 0.7 ? 'blue' : 'default'}>
+              <Tag color={getR2Color(metrics.r2)}>
                 R²: {formatMetric(metrics.r2, 'r2')}
               </Tag>
             </Tooltip>

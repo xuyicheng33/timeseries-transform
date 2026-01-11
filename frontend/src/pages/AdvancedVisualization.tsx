@@ -1,8 +1,10 @@
 /**
  * 高级可视化面板
  * 整合特征重要性、置信区间、预测分解等高级分析功能
+ * 支持多选结果进行对比分析
  */
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Card,
   Select,
@@ -13,6 +15,8 @@ import {
   Row,
   Col,
   Typography,
+  Tag,
+  Button,
 } from 'antd';
 import {
   LineChartOutlined,
@@ -30,9 +34,10 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const AdvancedVisualization: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedResultId, setSelectedResultId] = useState<number | null>(null);
+  const [selectedResultIds, setSelectedResultIds] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState('confidence');
 
   // 加载结果列表
@@ -42,9 +47,26 @@ const AdvancedVisualization: React.FC = () => {
       try {
         const response = await getResults(undefined, undefined, 1, 100);
         setResults(response.items);
-        // 默认选择第一个结果
-        if (response.items.length > 0 && !selectedResultId) {
-          setSelectedResultId(response.items[0].id);
+        
+        // 处理 URL 参数 ?ids=1,2,3
+        const idsParam = searchParams.get('ids');
+        if (idsParam) {
+          const ids = idsParam
+            .split(',')
+            .map(id => parseInt(id.trim(), 10))
+            .filter(id => !isNaN(id) && id > 0);
+          
+          // 验证 ids 是否存在
+          const validIds = ids.filter(id => response.items.some(r => r.id === id));
+          if (validIds.length > 0) {
+            setSelectedResultIds(validIds);
+          } else if (response.items.length > 0) {
+            // URL 参数无效，默认选择第一个
+            setSelectedResultIds([response.items[0].id]);
+          }
+        } else if (response.items.length > 0) {
+          // 没有 URL 参数，默认选择第一个结果
+          setSelectedResultIds([response.items[0].id]);
         }
       } catch (error) {
         message.error('加载结果列表失败');
@@ -53,9 +75,20 @@ const AdvancedVisualization: React.FC = () => {
       }
     };
     loadResults();
-  }, []);
+  }, [searchParams]);
 
-  const selectedResult = results.find(r => r.id === selectedResultId);
+  // 获取选中的结果对象列表
+  const selectedResults = results.filter(r => selectedResultIds.includes(r.id));
+  
+  // 当前主要选中的结果（用于单结果分析组件）
+  const primaryResult = selectedResults[0];
+
+  // 跳转到可视化对比页面
+  const handleGoToComparison = () => {
+    if (selectedResultIds.length > 0) {
+      window.open(`/visualization?ids=${selectedResultIds.join(',')}`, '_blank');
+    }
+  };
 
   const tabItems = [
     {
@@ -66,10 +99,10 @@ const AdvancedVisualization: React.FC = () => {
           置信区间
         </span>
       ),
-      children: selectedResultId ? (
+      children: primaryResult ? (
         <ConfidenceIntervalChart
-          resultId={selectedResultId}
-          resultName={selectedResult?.name}
+          resultId={primaryResult.id}
+          resultName={primaryResult.name}
         />
       ) : (
         <Empty description="请选择一个预测结果" />
@@ -83,10 +116,10 @@ const AdvancedVisualization: React.FC = () => {
           特征重要性
         </span>
       ),
-      children: selectedResultId ? (
+      children: primaryResult ? (
         <FeatureImportanceChart
-          resultId={selectedResultId}
-          resultName={selectedResult?.name}
+          resultId={primaryResult.id}
+          resultName={primaryResult.name}
         />
       ) : (
         <Empty description="请选择一个预测结果" />
@@ -100,10 +133,10 @@ const AdvancedVisualization: React.FC = () => {
           预测分解
         </span>
       ),
-      children: selectedResultId ? (
+      children: primaryResult ? (
         <PredictionDecompositionChart
-          resultId={selectedResultId}
-          resultName={selectedResult?.name}
+          resultId={primaryResult.id}
+          resultName={primaryResult.name}
         />
       ) : (
         <Empty description="请选择一个预测结果" />
@@ -128,13 +161,21 @@ const AdvancedVisualization: React.FC = () => {
             <Space>
               <span>选择预测结果:</span>
               <Select
-                value={selectedResultId}
-                onChange={setSelectedResultId}
-                style={{ width: 300 }}
-                placeholder="选择一个预测结果"
+                mode="multiple"
+                value={selectedResultIds}
+                onChange={(values) => {
+                  if (values.length === 0) {
+                    message.warning('请至少选择一个结果');
+                    return;
+                  }
+                  setSelectedResultIds(values);
+                }}
+                style={{ minWidth: 300, maxWidth: 500 }}
+                placeholder="选择预测结果（支持多选）"
                 loading={loading}
                 showSearch
                 optionFilterProp="children"
+                maxTagCount={3}
               >
                 {results.map(r => (
                   <Option key={r.id} value={r.id}>
@@ -142,25 +183,59 @@ const AdvancedVisualization: React.FC = () => {
                   </Option>
                 ))}
               </Select>
+              {selectedResultIds.length > 1 && (
+                <Button type="primary" onClick={handleGoToComparison}>
+                  对比分析
+                </Button>
+              )}
             </Space>
           </Col>
         </Row>
 
-        {selectedResult && (
+        {/* 显示选中的结果信息 */}
+        {selectedResults.length > 0 && (
           <div style={{ marginBottom: 16, padding: '12px 16px', background: '#f5f5f5', borderRadius: 4 }}>
+            <Space wrap>
+              <Text strong>已选择 {selectedResults.length} 个结果：</Text>
+              {selectedResults.map(result => (
+                <Tag key={result.id} color="blue" closable onClose={() => {
+                  if (selectedResultIds.length > 1) {
+                    setSelectedResultIds(selectedResultIds.filter(id => id !== result.id));
+                  } else {
+                    message.warning('请至少保留一个结果');
+                  }
+                }}>
+                  {result.name} ({result.model_name})
+                </Tag>
+              ))}
+            </Space>
+          </div>
+        )}
+
+        {/* 主要结果详情 */}
+        {primaryResult && (
+          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#e6f7ff', borderRadius: 4 }}>
             <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
-              <span><strong>模型:</strong> {selectedResult.model_name}</span>
-              {selectedResult.model_version && (
-                <span><strong>版本:</strong> {selectedResult.model_version}</span>
+              <span><strong>当前分析:</strong> {primaryResult.name}</span>
+              <span><strong>模型:</strong> {primaryResult.model_name}</span>
+              {primaryResult.model_version && (
+                <span><strong>版本:</strong> {primaryResult.model_version}</span>
               )}
-              <span><strong>数据行数:</strong> {selectedResult.row_count?.toLocaleString()}</span>
-              {selectedResult.metrics?.r2 !== undefined && (
-                <span><strong>R²:</strong> {selectedResult.metrics.r2.toFixed(4)}</span>
+              <span><strong>数据行数:</strong> {primaryResult.row_count?.toLocaleString()}</span>
+              {primaryResult.metrics?.r2 !== undefined && (
+                <span><strong>R²:</strong> {primaryResult.metrics.r2.toFixed(4)}</span>
               )}
-              {selectedResult.metrics?.rmse !== undefined && (
-                <span><strong>RMSE:</strong> {selectedResult.metrics.rmse.toFixed(6)}</span>
+              {primaryResult.metrics?.rmse !== undefined && (
+                <span><strong>RMSE:</strong> {primaryResult.metrics.rmse.toFixed(6)}</span>
               )}
             </Space>
+            {selectedResults.length > 1 && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary">
+                  提示：高级分析当前显示第一个选中结果的详情。如需对比多个结果，请点击"对比分析"按钮。
+                </Text>
+              </div>
+            )}
           </div>
         )}
 

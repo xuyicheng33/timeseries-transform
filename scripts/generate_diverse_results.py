@@ -42,20 +42,28 @@ def generate_prediction(true_values, r2_target, model_characteristics=None):
     
     Args:
         true_values: 真实值数组
-        r2_target: 目标 R² 值 (0-1)
+        r2_target: 目标 R² 值 (可以为负值，表示极差预测)
         model_characteristics: 模型特性字典，可选
     """
     n = len(true_values)
     true_var = np.var(true_values)
+    true_mean = np.mean(true_values)
     
     # 根据 R² = 1 - MSE/Var(y) 计算需要的 MSE
     # MSE = Var(y) * (1 - R²)
+    # 对于负 R²，MSE > Var(y)
     target_mse = true_var * (1 - r2_target)
-    target_rmse = np.sqrt(target_mse)
+    target_rmse = np.sqrt(max(target_mse, 0.001))  # 确保非负
     
     # 基础预测 = 真实值 + 噪声
     noise = np.random.normal(0, target_rmse * 0.8, n)
     predictions = true_values.copy() + noise
+    
+    # 对于负 R² 目标，需要更大的偏差
+    if r2_target < 0:
+        # 添加系统性偏差使预测更差
+        predictions += np.random.normal(0, target_rmse * 0.5, n)
+        predictions += true_mean * 0.3 * np.random.choice([-1, 1])
     
     # 添加模型特性
     if model_characteristics:
@@ -94,17 +102,17 @@ def generate_prediction(true_values, r2_target, model_characteristics=None):
         current_mse = np.mean((predictions - true_values) ** 2)
         current_r2 = 1 - current_mse / true_var
         
-        if abs(current_r2 - r2_target) < 0.01:
+        if abs(current_r2 - r2_target) < 0.02:
             break
         
         # 调整噪声幅度
         if current_r2 > r2_target:
             # R² 太高，增加噪声
-            extra_noise = np.random.normal(0, target_rmse * 0.1, n)
+            extra_noise = np.random.normal(0, target_rmse * 0.15, n)
             predictions += extra_noise
         else:
             # R² 太低，减少误差
-            predictions = predictions * 0.95 + true_values * 0.05
+            predictions = predictions * 0.92 + true_values * 0.08
     
     return predictions
 
@@ -146,30 +154,35 @@ def main():
     
     # 定义不同模型的配置
     # (模型名, 版本, 目标R², 精度标签, 模型特性)
+    # R² 分布拉开：优秀(>0.9)、良好(0.7-0.9)、一般(0.4-0.7)、较差(0.1-0.4)、极差(<0.1/负值)
     model_configs = [
-        # 高精度模型
+        # 优秀模型 (R² > 0.9)
         ('LSTM', '1.0', 0.95, 'high', {'lag': 1}),
         ('Transformer', '1.0', 0.92, 'high', {'noisy': True}),
-        ('TCN', '1.0', 0.90, 'high', {'periodic_error': True}),
-        ('GRU', '1.0', 0.88, 'high', {'lag': 2}),
         
-        # 中等精度模型
-        ('LSTM', '1.0', 0.75, 'medium', {'lag': 3, 'bias': 0.1}),
-        ('Transformer', '2.0', 0.70, 'medium', {'poor_trend': True}),
-        ('XGBoost', '1.0', 0.65, 'medium', {'slow_response': True}),
-        ('Autoformer', '1.0', 0.60, 'medium', {'periodic_error': True, 'lag': 2}),
+        # 良好模型 (R² 0.7-0.9)
+        ('TCN', '1.0', 0.85, 'high', {'periodic_error': True}),
+        ('GRU', '1.0', 0.78, 'medium', {'lag': 2}),
         
-        # 低精度模型
-        ('TCN', '1.0', 0.45, 'low', {'noisy': True, 'bias': -0.2}),
-        ('Prophet', '1.0', 0.35, 'low', {'poor_trend': True, 'slow_response': True}),
+        # 一般模型 (R² 0.4-0.7)
+        ('LSTM', '1.0', 0.65, 'medium', {'lag': 3, 'bias': 0.1}),
+        ('Transformer', '2.0', 0.55, 'medium', {'poor_trend': True}),
+        ('XGBoost', '1.0', 0.48, 'medium', {'slow_response': True}),
+        
+        # 较差模型 (R² 0.1-0.4)
+        ('Autoformer', '1.0', 0.35, 'low', {'periodic_error': True, 'lag': 2}),
+        ('TCN', '1.0', 0.25, 'low', {'noisy': True, 'bias': -0.2}),
+        
+        # 极差模型 (R² < 0.1 或负值)
+        ('Prophet', '1.0', 0.05, 'low', {'poor_trend': True, 'slow_response': True}),
     ]
     
     # 特殊测试数据
     special_configs = [
         # 完美预测（用于测试边界情况）
         ('perfect_prediction', None, 0.999, 'perfect', {}),
-        # 随机预测（很差的模型）
-        ('random_prediction', None, 0.10, 'random', {'noisy': True, 'bias': 0.5}),
+        # 随机预测（很差的模型，可能产生负 R²）
+        ('random_prediction', None, -0.10, 'random', {'noisy': True, 'bias': 0.5}),
         # 大规模数据
         ('large_scale', None, 0.80, 'large', {}),
     ]
@@ -226,15 +239,16 @@ def main():
     metrics = calculate_metrics(true_values, perfect_pred)
     print(f"  完美预测: R²={metrics['R²']:.4f}")
     
-    # 随机预测
-    random_pred = np.random.normal(np.mean(true_values), np.std(true_values) * 1.5, len(true_values))
+    # 随机预测（产生负 R²）
+    # 使用与真实值无关的随机数，并添加较大偏差
+    random_pred = np.random.normal(np.mean(true_values) * 1.5, np.std(true_values) * 2, len(true_values))
     df = pd.DataFrame({
         'true_value': np.round(true_values, 4),
         'predicted_value': np.round(random_pred, 4)
     })
     df.to_csv(os.path.join(OUTPUT_DIR, 'result_random_prediction.csv'), index=False)
     metrics = calculate_metrics(true_values, random_pred)
-    print(f"  随机预测: R²={metrics['R²']:.4f}")
+    print(f"  随机预测: R²={metrics['R²']:.4f} (可能为负值)")
     
     # 大规模数据
     large_true = generate_base_signal(10000)

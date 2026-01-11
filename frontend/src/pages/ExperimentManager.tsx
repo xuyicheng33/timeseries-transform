@@ -892,6 +892,12 @@ const ExperimentManager: React.FC = () => {
                             ),
                           },
                           {
+                            title: '配置',
+                            dataIndex: 'configuration_name',
+                            key: 'configuration_name',
+                            render: (text) => text || <span style={{ color: '#999' }}>-</span>,
+                          },
+                          {
                             title: 'MSE',
                             key: 'mse',
                             render: (_, record) =>

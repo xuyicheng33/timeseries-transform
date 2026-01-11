@@ -18,9 +18,11 @@ import {
   LineChartOutlined,
 } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
+import { APP_CONFIG } from '@/config/app'
 import type { UserLogin } from '@/types'
 
 const { Title, Text } = Typography
+const { BRAND, APP_NAME } = APP_CONFIG
 
 export default function Login() {
   const [form] = Form.useForm()
@@ -52,7 +54,7 @@ export default function Login() {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: BRAND.PRIMARY_BG,
         padding: 24,
       }}
     >
@@ -61,8 +63,8 @@ export default function Login() {
           width: '100%',
           maxWidth: 400,
           borderRadius: 12,
-          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-          border: 'none',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+          border: `1px solid ${BRAND.PRIMARY_LIGHT}`,
         }}
         styles={{ body: { padding: '48px 36px' } }}
       >
@@ -72,7 +74,7 @@ export default function Login() {
             width: 56, 
             height: 56, 
             borderRadius: 12, 
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: BRAND.PRIMARY_COLOR,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -81,7 +83,7 @@ export default function Login() {
             <LineChartOutlined style={{ fontSize: 28, color: '#fff' }} />
           </div>
           <Title level={3} style={{ margin: 0, color: '#1a1a2e', fontWeight: 600 }}>
-            时序分析平台
+            {APP_NAME}
           </Title>
           <Text type="secondary" style={{ fontSize: 14 }}>登录以继续</Text>
         </div>
@@ -125,7 +127,7 @@ export default function Login() {
               style={{
                 height: 46,
                 borderRadius: 8,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: BRAND.PRIMARY_COLOR,
                 border: 'none',
                 fontWeight: 500,
                 fontSize: 15,
@@ -139,7 +141,7 @@ export default function Login() {
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Text type="secondary" style={{ fontSize: 13 }}>
             还没有账号？
-            <Link to="/register" style={{ marginLeft: 4, fontWeight: 500 }}>
+            <Link to="/register" style={{ marginLeft: 4, fontWeight: 500, color: BRAND.PRIMARY_COLOR }}>
               立即注册
             </Link>
           </Text>

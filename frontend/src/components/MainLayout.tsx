@@ -12,10 +12,12 @@ import {
 } from '@ant-design/icons'
 import { ROUTES } from '@/constants'
 import { useAuth } from '@/contexts/AuthContext'
+import { APP_CONFIG } from '@/config/app'
 import './MainLayout.css'
 
 const { Header, Sider, Content } = Layout
 const { Title, Text } = Typography
+const { APP_NAME } = APP_CONFIG
 
 export default function MainLayout() {
   const navigate = useNavigate()
@@ -67,7 +69,7 @@ export default function MainLayout() {
         <div className="header-content">
           <div className="header-left">
             <Title level={3} className="app-title">
-              时序分析平台
+              {APP_NAME}
             </Title>
           </div>
           <div className="header-right">
@@ -80,7 +82,7 @@ export default function MainLayout() {
                 <Avatar
                   size="small"
                   icon={<UserOutlined />}
-                  style={{ backgroundColor: '#1890ff' }}
+                  style={{ backgroundColor: '#fff', color: 'var(--brand-primary)' }}
                 />
                 <Text style={{ color: '#fff' }}>
                   {user?.full_name || user?.username || '用户'}
