@@ -18,51 +18,63 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def table_exists(table_name: str) -> bool:
+    """检查表是否存在（SQLite）"""
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+    )
+    return result.fetchone() is not None
+
+
+def column_exists(table_name: str, column_name: str) -> bool:
+    """检查列是否存在（SQLite）"""
+    conn = op.get_bind()
+    result = conn.execute(sa.text(f"PRAGMA table_info({table_name})"))
+    columns = [row[1] for row in result.fetchall()]
+    return column_name in columns
+
+
 def upgrade() -> None:
-    # 创建模型模板表
-    op.create_table(
-        'model_templates',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(100), nullable=False),
-        sa.Column('version', sa.String(50), default='1.0'),
-        sa.Column('category', sa.String(50), default='deep_learning'),
-        sa.Column('hyperparameters', sa.JSON(), default=dict),
-        sa.Column('training_config', sa.JSON(), default=dict),
-        sa.Column('description', sa.Text(), default=''),
-        sa.Column('task_types', sa.JSON(), default=list),
-        sa.Column('recommended_features', sa.Text(), default=''),
-        sa.Column('is_system', sa.Boolean(), default=False),
-        sa.Column('is_public', sa.Boolean(), default=False),
-        sa.Column('user_id', sa.Integer(), nullable=True),
-        sa.Column('usage_count', sa.Integer(), default=0),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_model_templates_id'), 'model_templates', ['id'], unique=False)
-    op.create_index(op.f('ix_model_templates_name'), 'model_templates', ['name'], unique=False)
-    op.create_index(op.f('ix_model_templates_user_id'), 'model_templates', ['user_id'], unique=False)
+    # 创建模型模板表（如果不存在）
+    if not table_exists('model_templates'):
+        op.create_table(
+            'model_templates',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('name', sa.String(100), nullable=False),
+            sa.Column('version', sa.String(50), default='1.0'),
+            sa.Column('category', sa.String(50), default='deep_learning'),
+            sa.Column('hyperparameters', sa.JSON(), default=dict),
+            sa.Column('training_config', sa.JSON(), default=dict),
+            sa.Column('description', sa.Text(), default=''),
+            sa.Column('task_types', sa.JSON(), default=list),
+            sa.Column('recommended_features', sa.Text(), default=''),
+            sa.Column('is_system', sa.Boolean(), default=False),
+            sa.Column('is_public', sa.Boolean(), default=False),
+            sa.Column('user_id', sa.Integer(), nullable=True),
+            sa.Column('usage_count', sa.Integer(), default=0),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.Column('updated_at', sa.DateTime(), nullable=True),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='SET NULL'),
+            sa.PrimaryKeyConstraint('id')
+        )
+        op.create_index(op.f('ix_model_templates_id'), 'model_templates', ['id'], unique=False)
+        op.create_index(op.f('ix_model_templates_name'), 'model_templates', ['name'], unique=False)
+        op.create_index(op.f('ix_model_templates_user_id'), 'model_templates', ['user_id'], unique=False)
     
-    # 为 configurations 表添加 model_template_id 列
-    op.add_column('configurations', sa.Column('model_template_id', sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        'fk_configurations_model_template_id',
-        'configurations', 'model_templates',
-        ['model_template_id'], ['id'],
-        ondelete='SET NULL'
-    )
-    op.create_index(op.f('ix_configurations_model_template_id'), 'configurations', ['model_template_id'], unique=False)
+    # 为 configurations 表添加 model_template_id 列（如果不存在）
+    if not column_exists('configurations', 'model_template_id'):
+        op.add_column('configurations', sa.Column('model_template_id', sa.Integer(), nullable=True))
+        # SQLite 不支持在 ALTER TABLE 后添加外键，跳过外键约束
+        # op.create_foreign_key(...)
+        op.create_index(op.f('ix_configurations_model_template_id'), 'configurations', ['model_template_id'], unique=False)
     
-    # 为 results 表添加 model_template_id 列
-    op.add_column('results', sa.Column('model_template_id', sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        'fk_results_model_template_id',
-        'results', 'model_templates',
-        ['model_template_id'], ['id'],
-        ondelete='SET NULL'
-    )
-    op.create_index(op.f('ix_results_model_template_id'), 'results', ['model_template_id'], unique=False)
+    # 为 results 表添加 model_template_id 列（如果不存在）
+    if not column_exists('results', 'model_template_id'):
+        op.add_column('results', sa.Column('model_template_id', sa.Integer(), nullable=True))
+        # SQLite 不支持在 ALTER TABLE 后添加外键，跳过外键约束
+        # op.create_foreign_key(...)
+        op.create_index(op.f('ix_results_model_template_id'), 'results', ['model_template_id'], unique=False)
 
 
 def downgrade() -> None:
