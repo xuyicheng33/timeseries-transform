@@ -811,20 +811,24 @@ async def get_radar_chart(
     mape_vals = [r["metrics"]["mape"] for r in valid_results]
     
     # 归一化函数（越小越好的指标转换为越大越好）
+    # 改进：给最差的模型一个最低分 0.1 而不是 0，避免雷达图完全塌陷
     def normalize_lower_better(vals: List[float]) -> List[float]:
-        """归一化：原值越小，得分越高"""
+        """归一化：原值越小，得分越高（最低分 0.1）"""
         min_v, max_v = min(vals), max(vals)
         if max_v == min_v:
             return [1.0] * len(vals)
-        # 反转：(max - val) / (max - min)
-        return [(max_v - v) / (max_v - min_v) for v in vals]
+        # 反转：(max - val) / (max - min)，然后映射到 [0.1, 1.0]
+        normalized = [(max_v - v) / (max_v - min_v) for v in vals]
+        return [0.1 + 0.9 * n for n in normalized]
     
     def normalize_higher_better(vals: List[float]) -> List[float]:
-        """归一化：原值越大，得分越高"""
+        """归一化：原值越大，得分越高（最低分 0.1）"""
         min_v, max_v = min(vals), max(vals)
         if max_v == min_v:
             return [1.0] * len(vals)
-        return [(v - min_v) / (max_v - min_v) for v in vals]
+        # 映射到 [0.1, 1.0]
+        normalized = [(v - min_v) / (max_v - min_v) for v in vals]
+        return [0.1 + 0.9 * n for n in normalized]
     
     # 归一化（MSE/RMSE/MAE/MAPE 越小越好，R² 越大越好）
     mse_scores = normalize_lower_better(mse_vals)

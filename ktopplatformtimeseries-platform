@@ -1,0 +1,30 @@
+warning: in the working copy of 'frontend/src/pages/ConfigWizard.tsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/frontend/src/pages/ConfigWizard.tsx b/frontend/src/pages/ConfigWizard.tsx[m
+[1mindex d2da02c..d91f8e3 100644[m
+[1m--- a/frontend/src/pages/ConfigWizard.tsx[m
+[1m+++ b/frontend/src/pages/ConfigWizard.tsx[m
+[36m@@ -305,7 +305,12 @@[m [mexport default function ConfigWizard() {[m
+ [m
+     setFilenameLoading(true)[m
+     try {[m
+[31m-      const values = form.getFieldsValue()[m
+[32m+[m[32m      // 使用 getFieldsValue(true) 获取所有字段值，包括未渲染的[m
+[32m+[m[32m      const values = form.getFieldsValue(true)[m
+[32m+[m[32m      const targetType = values.target_type || 'next'[m
+[32m+[m[32m      // 当 target_type 是 kstep 时，使用用户输入的 target_k，否则默认为 1[m
+[32m+[m[32m      const targetK = targetType === 'kstep' ? (values.target_k || 1) : 1[m
+[32m+[m[41m      [m
+       const response = await generateFilename({[m
+         dataset_name: selectedDataset.name,[m
+         channels: targetKeys,[m
+[36m@@ -317,8 +322,8 @@[m [mexport default function ConfigWizard() {[m
+         sequence_logic: values.anomaly_enabled ? (values.sequence_logic || '') : '',[m
+         window_size: values.window_size || 100,[m
+         stride: values.stride || 1,[m
+[31m-        target_type: values.target_type || 'next',[m
+[31m-        target_k: values.target_k || 1,[m
+[32m+[m[32m        target_type: targetType,[m
+[32m+[m[32m        target_k: targetK,[m
+       })[m
+       setGeneratedFilename(response.filename)[m
+     } catch {[m

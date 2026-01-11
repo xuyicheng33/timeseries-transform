@@ -60,7 +60,7 @@ import {
 } from '@/api/visualization'
 import { formatMetric } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
-import { DOWNSAMPLE_ALGORITHM_OPTIONS, METRIC_NAMES } from '@/constants'
+import { DOWNSAMPLE_ALGORITHM_OPTIONS, DOWNSAMPLE_ALGORITHM_DESCRIPTIONS, METRIC_NAMES } from '@/constants'
 import ConfigComparison from '@/components/ConfigComparison'
 
 const { Title, Text } = Typography
@@ -345,10 +345,17 @@ export default function Visualization() {
         feature: {
           dataZoom: {
             yAxisIndex: 'none',
+            title: {
+              zoom: '区域缩放',
+              back: '缩放还原',
+            },
           },
-          restore: {},
+          restore: {
+            title: '还原',
+          },
           saveAsImage: {
             name: 'visualization_compare',
+            title: '保存图片',
           },
         },
       },
@@ -357,11 +364,14 @@ export default function Visualization() {
           type: 'inside',
           start: 0,
           end: 100,
+          xAxisIndex: [0],
         },
         {
           type: 'slider',
           start: 0,
           end: 100,
+          xAxisIndex: [0],
+          bottom: 10,
         },
       ],
       xAxis: {
@@ -433,14 +443,36 @@ export default function Visualization() {
       },
       toolbox: {
         feature: {
-          dataZoom: { yAxisIndex: 'none' },
-          restore: {},
-          saveAsImage: { name: 'residual_chart' },
+          dataZoom: {
+            yAxisIndex: 'none',
+            title: {
+              zoom: '区域缩放',
+              back: '缩放还原',
+            },
+          },
+          restore: {
+            title: '还原',
+          },
+          saveAsImage: {
+            name: 'residual_chart',
+            title: '保存图片',
+          },
         },
       },
       dataZoom: [
-        { type: 'inside', start: 0, end: 100 },
-        { type: 'slider', start: 0, end: 100 },
+        {
+          type: 'inside',
+          start: 0,
+          end: 100,
+          xAxisIndex: [0],
+        },
+        {
+          type: 'slider',
+          start: 0,
+          end: 100,
+          xAxisIndex: [0],
+          bottom: 10,
+        },
       ],
       xAxis: {
         type: 'value',
@@ -774,7 +806,26 @@ export default function Visualization() {
         <Row gutter={[24, 16]} align="middle">
           <Col>
             <Space>
-              <Text>降采样算法：</Text>
+              <Tooltip
+                title={
+                  <div style={{ maxWidth: 350 }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: 8 }}>降采样算法说明</div>
+                    {algorithm && DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm] && (
+                      <>
+                        <div><strong>{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].name}</strong></div>
+                        <div style={{ margin: '4px 0' }}>{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].description}</div>
+                        <div style={{ color: '#52c41a' }}>✓ 优点：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].pros}</div>
+                        <div style={{ color: '#faad14' }}>✗ 缺点：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].cons}</div>
+                        <div style={{ marginTop: 4, color: '#1890ff' }}>适用场景：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].useCase}</div>
+                      </>
+                    )}
+                  </div>
+                }
+                placement="bottom"
+                overlayStyle={{ maxWidth: 400 }}
+              >
+                <Text style={{ cursor: 'help' }}>降采样算法：</Text>
+              </Tooltip>
               <Select
                 value={algorithm}
                 onChange={setAlgorithm}
@@ -782,7 +833,12 @@ export default function Visualization() {
               >
                 {DOWNSAMPLE_ALGORITHM_OPTIONS.map((opt) => (
                   <Select.Option key={opt.value} value={opt.value}>
-                    {opt.label}
+                    <Tooltip
+                      title={DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[opt.value]?.description}
+                      placement="right"
+                    >
+                      <span>{opt.label}</span>
+                    </Tooltip>
                   </Select.Option>
                 ))}
               </Select>

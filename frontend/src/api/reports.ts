@@ -1,24 +1,26 @@
 /**
  * 实验报告 API
  */
-import request from './request';
+import { rawRequest } from './request';
 import type {
   ExperimentReportRequest,
   MultiResultReportRequest,
   LatexTableResponse,
   ReportFormat,
 } from '@/types/report';
+import request from './request';
 
 const BASE_URL = '/reports';
 
 /**
  * 生成实验组报告
  * 返回 Blob 用于下载
+ * 使用 rawRequest 保留完整响应（包含 Blob 数据）
  */
 export async function generateExperimentReport(
   data: ExperimentReportRequest
 ): Promise<Blob> {
-  const response = await request.post(`${BASE_URL}/experiment`, data, {
+  const response = await rawRequest.post(`${BASE_URL}/experiment`, data, {
     responseType: 'blob',
   });
   return response.data;
@@ -27,11 +29,12 @@ export async function generateExperimentReport(
 /**
  * 生成多结果对比报告
  * 返回 Blob 用于下载
+ * 使用 rawRequest 保留完整响应（包含 Blob 数据）
  */
 export async function generateResultsReport(
   data: MultiResultReportRequest
 ): Promise<Blob> {
-  const response = await request.post(`${BASE_URL}/results`, data, {
+  const response = await rawRequest.post(`${BASE_URL}/results`, data, {
     responseType: 'blob',
   });
   return response.data;
@@ -48,8 +51,15 @@ export async function getLatexTable(
 
 /**
  * 下载报告的辅助函数
+ * 增加类型检查，确保 blob 是有效的 Blob 对象
  */
 export function downloadReport(blob: Blob, filename: string): void {
+  // 确保 blob 是有效的 Blob 对象
+  if (!(blob instanceof Blob)) {
+    console.error('downloadReport: Invalid blob object', blob);
+    throw new Error('无效的文件数据');
+  }
+  
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

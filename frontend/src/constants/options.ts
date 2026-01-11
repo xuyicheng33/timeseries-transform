@@ -100,6 +100,31 @@ export const DOWNSAMPLE_ALGORITHM_OPTIONS = [
   { label: 'Average', value: 'average' },
 ]
 
+// 降采样算法详细说明
+export const DOWNSAMPLE_ALGORITHM_DESCRIPTIONS: Record<string, { name: string; description: string; pros: string; cons: string; useCase: string }> = {
+  lttb: {
+    name: 'LTTB (Largest Triangle Three Buckets)',
+    description: '基于三角形面积的降采样算法，通过选择能形成最大三角形面积的点来保留数据的视觉特征。',
+    pros: '保留数据的整体形状和趋势，视觉效果最佳',
+    cons: '计算复杂度略高',
+    useCase: '适合大多数时序数据可视化场景，特别是需要保持曲线形状的情况',
+  },
+  minmax: {
+    name: 'MinMax (最大最小值)',
+    description: '在每个采样区间内保留最大值和最小值点，确保极值不丢失。',
+    pros: '保留极值点，不会丢失峰值和谷值',
+    cons: '可能产生锯齿状的视觉效果',
+    useCase: '适合需要关注极端值的场景，如异常检测、峰值分析',
+  },
+  average: {
+    name: 'Average (平均值)',
+    description: '在每个采样区间内计算平均值作为代表点。',
+    pros: '计算简单快速，平滑噪声',
+    cons: '可能丢失极值和细节特征',
+    useCase: '适合数据噪声较大、关注整体趋势的场景',
+  },
+}
+
 // 指标名称映射
 export const METRIC_NAMES = {
   mse: 'MSE',

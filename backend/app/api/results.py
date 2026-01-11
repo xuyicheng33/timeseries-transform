@@ -32,12 +32,20 @@ from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/results", tags=["results"])
 
-REQUIRED_COLUMNS = {"true_value", "predicted_value"}
+# 完整结果文件必需列（包含真实值和预测值）
+REQUIRED_COLUMNS_FULL = {"true_value", "predicted_value"}
+# 仅预测值文件必需列
+REQUIRED_COLUMNS_PRED_ONLY = {"predicted_value"}
 
 
 def _parse_result_csv_sync(filepath: str):
     """同步解析结果CSV"""
     return pd.read_csv(filepath)
+
+
+def _read_dataset_csv_sync(filepath: str, encoding: str = 'utf-8'):
+    """同步读取数据集CSV"""
+    return pd.read_csv(filepath, encoding=encoding)
 
 
 @router.post("/upload", response_model=ResultResponse)
@@ -49,10 +57,18 @@ async def upload_result(
     configuration_id: int = Form(None),
     algo_version: str = Form("", alias="model_version"),
     description: str = Form(""),
+    target_column: str = Form(None, description="数据集中的目标列名（用于只上传预测值的情况）"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)  # 需要登录
 ):
-    """上传预测结果"""
+    """
+    上传预测结果
+    
+    支持两种上传模式：
+    1. 完整模式：CSV 包含 true_value 和 predicted_value 两列
+    2. 仅预测值模式：CSV 只包含 predicted_value 列，需要指定 target_column 参数，
+       系统会自动从数据集中读取对应的真实值进行比较
+    """
     # 表单字段校验
     name = validate_form_field(name, "结果名称", max_length=255, min_length=1)
     algo_name = validate_form_field(algo_name, "模型名称", max_length=100, min_length=1)
@@ -133,15 +149,74 @@ async def upload_result(
         await db.rollback()
         raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式")
     
-    # 检查必需列
-    missing_cols = REQUIRED_COLUMNS - set(df.columns)
-    if missing_cols:
+    # 检查上传模式
+    has_true_value = "true_value" in df.columns
+    has_predicted_value = "predicted_value" in df.columns
+    
+    if not has_predicted_value:
         await run_in_executor(safe_rmtree, str(result_dir))
         await db.rollback()
         raise HTTPException(
             status_code=400, 
-            detail=f"缺少必需列: {missing_cols}。文件必须包含 'true_value' 和 'predicted_value' 列"
+            detail="缺少必需列: predicted_value。文件必须包含 'predicted_value' 列"
         )
+    
+    # 如果没有 true_value 列，需要从数据集中获取
+    if not has_true_value:
+        if not target_column:
+            await run_in_executor(safe_rmtree, str(result_dir))
+            await db.rollback()
+            raise HTTPException(
+                status_code=400, 
+                detail="文件缺少 'true_value' 列。请提供 target_column 参数指定数据集中的目标列，或上传包含 'true_value' 列的完整文件"
+            )
+        
+        # 检查数据集文件是否存在
+        if not os.path.exists(dataset.filepath):
+            await run_in_executor(safe_rmtree, str(result_dir))
+            await db.rollback()
+            raise HTTPException(status_code=404, detail="数据集文件不存在")
+        
+        # 读取数据集
+        try:
+            dataset_df = await run_in_executor(
+                _read_dataset_csv_sync, 
+                dataset.filepath, 
+                dataset.encoding or 'utf-8'
+            )
+        except Exception:
+            await run_in_executor(safe_rmtree, str(result_dir))
+            await db.rollback()
+            raise HTTPException(status_code=500, detail="读取数据集文件失败")
+        
+        # 检查目标列是否存在
+        if target_column not in dataset_df.columns:
+            await run_in_executor(safe_rmtree, str(result_dir))
+            await db.rollback()
+            raise HTTPException(
+                status_code=400, 
+                detail=f"数据集中不存在列 '{target_column}'。可用列: {list(dataset_df.columns)}"
+            )
+        
+        # 检查行数是否匹配
+        if len(df) != len(dataset_df):
+            await run_in_executor(safe_rmtree, str(result_dir))
+            await db.rollback()
+            raise HTTPException(
+                status_code=400, 
+                detail=f"预测结果行数 ({len(df)}) 与数据集行数 ({len(dataset_df)}) 不匹配"
+            )
+        
+        # 添加 true_value 列
+        df["true_value"] = dataset_df[target_column].values
+        
+        # 重新保存包含 true_value 的完整文件
+        try:
+            await run_in_executor(lambda: df.to_csv(str(filepath), index=False))
+        except Exception:
+            await run_in_executor(safe_rmtree, str(result_dir))
+            await db.rollback()
+            raise HTTPException(status_code=500, detail="保存结果文件失败")
     
     result_obj.filepath = str(filepath)
     result_obj.row_count = len(df)
@@ -324,6 +399,52 @@ async def download_result(
     # 使用安全的文件名（防止 Header 注入）
     safe_download_name = sanitize_filename_for_header(result_obj.filename)
     return FileResponse(result_obj.filepath, filename=safe_download_name, media_type="text/csv")
+
+
+@router.get("/{result_id}/preview")
+async def preview_result(
+    result_id: int,
+    rows: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """预览结果数据（前 N 行）"""
+    # 限制最大行数
+    rows = max(1, min(rows, 500))
+    
+    result = await db.execute(select(Result).where(Result.id == result_id))
+    result_obj = result.scalar_one_or_none()
+    if not result_obj:
+        raise HTTPException(status_code=404, detail="结果不存在")
+    
+    # 获取关联数据集
+    dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
+    dataset = dataset_result.scalar_one_or_none()
+    
+    check_read_access(result_obj, current_user, ResourceType.RESULT, parent_dataset=dataset)
+    
+    # 检查文件是否存在
+    if not os.path.exists(result_obj.filepath):
+        raise HTTPException(status_code=404, detail="结果文件不存在，可能已被删除")
+    
+    # 验证文件路径安全
+    if not validate_filepath(result_obj.filepath):
+        raise HTTPException(status_code=403, detail="文件路径不安全")
+    
+    try:
+        # 读取前 N 行
+        df = await run_in_executor(lambda: pd.read_csv(result_obj.filepath, nrows=rows))
+        
+        # 替换 NaN 为 None（JSON 兼容）
+        df = df.replace({np.nan: None})
+        
+        return {
+            "columns": df.columns.tolist(),
+            "data": df.to_dict(orient="records"),
+            "total_rows": result_obj.row_count or len(df)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}")
 
 
 @router.put("/{result_id}", response_model=ResultResponse)

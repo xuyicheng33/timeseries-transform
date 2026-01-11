@@ -12,6 +12,10 @@ import type {
 
 /**
  * 上传结果
+ * 
+ * 支持两种上传模式：
+ * 1. 完整模式：CSV 包含 true_value 和 predicted_value 两列
+ * 2. 仅预测值模式：CSV 只包含 predicted_value 列，需要指定 targetColumn 参数
  */
 export async function uploadResult(
   name: string,
@@ -21,7 +25,8 @@ export async function uploadResult(
   configurationId?: number,
   modelVersion?: string,
   description?: string,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  targetColumn?: string  // 新增：数据集中的目标列名（用于只上传预测值的情况）
 ): Promise<Result> {
   const formData = new FormData()
   formData.append('name', name)
@@ -37,6 +42,9 @@ export async function uploadResult(
   }
   if (description) {
     formData.append('description', description)
+  }
+  if (targetColumn) {
+    formData.append('target_column', targetColumn)
   }
 
   return api.post('/results/upload', formData, {
@@ -95,6 +103,16 @@ export async function getAllResults(
  */
 export async function getResult(id: number): Promise<Result> {
   return api.get(`/results/${id}`)
+}
+
+/**
+ * 预览结果数据
+ */
+export async function previewResult(
+  id: number,
+  rows: number = 100
+): Promise<{ columns: string[]; data: Record<string, unknown>[]; total_rows: number }> {
+  return api.get(`/results/${id}/preview`, { params: { rows } })
 }
 
 /**

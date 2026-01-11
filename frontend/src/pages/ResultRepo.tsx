@@ -34,6 +34,8 @@ import {
   DeleteOutlined,
   InboxOutlined,
   ExperimentOutlined,
+  EyeOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons'
 
 import type { Dataset, Configuration, Result, ResultUpdate, Metrics } from '@/types'
@@ -44,6 +46,7 @@ import {
   updateResult,
   deleteResult,
   getResultDownloadPath,
+  previewResult,
 } from '@/api/results'
 import { download } from '@/utils/download'
 import { formatFileSize, formatDateTime, formatMetric, hasMetrics } from '@/utils/format'
@@ -87,6 +90,12 @@ export default function ResultRepo() {
   // 指标详情
   const [metricsModalOpen, setMetricsModalOpen] = useState(false)
   const [selectedResult, setSelectedResult] = useState<Result | null>(null)
+
+  // 预览相关
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [previewData, setPreviewData] = useState<{ columns: string[]; data: Record<string, unknown>[]; total_rows: number } | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewResult, setPreviewResult] = useState<Result | null>(null)
 
   // ============ 数据获取 ============
   const fetchResults = useCallback(async () => {
@@ -205,7 +214,8 @@ export default function ResultRepo() {
         values.configuration_id,
         values.model_version,
         values.description,
-        (percent) => setUploadProgress(percent)
+        (percent) => setUploadProgress(percent),
+        values.target_column  // 新增：目标列参数
       )
 
       message.success('上传成功')
@@ -299,6 +309,46 @@ export default function ResultRepo() {
     setSelectedResult(null)
   }
 
+  // ============ 预览功能 ============
+  const handlePreview = async (result: Result) => {
+    setPreviewResult(result)
+    setPreviewModalOpen(true)
+    setPreviewLoading(true)
+    setPreviewData(null)
+
+    try {
+      const data = await previewResult(result.id, 100)
+      setPreviewData(data)
+    } catch {
+      // 错误已在 API 层处理
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const handlePreviewModalClose = () => {
+    setPreviewModalOpen(false)
+    setPreviewData(null)
+    setPreviewResult(null)
+  }
+
+  // 动态生成预览表格列
+  const getPreviewColumns = () => {
+    if (!previewData?.columns) return []
+    return previewData.columns.map((col) => ({
+      title: col,
+      dataIndex: col,
+      key: col,
+      width: 150,
+      ellipsis: true,
+      render: (value: unknown) => {
+        if (value === null || value === undefined) return <Text type="secondary">-</Text>
+        if (typeof value === 'number') return value.toFixed(6)
+        return String(value)
+      },
+    }))
+  }
+
   // 渲染指标卡片
   const renderMetricsCards = (metrics: Metrics) => {
     const metricKeys: (keyof Metrics)[] = ['mse', 'rmse', 'mae', 'r2', 'mape']
@@ -334,10 +384,10 @@ export default function ResultRepo() {
       key: 'name',
       width: 180,
       ellipsis: true,
-      render: (name: string) => (
+      render: (name: string, record: Result) => (
         <Space>
           <ExperimentOutlined style={{ color: '#722ed1' }} />
-          <Text strong>{name}</Text>
+          <a onClick={() => handleShowMetrics(record)} style={{ fontWeight: 500 }}>{name}</a>
         </Space>
       ),
     },
@@ -409,10 +459,18 @@ export default function ResultRepo() {
     {
       title: '操作',
       key: 'action',
-      width: 150,
+      width: 180,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
+          <Tooltip title="预览数据">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handlePreview(record)}
+            />
+          </Tooltip>
           <Tooltip title="下载">
             <Button
               type="text"
@@ -547,7 +605,7 @@ export default function ResultRepo() {
         confirmLoading={uploading}
         maskClosable={!uploading}
         closable={!uploading}
-        width={600}
+        width={650}
       >
         <Form form={uploadForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item label="选择文件" required>
@@ -557,7 +615,7 @@ export default function ResultRepo() {
               </p>
               <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
               <p className="ant-upload-hint">
-                CSV 文件必须包含 true_value 和 predicted_value 列
+                支持两种格式：1) 包含 true_value 和 predicted_value 列；2) 仅包含 predicted_value 列（需指定目标列）
               </p>
             </Dragger>
           </Form.Item>
@@ -585,8 +643,9 @@ export default function ResultRepo() {
                   placeholder="请选择数据集"
                   disabled={uploading}
                   onChange={() => {
-                    // 数据集变化时清空已选配置
+                    // 数据集变化时清空已选配置和目标列
                     uploadForm.setFieldValue('configuration_id', undefined)
+                    uploadForm.setFieldValue('target_column', undefined)
                   }}
                 >
                   {datasets.map((dataset) => (
@@ -638,6 +697,46 @@ export default function ResultRepo() {
                     {filteredConfigs.map((config) => (
                       <Select.Option key={config.id} value={config.id}>
                         {config.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              )
+            }}
+          </Form.Item>
+
+          {/* 目标列选择（用于只上传预测值的情况） */}
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, curr) => prev.dataset_id !== curr.dataset_id}
+          >
+            {({ getFieldValue }) => {
+              const selectedDatasetId = getFieldValue('dataset_id')
+              const selectedDataset = datasets.find((d) => d.id === selectedDatasetId)
+              const columns = selectedDataset?.columns || []
+              
+              return (
+                <Form.Item
+                  name="target_column"
+                  label={
+                    <Space>
+                      <span>目标列</span>
+                      <Tooltip title="如果上传的文件只包含 predicted_value 列（没有 true_value），请选择数据集中对应的真实值列，系统会自动进行匹配比较">
+                        <QuestionCircleOutlined style={{ color: '#999' }} />
+                      </Tooltip>
+                    </Space>
+                  }
+                >
+                  <Select
+                    placeholder={selectedDatasetId ? '仅预测值文件需要选择（可选）' : '请先选择数据集'}
+                    allowClear
+                    disabled={uploading || !selectedDatasetId}
+                    showSearch
+                    optionFilterProp="children"
+                  >
+                    {columns.map((col: string) => (
+                      <Select.Option key={col} value={col}>
+                        {col}
                       </Select.Option>
                     ))}
                   </Select>
@@ -728,6 +827,62 @@ export default function ResultRepo() {
       >
         {selectedResult && hasMetrics(selectedResult.metrics) && (
           renderMetricsCards(selectedResult.metrics as Metrics)
+        )}
+      </Modal>
+
+      {/* 预览 Modal */}
+      <Modal
+        title={`预览数据：${previewResult?.name || ''}`}
+        open={previewModalOpen}
+        onCancel={handlePreviewModalClose}
+        footer={[
+          <Button key="close" onClick={handlePreviewModalClose}>
+            关闭
+          </Button>,
+          <Button
+            key="download"
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={() => previewResult && handleDownload(previewResult)}
+          >
+            下载
+          </Button>,
+        ]}
+        width={800}
+      >
+        {previewResult && (
+          <div style={{ marginBottom: 16 }}>
+            <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
+              <span><Text strong>模型：</Text>{previewResult.model_name}</span>
+              {previewResult.model_version && (
+                <span><Text strong>版本：</Text>{previewResult.model_version}</span>
+              )}
+              <span><Text strong>总行数：</Text>{previewResult.row_count?.toLocaleString()}</span>
+            </Space>
+          </div>
+        )}
+
+        {previewLoading ? (
+          <div style={{ textAlign: 'center', padding: 50 }}>
+            <Text type="secondary">加载中...</Text>
+          </div>
+        ) : previewData ? (
+          <>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+              预览前 100 行数据（共 {previewData.total_rows.toLocaleString()} 行）
+            </Text>
+            <Table
+              columns={getPreviewColumns()}
+              dataSource={previewData.data}
+              rowKey={(_, index) => String(index)}
+              scroll={{ x: 'max-content', y: 400 }}
+              pagination={false}
+              size="small"
+              bordered
+            />
+          </>
+        ) : (
+          <Empty description="暂无数据" />
         )}
       </Modal>
     </div>
