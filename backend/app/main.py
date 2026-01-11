@@ -1,12 +1,70 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
 from app.config import settings, init_directories
-from app.database import init_db, close_db
+from app.database import init_db, close_db, async_session_maker
 from app.services.executor import shutdown_executor
 from app.services.auth import init_jwt_secret
 from app.api import datasets, configurations, results, visualization, auth, quality, exploration, batch, comparison, experiments, model_templates, reports, advanced_viz
+
+
+async def init_preset_model_templates():
+    """
+    启动时自动初始化预置模型模板
+    仅在模板表为空或缺少系统模板时执行
+    """
+    from app.models import ModelTemplate
+    from app.schemas import PRESET_MODEL_TEMPLATES
+    
+    async with async_session_maker() as db:
+        try:
+            # 检查是否已有系统模板
+            result = await db.execute(
+                select(ModelTemplate).where(ModelTemplate.is_system == True).limit(1)
+            )
+            existing = result.scalar_one_or_none()
+            
+            if existing:
+                # 已有系统模板，跳过初始化
+                return
+            
+            # 初始化预置模板
+            created_count = 0
+            for template_data in PRESET_MODEL_TEMPLATES:
+                # 检查是否已存在同名模板
+                check_result = await db.execute(
+                    select(ModelTemplate).where(
+                        ModelTemplate.name == template_data["name"],
+                        ModelTemplate.is_system == True
+                    )
+                )
+                if check_result.scalar_one_or_none():
+                    continue
+                
+                template = ModelTemplate(
+                    name=template_data["name"],
+                    version=template_data.get("version", "1.0"),
+                    category=template_data.get("category", "deep_learning"),
+                    description=template_data.get("description", ""),
+                    hyperparameters=template_data.get("hyperparameters", {}),
+                    training_config=template_data.get("training_config", {}),
+                    task_types=template_data.get("task_types", []),
+                    recommended_features=template_data.get("recommended_features", ""),
+                    is_system=True,
+                    is_public=True,
+                    user_id=None
+                )
+                db.add(template)
+                created_count += 1
+            
+            if created_count > 0:
+                await db.commit()
+                print(f"[启动] 已初始化 {created_count} 个预置模型模板")
+        except Exception as e:
+            print(f"[启动] 初始化预置模板失败: {e}")
+            # 不阻止应用启动
 
 
 @asynccontextmanager
@@ -22,6 +80,9 @@ async def lifespan(app: FastAPI):
     # 3. 初始化 JWT 密钥（通过认证服务层，确保进程内一致性）
     # 这会触发密钥生成/验证，并缓存到认证服务模块
     init_jwt_secret()
+    
+    # 4. 自动初始化预置模型模板（本地/demo 环境）
+    await init_preset_model_templates()
     
     yield
     

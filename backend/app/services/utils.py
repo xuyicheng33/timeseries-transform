@@ -438,16 +438,21 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
                                anomaly_enabled: bool, anomaly_type: str, injection_algorithm: str,
                                sequence_logic: str, window_size: int, stride: int,
                                target_type: str, target_k: int = 1) -> str:
-    """生成标准文件名"""
+    """
+    生成标准文件名
+    
+    文件名格式: {数据集名}_{通道}_{窗口}_{步长}_{归一化}_{异常}_{目标}.csv
+    通道格式: Ch0-1-2（使用连字符分隔，无下划线）
+    """
     # 先清理数据集名称中的非法字符
     safe_dataset_name = sanitize_filename(dataset_name).replace('.csv', '').replace('.CSV', '')
     
     parts = [safe_dataset_name]
     
     if channels:
-        # 清理通道名中的非法字符
-        safe_channels = [re.sub(r'[\\/:*?"<>|\s]', '', ch) for ch in channels]
-        ch_str = "Ch_" + "-".join(safe_channels)
+        # 清理通道名中的非法字符，使用连字符分隔（Ch0-1-2 格式）
+        safe_channels = [re.sub(r'[\\/:*?"<>|\s_]', '', ch) for ch in channels]
+        ch_str = "Ch" + "-".join(safe_channels)
         parts.append(ch_str)
     
     parts.append(f"Win{window_size}")

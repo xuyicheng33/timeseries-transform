@@ -20,9 +20,11 @@ import {
   LineChartOutlined,
 } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
+import { APP_CONFIG } from '@/config/app'
 import type { UserRegister } from '@/types'
 
 const { Title, Text } = Typography
+const { BRAND, APP_NAME } = APP_CONFIG
 
 interface RegisterFormValues extends UserRegister {
   confirmPassword: string
@@ -59,7 +61,7 @@ export default function Register() {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: BRAND.PRIMARY_BG,
         padding: 24,
       }}
     >
@@ -68,8 +70,8 @@ export default function Register() {
           width: '100%',
           maxWidth: 400,
           borderRadius: 12,
-          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-          border: 'none',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+          border: `1px solid ${BRAND.PRIMARY_LIGHT}`,
         }}
         styles={{ body: { padding: '40px 36px' } }}
       >
@@ -79,7 +81,7 @@ export default function Register() {
             width: 56, 
             height: 56, 
             borderRadius: 12, 
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: BRAND.PRIMARY_COLOR,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -90,7 +92,7 @@ export default function Register() {
           <Title level={3} style={{ margin: 0, color: '#1a1a2e', fontWeight: 600 }}>
             创建账号
           </Title>
-          <Text type="secondary" style={{ fontSize: 14 }}>注册以开始使用</Text>
+          <Text type="secondary" style={{ fontSize: 14 }}>注册以开始使用 {APP_NAME}</Text>
         </div>
 
         {/* 注册表单 */}
@@ -187,7 +189,7 @@ export default function Register() {
               style={{
                 height: 46,
                 borderRadius: 8,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: BRAND.PRIMARY_COLOR,
                 border: 'none',
                 fontWeight: 500,
                 fontSize: 15,
@@ -201,7 +203,7 @@ export default function Register() {
         <div style={{ textAlign: 'center', marginTop: 20 }}>
           <Text type="secondary" style={{ fontSize: 13 }}>
             已有账号？
-            <Link to="/login" style={{ marginLeft: 4, fontWeight: 500 }}>
+            <Link to="/login" style={{ marginLeft: 4, fontWeight: 500, color: BRAND.PRIMARY_COLOR }}>
               立即登录
             </Link>
           </Text>
