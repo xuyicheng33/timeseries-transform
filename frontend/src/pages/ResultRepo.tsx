@@ -454,7 +454,7 @@ export default function ResultRepo() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <Title level={4} style={{ margin: 0 }}>
-              📁 结果仓库
+              结果仓库
             </Title>
             <Text type="secondary">管理预测结果，查看评估指标</Text>
           </div>

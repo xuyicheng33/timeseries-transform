@@ -305,7 +305,12 @@ export default function ConfigWizard() {
 
     setFilenameLoading(true)
     try {
-      const values = form.getFieldsValue()
+      // 使用 getFieldsValue(true) 获取所有字段值，包括未渲染的
+      const values = form.getFieldsValue(true)
+      const targetType = values.target_type || 'next'
+      // 当 target_type 是 kstep 时，使用用户输入的 target_k，否则默认为 1
+      const targetK = targetType === 'kstep' ? (values.target_k || 1) : 1
+      
       const response = await generateFilename({
         dataset_name: selectedDataset.name,
         channels: targetKeys,
@@ -317,8 +322,8 @@ export default function ConfigWizard() {
         sequence_logic: values.anomaly_enabled ? (values.sequence_logic || '') : '',
         window_size: values.window_size || 100,
         stride: values.stride || 1,
-        target_type: values.target_type || 'next',
-        target_k: values.target_k || 1,
+        target_type: targetType,
+        target_k: targetK,
       })
       setGeneratedFilename(response.filename)
     } catch {
@@ -965,7 +970,7 @@ export default function ConfigWizard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <Title level={4} style={{ margin: 0 }}>
-              ⚙️ 配置向导
+              配置向导
             </Title>
             <Text type="secondary">创建和管理实验配置，生成标准文件名</Text>
           </div>

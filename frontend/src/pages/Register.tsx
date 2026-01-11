@@ -62,7 +62,7 @@ export default function Register() {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: '#f0f2f5',
         padding: 24,
       }}
     >
@@ -70,22 +70,19 @@ export default function Register() {
         style={{
           width: '100%',
           maxWidth: 420,
-          borderRadius: 12,
-          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+          borderRadius: 8,
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
         }}
         styles={{ body: { padding: '40px 32px' } }}
       >
         {/* Logo 和标题 */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Space align="center" size={12}>
-            <LineChartOutlined style={{ fontSize: 36, color: '#667eea' }} />
+            <LineChartOutlined style={{ fontSize: 32, color: '#1890ff' }} />
             <Title level={3} style={{ margin: 0, color: '#333' }}>
               注册账号
             </Title>
           </Space>
-          <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-            创建您的时序分析平台账号
-          </Text>
         </div>
 
         {/* 注册表单 */}
@@ -182,9 +179,7 @@ export default function Register() {
               block
               style={{
                 height: 44,
-                borderRadius: 8,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                border: 'none',
+                borderRadius: 6,
               }}
             >
               注册
@@ -203,7 +198,7 @@ export default function Register() {
             block
             style={{
               height: 44,
-              borderRadius: 8,
+              borderRadius: 6,
             }}
           >
             返回登录

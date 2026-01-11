@@ -684,7 +684,7 @@ export default function Visualization() {
         <Row justify="space-between" align="middle">
           <Col>
             <Title level={4} style={{ margin: 0 }}>
-              📈 可视化对比
+              可视化对比
             </Title>
             <Text type="secondary">选择多个预测结果进行曲线对比和指标分析</Text>
           </Col>

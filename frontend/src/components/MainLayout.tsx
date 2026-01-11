@@ -67,9 +67,8 @@ export default function MainLayout() {
         <div className="header-content">
           <div className="header-left">
             <Title level={3} className="app-title">
-              时间序列分析平台
+              Demo
             </Title>
-            <span className="app-subtitle">Time Series Analysis Platform</span>
           </div>
           <div className="header-right">
             <Dropdown
@@ -81,7 +80,7 @@ export default function MainLayout() {
                 <Avatar
                   size="small"
                   icon={<UserOutlined />}
-                  style={{ backgroundColor: '#667eea' }}
+                  style={{ backgroundColor: '#1890ff' }}
                 />
                 <Text style={{ color: '#fff' }}>
                   {user?.full_name || user?.username || '用户'}

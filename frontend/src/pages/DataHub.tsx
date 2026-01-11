@@ -664,7 +664,7 @@ export default function DataHub() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <Title level={4} style={{ margin: 0 }}>
-              📊 数据中心
+              数据中心
             </Title>
             <Text type="secondary">管理时间序列数据集，支持上传、预览、下载</Text>
           </div>
