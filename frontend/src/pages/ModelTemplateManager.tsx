@@ -598,8 +598,8 @@ const ModelTemplateManager: React.FC = () => {
         <TextArea rows={2} placeholder="描述该模型适合什么样的数据特征" />
       </Form.Item>
 
-      <Form.Item name="is_public" label="是否公开" valuePropName="checked">
-        <Select defaultValue={false}>
+      <Form.Item name="is_public" label="是否公开">
+        <Select>
           <Option value={false}>私有（仅自己可见）</Option>
           <Option value={true}>公开（所有用户可见）</Option>
         </Select>

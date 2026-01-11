@@ -4,8 +4,8 @@
 
 export const APP_CONFIG = {
   // 应用信息
-  APP_NAME: '时序分析平台',
-  APP_NAME_EN: 'Time Series Analysis Platform',
+  APP_NAME: 'Demo',
+  APP_NAME_EN: 'Demo',
   APP_VERSION: '1.0.0',
 
   // 品牌主题配置（单色，无渐变）

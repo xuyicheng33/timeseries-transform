@@ -274,6 +274,9 @@ async def create_experiment(
     added_results = []
     skipped_result_ids = []
     if data.result_ids:
+        # 获取实验组关联的数据集 ID（用于同数据集校验）
+        experiment_dataset_id = data.dataset_id
+        
         # 获取配置名称映射
         config_ids_to_fetch = []
         results_to_add = []
@@ -282,12 +285,31 @@ async def create_experiment(
             # 验证结果存在且有权限
             try:
                 result = await check_result_access(result_id, db, current_user)
+                
+                # 同数据集校验
+                if experiment_dataset_id is None:
+                    # 第一个结果，设置基准数据集
+                    experiment_dataset_id = result.dataset_id
+                elif result.dataset_id != experiment_dataset_id:
+                    # 数据集不一致，跳过
+                    skipped_result_ids.append(result_id)
+                    continue
+                
                 experiment.results.append(result)
                 results_to_add.append(result)
                 if result.configuration_id:
                     config_ids_to_fetch.append(result.configuration_id)
             except HTTPException:
                 skipped_result_ids.append(result_id)  # 记录跳过的结果
+        
+        # 如果实验组没有指定数据集，但添加了结果，更新实验组的数据集
+        if data.dataset_id is None and experiment_dataset_id is not None:
+            experiment.dataset_id = experiment_dataset_id
+            # 获取数据集名称
+            ds_result = await db.execute(
+                select(Dataset.name).where(Dataset.id == experiment_dataset_id)
+            )
+            dataset_name = ds_result.scalar()
         
         # 批量获取配置名称
         config_names = {}

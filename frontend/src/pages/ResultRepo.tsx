@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Card,
   Table,
@@ -98,6 +99,9 @@ export default function ResultRepo() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewResult, setPreviewResult] = useState<Result | null>(null)
 
+  // URL 参数解析
+  const [searchParams, setSearchParams] = useSearchParams()
+
   // ============ 数据获取 ============
   const fetchResults = useCallback(async () => {
     setLoading(true)
@@ -105,8 +109,10 @@ export default function ResultRepo() {
       const response = await getResults(filterDatasetId, filterModelName, currentPage, pageSize)
       setResults(response.items)
       setTotal(response.total)
+      return response.items
     } catch {
       // 错误已在 API 层处理
+      return []
     } finally {
       setLoading(false)
     }
@@ -140,6 +146,36 @@ export default function ResultRepo() {
       // 错误已在 API 层处理
     }
   }, [filterDatasetId])
+
+  // 处理 URL 参数 ?id=xxx，自动打开详情弹窗
+  useEffect(() => {
+    const idParam = searchParams.get('id')
+    if (idParam) {
+      const resultId = parseInt(idParam, 10)
+      if (!isNaN(resultId)) {
+        // 先尝试从已加载的结果中查找
+        const foundResult = results.find(r => r.id === resultId)
+        if (foundResult) {
+          handleShowMetrics(foundResult)
+          // 清除 URL 参数
+          setSearchParams({}, { replace: true })
+        } else if (results.length > 0) {
+          // 结果已加载但未找到，可能在其他页，尝试通过 API 获取
+          import('@/api/results').then(({ getResult }) => {
+            getResult(resultId).then(result => {
+              if (result) {
+                handleShowMetrics(result)
+              }
+            }).catch(() => {
+              message.error('未找到指定的结果')
+            }).finally(() => {
+              setSearchParams({}, { replace: true })
+            })
+          })
+        }
+      }
+    }
+  }, [searchParams, results, setSearchParams])
 
   useEffect(() => {
     fetchResults()
