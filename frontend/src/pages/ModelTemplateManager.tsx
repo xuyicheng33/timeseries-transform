@@ -492,7 +492,7 @@ const ModelTemplateManager: React.FC = () => {
       </Form.Item>
 
       {/* 常用超参数 - 简化输入 */}
-      <Divider orientation="left" plain style={{ fontSize: 13 }}>
+      <Divider plain style={{ fontSize: 13 }}>
         <Space><SettingOutlined />常用超参数</Space>
       </Divider>
       

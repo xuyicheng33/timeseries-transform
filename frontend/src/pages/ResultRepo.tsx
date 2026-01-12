@@ -48,7 +48,7 @@ import {
   updateResult,
   deleteResult,
   getResultDownloadPath,
-  previewResult,
+  previewResult as previewResultApi,
 } from '@/api/results'
 import { download } from '@/utils/download'
 import { formatFileSize, formatDateTime, formatMetric, hasMetrics } from '@/utils/format'
@@ -351,10 +351,10 @@ export default function ResultRepo() {
     setPreviewResult(result)
     setPreviewModalOpen(true)
     setPreviewLoading(true)
-    setPreviewData(null)
+      setPreviewData(null)
 
     try {
-      const data = await previewResult(result.id, 100)
+      const data = await previewResultApi(result.id, 100)
       setPreviewData(data)
     } catch {
       // 错误已在 API 层处理

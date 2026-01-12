@@ -281,15 +281,6 @@ export default function ConfigWizard() {
     }
   }
 
-  // ============ Transfer 配置 ============
-  const transferDataSource: TransferItem[] = selectedDataset
-    ? selectedDataset.columns.map((col) => ({ key: col, title: col }))
-    : []
-
-  const handleTransferChange: TransferProps['onChange'] = (newTargetKeys) => {
-    setTargetKeys(newTargetKeys as string[])
-  }
-
   // ============ 生成文件名 ============
   const handleGenerateFilename = async () => {
     if (!selectedDataset) return
