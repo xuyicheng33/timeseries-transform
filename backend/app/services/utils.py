@@ -478,10 +478,16 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
     parts.append(norm_map.get(normalization, "NoNorm"))
     
     if anomaly_enabled and anomaly_type:
-        type_map = {"point": "AnoP", "segment": "AnoS", "trend": "AnoT", "seasonal": "AnoSe", "noise": "AnoN"}
+        type_map = {
+            "point": "SoftRep",
+            "segment": "UniRep",
+            "noise": "PeakNoise",
+            "trend": "LenAdj",
+            "seasonal": "Seasonal",
+        }
         parts.append(type_map.get(anomaly_type, "AnoX"))
         
-        alg_map = {"random": "Rand", "rule": "Rule", "pattern": "Patt"}
+        alg_map = {"random": "ByWin", "rule": "BySeq", "pattern": "Pattern"}
         if injection_algorithm:
             parts.append(alg_map.get(injection_algorithm, ""))
         
@@ -489,8 +495,8 @@ def generate_standard_filename(dataset_name: str, channels: List[str], normaliza
         if sequence_logic:
             parts.append(seq_map.get(sequence_logic, ""))
     
-    target_map = {"next": "PredN", "kstep": f"PredK{target_k}", "reconstruct": "Recon"}
-    parts.append(target_map.get(target_type, "PredN"))
+    target_map = {"next": "Pred1", "kstep": f"PredK{target_k}", "reconstruct": "Recon"}
+    parts.append(target_map.get(target_type, "Pred1"))
     
     parts = [p for p in parts if p]
     

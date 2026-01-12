@@ -1034,6 +1034,13 @@ export default function Visualization() {
                         option={getChartOption()}
                         style={{ height: 500 }}
                         notMerge
+                        onChartReady={(chart) => {
+                          const zr = chart.getZr()
+                          zr.off('dblclick')
+                          zr.on('dblclick', () => {
+                            chart.dispatchAction({ type: 'restore' })
+                          })
+                        }}
                         onEvents={{
                           dblclick: () => {
                             const chart = chartRef.current?.getEchartsInstance()
@@ -1116,6 +1123,13 @@ export default function Visualization() {
                           option={getResidualChartOption()}
                           style={{ height: 400 }}
                           notMerge
+                          onChartReady={(chart) => {
+                            const zr = chart.getZr()
+                            zr.off('dblclick')
+                            zr.on('dblclick', () => {
+                              chart.dispatchAction({ type: 'restore' })
+                            })
+                          }}
                           onEvents={{
                             dblclick: () => {
                               const chart = residualChartRef.current?.getEchartsInstance()
