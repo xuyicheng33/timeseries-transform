@@ -5,14 +5,30 @@
 
 import numpy as np
 import pandas as pd
-import os
+import argparse
+from datetime import datetime
+from pathlib import Path
 
 # 设置随机种子
 np.random.seed(2024)
 
-# 输出目录
-OUTPUT_DIR = "test_datasets/prediction_results"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory for generated result CSV files (relative to repo root if not absolute).",
+    )
+    return parser.parse_args()
+
+
+def resolve_output_dir(output_dir):
+    root_dir = Path(__file__).resolve().parents[1]
+    if output_dir:
+        out = Path(output_dir)
+        return out if out.is_absolute() else (root_dir / out).resolve()
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return root_dir / "test_datasets" / "prediction_results_generated" / ts
 
 
 def generate_base_signal(n_points=1000):
@@ -84,9 +100,8 @@ def generate_prediction(true_values, r2_target, model_characteristics=None):
         
         # 对突变反应慢
         if model_characteristics.get('slow_response', False):
-            # 平滑预测值
-            from scipy.ndimage import uniform_filter1d
-            predictions = uniform_filter1d(predictions, size=10)
+            kernel = np.ones(10) / 10.0
+            predictions = np.convolve(predictions, kernel, mode='same')
         
         # 高频噪声
         if model_characteristics.get('noisy', False):
@@ -144,36 +159,38 @@ def main():
     print("=" * 60)
     print("生成差异化预测结果数据")
     print("=" * 60)
+
+    args = parse_args()
+    root_dir = Path(__file__).resolve().parents[1]
+    output_dir = resolve_output_dir(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # 生成三种不同的基础数据（对应三个数据集）
-    datasets = {
-        'weather': generate_base_signal(1000),
-        'stock': generate_base_signal(800),
-        'sensor': generate_base_signal(1200),
-    }
+    datasets = {}
+    weather_df = pd.read_csv(root_dir / "test_datasets" / "weather_v2.csv")
+    datasets['weather'] = weather_df['temperature'].values
+    sensor_df = pd.read_csv(root_dir / "test_datasets" / "sensor_v2.csv")
+    datasets['sensor'] = sensor_df['temp_outlet'].values
+    stock_df = pd.read_csv(root_dir / "test_datasets" / "stock_v2.csv")
+    datasets['stock'] = stock_df['close'].values
+
+    expected_lengths = {'weather': 8760, 'sensor': 5000, 'stock': 500}
+    for name, expected in expected_lengths.items():
+        if len(datasets[name]) != expected:
+            raise ValueError(f"Dataset {name} length mismatch: expected {expected}, got {len(datasets[name])}")
     
     # 定义不同模型的配置
     # (模型名, 版本, 目标R², 精度标签, 模型特性)
     # R² 分布拉开：优秀(>0.9)、良好(0.7-0.9)、一般(0.4-0.7)、较差(0.1-0.4)、极差(<0.1/负值)
     model_configs = [
-        # 优秀模型 (R² > 0.9)
-        ('LSTM', '1.0', 0.95, 'high', {'lag': 1}),
-        ('Transformer', '1.0', 0.92, 'high', {'noisy': True}),
-        
-        # 良好模型 (R² 0.7-0.9)
+        ('LSTM', '1.0', 0.92, 'high', {'lag': 1}),
+        ('Transformer', '1.0', 0.88, 'high', {'noisy': True}),
         ('TCN', '1.0', 0.85, 'high', {'periodic_error': True}),
-        ('GRU', '1.0', 0.78, 'medium', {'lag': 2}),
-        
-        # 一般模型 (R² 0.4-0.7)
+        ('GRU', '1.0', 0.75, 'medium', {'lag': 2}),
         ('LSTM', '1.0', 0.65, 'medium', {'lag': 3, 'bias': 0.1}),
-        ('Transformer', '2.0', 0.55, 'medium', {'poor_trend': True}),
-        ('XGBoost', '1.0', 0.48, 'medium', {'slow_response': True}),
-        
-        # 较差模型 (R² 0.1-0.4)
+        ('Transformer', '2.0', 0.60, 'medium', {'poor_trend': True}),
+        ('XGBoost', '1.0', 0.45, 'medium', {'slow_response': True}),
         ('Autoformer', '1.0', 0.35, 'low', {'periodic_error': True, 'lag': 2}),
-        ('TCN', '1.0', 0.25, 'low', {'noisy': True, 'bias': -0.2}),
-        
-        # 极差模型 (R² < 0.1 或负值)
+        ('TCN', '1.0', 0.20, 'low', {'noisy': True, 'bias': -0.2}),
         ('Prophet', '1.0', 0.05, 'low', {'poor_trend': True, 'slow_response': True}),
     ]
     
@@ -209,7 +226,7 @@ def main():
             })
             
             filename = f"result_{dataset_name}_{model_name}_v{version}_{accuracy}.csv"
-            filepath = os.path.join(OUTPUT_DIR, filename)
+            filepath = output_dir / filename
             df.to_csv(filepath, index=False)
             
             results_summary.append({
@@ -235,7 +252,7 @@ def main():
         'true_value': np.round(true_values, 4),
         'predicted_value': np.round(perfect_pred, 4)
     })
-    df.to_csv(os.path.join(OUTPUT_DIR, 'result_perfect_prediction.csv'), index=False)
+    df.to_csv(output_dir / 'result_perfect_prediction.csv', index=False)
     metrics = calculate_metrics(true_values, perfect_pred)
     print(f"  完美预测: R²={metrics['R²']:.4f}")
     
@@ -246,24 +263,55 @@ def main():
         'true_value': np.round(true_values, 4),
         'predicted_value': np.round(random_pred, 4)
     })
-    df.to_csv(os.path.join(OUTPUT_DIR, 'result_random_prediction.csv'), index=False)
+    df.to_csv(output_dir / 'result_random_prediction.csv', index=False)
     metrics = calculate_metrics(true_values, random_pred)
     print(f"  随机预测: R²={metrics['R²']:.4f} (可能为负值)")
     
     # 大规模数据
-    large_true = generate_base_signal(10000)
+    large_df = pd.read_csv(root_dir / "test_datasets" / "large_scale_v2.csv")
+    large_true = large_df['feature_1'].values
+    if len(large_true) != 50000:
+        raise ValueError(f"Dataset large_scale length mismatch: expected 50000, got {len(large_true)}")
     large_pred = generate_prediction(large_true, 0.80, {'lag': 2})
     df = pd.DataFrame({
         'true_value': np.round(large_true, 4),
         'predicted_value': np.round(large_pred, 4)
     })
-    df.to_csv(os.path.join(OUTPUT_DIR, 'result_large_scale.csv'), index=False)
+    df.to_csv(output_dir / 'result_large_scale.csv', index=False)
     metrics = calculate_metrics(large_true, large_pred)
-    print(f"  大规模数据 (10000点): R²={metrics['R²']:.4f}")
+    print(f"  大规模数据 ({len(large_true)}点): R²={metrics['R²']:.4f}")
+
+    print("\n生成仅预测值格式文件...")
+    stock_true = datasets['stock']
+    stock_pred = generate_prediction(stock_true, 0.85, {'lag': 1})
+    df_pred_only = pd.DataFrame({
+        'predicted_value': np.round(stock_pred, 4)
+    })
+    df_pred_only.to_csv(output_dir / 'result_stock_LSTM_pred_only.csv', index=False)
+    print("  仅预测值格式: result_stock_LSTM_pred_only.csv (500行)")
+
+    df_wrong_rows = pd.DataFrame({
+        'predicted_value': np.round(stock_pred[:300], 4)
+    })
+    df_wrong_rows.to_csv(output_dir / 'result_stock_LSTM_pred_only_wrong_rows.csv', index=False)
+    print("  行数不匹配: result_stock_LSTM_pred_only_wrong_rows.csv (300行)")
+
+    print("生成带特征列格式文件...")
+    weather_true = datasets['weather']
+    weather_pred = generate_prediction(weather_true, 0.88, {'lag': 1})
+    df_with_features = pd.DataFrame({
+        'true_value': np.round(weather_true, 4),
+        'predicted_value': np.round(weather_pred, 4),
+        'humidity': weather_df['humidity'].values,
+        'pressure': weather_df['pressure'].values,
+        'wind_speed': weather_df['wind_speed'].values,
+    })
+    df_with_features.to_csv(output_dir / 'result_weather_LSTM_with_features.csv', index=False)
+    print("  带特征列: result_weather_LSTM_with_features.csv (8760行, 含humidity/pressure/wind_speed)")
     
     # 打印汇总
     print("\n" + "=" * 60)
-    print("生成完成！文件保存在:", os.path.abspath(OUTPUT_DIR))
+    print("生成完成！文件保存在:", str(output_dir.resolve()))
     print("=" * 60)
     
     print("\nR² 分布统计:")

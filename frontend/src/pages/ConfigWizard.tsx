@@ -56,7 +56,6 @@ import {
   TARGET_TYPE_OPTIONS,
   ANOMALY_TYPE_OPTIONS,
   INJECTION_ALGORITHM_OPTIONS,
-  SEQUENCE_LOGIC_OPTIONS,
 } from '@/constants'
 
 const { Title, Text, Paragraph } = Typography
@@ -215,7 +214,7 @@ export default function ConfigWizard() {
         case 3: // 异常注入
           const anomalyEnabled = form.getFieldValue('anomaly_enabled')
           if (anomalyEnabled) {
-            await form.validateFields(['anomaly_type', 'injection_algorithm', 'sequence_logic'])
+            await form.validateFields(['anomaly_type', 'injection_algorithm'])
           }
           return true
         case 4: // 窗口参数
@@ -311,7 +310,7 @@ export default function ConfigWizard() {
         anomaly_enabled: values.anomaly_enabled ?? false,
         anomaly_type: values.anomaly_enabled ? (values.anomaly_type || '') : '',
         injection_algorithm: values.anomaly_enabled ? (values.injection_algorithm || '') : '',
-        sequence_logic: values.anomaly_enabled ? (values.sequence_logic || '') : '',
+        sequence_logic: '',
         window_size: values.window_size || 100,
         stride: values.stride || 1,
         target_type: targetType,
@@ -344,7 +343,7 @@ export default function ConfigWizard() {
         anomaly_enabled: values.anomaly_enabled ?? false,
         anomaly_type: values.anomaly_enabled ? (values.anomaly_type || '') : '',
         injection_algorithm: values.anomaly_enabled ? (values.injection_algorithm || '') : '',
-        sequence_logic: values.anomaly_enabled ? (values.sequence_logic || '') : '',
+        sequence_logic: '',
         window_size: values.window_size || 100,
         stride: values.stride || 1,
         target_type: values.target_type || 'next',
@@ -578,19 +577,6 @@ export default function ConfigWizard() {
                       </Select>
                     </Form.Item>
 
-                    <Form.Item
-                      name="sequence_logic"
-                      label="序列逻辑"
-                      rules={[{ required: true, message: '请选择序列逻辑' }]}
-                    >
-                      <Select placeholder="请选择序列逻辑">
-                        {SEQUENCE_LOGIC_OPTIONS.map((opt) => (
-                          <Select.Option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </Select.Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
                   </>
                 )
               }
@@ -813,7 +799,6 @@ export default function ConfigWizard() {
                   <>
                     {ANOMALY_TYPE_OPTIONS.find((o) => o.value === formValues.anomaly_type)?.label || formValues.anomaly_type} /{' '}
                     {INJECTION_ALGORITHM_OPTIONS.find((o) => o.value === formValues.injection_algorithm)?.label || formValues.injection_algorithm} /{' '}
-                    {SEQUENCE_LOGIC_OPTIONS.find((o) => o.value === formValues.sequence_logic)?.label || formValues.sequence_logic}
                   </>
                 ) : (
                   '未启用'
@@ -1087,4 +1072,3 @@ export default function ConfigWizard() {
     </div>
   )
 }
-

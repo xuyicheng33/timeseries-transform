@@ -73,18 +73,16 @@ export const TARGET_TYPE_OPTIONS = [
 
 // 异常类型选项
 export const ANOMALY_TYPE_OPTIONS = [
-  { label: '点异常', value: 'point' },
-  { label: '段异常', value: 'segment' },
-  { label: '趋势异常', value: 'trend' },
-  { label: '季节异常', value: 'seasonal' },
-  { label: '噪声异常', value: 'noise' },
+  { label: '软替换', value: 'point' },
+  { label: '均匀替换', value: 'segment' },
+  { label: '峰值噪声', value: 'noise' },
+  { label: '长度调整', value: 'trend' },
 ]
 
 // 注入算法选项
 export const INJECTION_ALGORITHM_OPTIONS = [
-  { label: '随机', value: 'random' },
-  { label: '规则', value: 'rule' },
-  { label: '模式', value: 'pattern' },
+  { label: '按窗口', value: 'random' },
+  { label: '按序列', value: 'rule' },
 ]
 
 // 序列逻辑选项
