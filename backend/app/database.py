@@ -28,6 +28,9 @@ async_session = async_sessionmaker(
     expire_on_commit=False
 )
 
+# Backward-compatible alias used by app.main
+async_session_maker = async_session
+
 
 class Base(DeclarativeBase):
     pass
