@@ -468,7 +468,7 @@ async def update_result(
         raise HTTPException(status_code=404, detail="结果不存在")
     
     # 仅所有者或管理员可编辑
-    check_owner_or_admin(result_obj, current_user, "编辑结果")
+    check_owner_or_admin(result_obj.user_id, current_user, "编辑结果")
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -498,7 +498,7 @@ async def delete_result(
         raise HTTPException(status_code=404, detail="结果不存在")
     
     # 仅所有者或管理员可删除
-    check_owner_or_admin(result_obj, current_user, "删除结果")
+    check_owner_or_admin(result_obj.user_id, current_user, "删除结果")
     
     # 记录要删除的目录
     result_dir = settings.RESULTS_DIR / str(result_obj.dataset_id) / str(result_id)

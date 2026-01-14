@@ -75,11 +75,13 @@ export async function getResults(
   datasetId?: number,
   modelName?: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  configurationId?: number
 ): Promise<PaginatedResponse<Result>> {
   const params: Record<string, number | string> = { page, page_size: pageSize }
   if (datasetId !== undefined) params.dataset_id = datasetId
   if (modelName !== undefined) params.algo_name = modelName
+  if (configurationId !== undefined) params.configuration_id = configurationId
   
   return api.get('/results', { params })
 }

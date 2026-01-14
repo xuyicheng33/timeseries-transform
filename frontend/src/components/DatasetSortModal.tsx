@@ -8,7 +8,6 @@ import { Modal, List, message, Typography, Space, Tag, Empty, Spin } from 'antd'
 import { HolderOutlined, FileTextOutlined } from '@ant-design/icons'
 import type { Dataset } from '@/types'
 import { getAllDatasets, updateDatasetSortOrder } from '@/api/datasets'
-import type { DatasetSortOrderUpdate } from '@/api/datasets'
 
 const { Text } = Typography
 
@@ -79,12 +78,12 @@ export default function DatasetSortModal({ open, onClose, onSuccess }: DatasetSo
 
     setSaving(true)
     try {
-      const updates: DatasetSortOrderUpdate[] = datasets.map((dataset, index) => ({
-        dataset_id: dataset.id,
+      const orders = datasets.map((dataset, index) => ({
+        id: dataset.id,
         sort_order: index,
       }))
       
-      await updateDatasetSortOrder(updates)
+      await updateDatasetSortOrder({ orders })
       message.success('排序保存成功')
       onSuccess()
       onClose()

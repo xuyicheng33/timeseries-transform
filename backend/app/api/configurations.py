@@ -180,7 +180,7 @@ async def update_configuration(
         raise HTTPException(status_code=404, detail="配置不存在")
     
     # 仅所有者或管理员可编辑
-    check_owner_or_admin(config, current_user, "编辑配置")
+    check_owner_or_admin(config.user_id, current_user, "编辑配置")
     
     # 获取关联数据集（用于重新生成文件名）
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
@@ -237,7 +237,7 @@ async def delete_configuration(
         raise HTTPException(status_code=404, detail="配置不存在")
     
     # 仅所有者或管理员可删除
-    check_owner_or_admin(config, current_user, "删除配置")
+    check_owner_or_admin(config.user_id, current_user, "删除配置")
     
     await db.delete(config)
     await db.commit()

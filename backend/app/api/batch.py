@@ -12,7 +12,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel, Field
 
 from app.database import get_db
@@ -157,7 +157,7 @@ async def batch_delete_configurations(
             
             # 仅所有者或管理员可删除
             try:
-                check_owner_or_admin(config, current_user, "删除配置")
+                check_owner_or_admin(config.user_id, current_user, "删除配置")
             except HTTPException as e:
                 failed_ids.append(config_id)
                 errors.append(f"配置 {config_id}: {e.detail}")
@@ -205,7 +205,7 @@ async def batch_delete_results(
             
             # 仅所有者或管理员可删除
             try:
-                check_owner_or_admin(result_obj, current_user, "删除结果")
+                check_owner_or_admin(result_obj.user_id, current_user, "删除结果")
             except HTTPException as e:
                 failed_ids.append(result_id)
                 errors.append(f"结果 {result_id}: {e.detail}")
@@ -560,9 +560,14 @@ async def import_data(
             imported_configs = 0
             imported_results = 0
             
+            # 获取当前最大 sort_order
+            max_sort_result = await db.execute(select(func.max(Dataset.sort_order)))
+            current_max_sort = max_sort_result.scalar() or 0
+            
             # 导入数据集
             for ds_info in datasets_data:
                 old_id = ds_info["id"]
+                current_max_sort += 1  # 递增 sort_order
                 
                 new_dataset = Dataset(
                     name=ds_info["name"] + " (导入)",
@@ -570,7 +575,8 @@ async def import_data(
                     filepath="",
                     description=ds_info.get("description", ""),
                     user_id=current_user.id,
-                    is_public=ds_info.get("is_public", False),
+                    is_public=True,  # 强制公开，与"数据集强制公开"口径一致
+                    sort_order=current_max_sort,  # 新数据集排在最后
                     row_count=ds_info.get("row_count", 0),
                     column_count=ds_info.get("column_count", 0),
                     columns=ds_info.get("columns", []),

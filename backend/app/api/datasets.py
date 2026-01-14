@@ -79,6 +79,10 @@ async def upload_dataset(
     # 清理文件名
     safe_filename = sanitize_filename(file.filename)
     
+    # 获取当前最大 sort_order
+    max_sort_result = await db.execute(select(func.max(Dataset.sort_order)))
+    max_sort_order = max_sort_result.scalar() or 0
+    
     # 创建数据库记录，关联当前用户，强制公开
     dataset = Dataset(
         name=name, 
@@ -86,7 +90,8 @@ async def upload_dataset(
         filepath="", 
         description=description,
         user_id=current_user.id,
-        is_public=True  # 强制公开，忽略前端传值
+        is_public=True,  # 强制公开，忽略前端传值
+        sort_order=max_sort_order + 1  # 新数据集排在最后
     )
     db.add(dataset)
     await db.flush()
@@ -383,24 +388,21 @@ async def delete_dataset(
 
 @router.put("/sort-order/batch")
 async def update_sort_order_batch(
-    updates: list[DatasetSortOrderUpdate],
+    data: DatasetSortOrderUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_admin_user)  # 仅管理员可排序
 ):
     """
     批量更新数据集排序（仅管理员）
     
-    接收一个数组，每个元素包含 dataset_id 和 sort_order。
+    接收 {orders: [{id, sort_order}, ...]} 格式的数据。
     用于前端拖拽排序后一次性提交所有变更。
     """
-    if not updates:
+    if not data.orders:
         raise HTTPException(status_code=400, detail="没有提供要更新的排序数据")
     
-    if len(updates) > 1000:
-        raise HTTPException(status_code=400, detail="单次最多更新1000条记录")
-    
     # 验证所有数据集存在
-    dataset_ids = [u.dataset_id for u in updates]
+    dataset_ids = [item.id for item in data.orders]
     result = await db.execute(
         select(Dataset.id).where(Dataset.id.in_(dataset_ids))
     )
@@ -414,12 +416,12 @@ async def update_sort_order_batch(
         )
     
     # 批量更新排序
-    for item in updates:
+    for item in data.orders:
         await db.execute(
             update(Dataset)
-            .where(Dataset.id == item.dataset_id)
+            .where(Dataset.id == item.id)
             .values(sort_order=item.sort_order)
         )
     
     await db.commit()
-    return {"message": f"已更新 {len(updates)} 个数据集的排序"}
+    return {"message": f"已更新 {len(data.orders)} 个数据集的排序"}

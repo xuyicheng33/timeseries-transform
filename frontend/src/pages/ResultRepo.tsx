@@ -80,6 +80,7 @@ export default function ResultRepo() {
   // 筛选条件
   const [filterDatasetId, setFilterDatasetId] = useState<number | undefined>()
   const [filterModelName, setFilterModelName] = useState<string | undefined>()
+  const [filterConfigurationId, setFilterConfigurationId] = useState<number | undefined>()
 
   // 上传相关
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
@@ -111,7 +112,7 @@ export default function ResultRepo() {
   const fetchResults = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await getResults(filterDatasetId, filterModelName, currentPage, pageSize)
+      const response = await getResults(filterDatasetId, filterModelName, currentPage, pageSize, filterConfigurationId)
       setResults(response.items)
       setTotal(response.total)
       return response.items
@@ -121,7 +122,7 @@ export default function ResultRepo() {
     } finally {
       setLoading(false)
     }
-  }, [filterDatasetId, filterModelName, currentPage, pageSize])
+  }, [filterDatasetId, filterModelName, currentPage, pageSize, filterConfigurationId])
 
   const fetchDatasets = useCallback(async () => {
     try {
@@ -616,6 +617,7 @@ export default function ResultRepo() {
             value={filterDatasetId}
             onChange={(value) => {
               setFilterDatasetId(value)
+              setFilterConfigurationId(undefined)  // 切换数据集时清空配置筛选
               setCurrentPage(1)  // 重置页码
             }}
           >
@@ -624,6 +626,24 @@ export default function ResultRepo() {
                 {dataset.name}
               </Select.Option>
             ))}
+          </Select>
+          <Select
+            placeholder="选择配置"
+            allowClear
+            style={{ width: 200 }}
+            value={filterConfigurationId}
+            onChange={(value) => {
+              setFilterConfigurationId(value)
+              setCurrentPage(1)  // 重置页码
+            }}
+          >
+            {configurations
+              .filter((config) => !filterDatasetId || config.dataset_id === filterDatasetId)
+              .map((config) => (
+                <Select.Option key={config.id} value={config.id}>
+                  {config.name}
+                </Select.Option>
+              ))}
           </Select>
           <Select
             placeholder="选择模型"

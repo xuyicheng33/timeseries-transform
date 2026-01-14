@@ -266,7 +266,7 @@ async def update_template(
         raise HTTPException(status_code=404, detail="模型模板不存在")
     
     # 使用统一的所有者或管理员检查
-    check_owner_or_admin(template, current_user, "编辑模型模板")
+    check_owner_or_admin(template.user_id, current_user, "编辑模型模板")
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -301,7 +301,7 @@ async def delete_template(
         raise HTTPException(status_code=404, detail="模型模板不存在")
     
     # 使用统一的所有者或管理员检查
-    check_owner_or_admin(template, current_user, "删除模型模板")
+    check_owner_or_admin(template.user_id, current_user, "删除模型模板")
     
     await db.delete(template)
     await db.commit()
