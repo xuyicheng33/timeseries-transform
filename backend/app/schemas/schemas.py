@@ -68,11 +68,35 @@ class DatasetResponse(DatasetBase):
     column_count: int
     columns: List[str]
     user_id: Optional[int] = None
-    is_public: bool = False
+    is_public: bool = True
+    sort_order: int = 0  # 排序权重
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============ Dataset Sort Order Schemas ============
+class DatasetSortOrderItem(BaseModel):
+    """单个数据集排序项"""
+    id: int
+    sort_order: int
+
+
+class DatasetSortOrderUpdate(BaseModel):
+    """批量更新数据集排序"""
+    orders: List[DatasetSortOrderItem]
+
+    @field_validator('orders')
+    @classmethod
+    def validate_orders(cls, v: List[DatasetSortOrderItem]) -> List[DatasetSortOrderItem]:
+        if len(v) > 1000:
+            raise ValueError('排序列表过长，最多支持1000条')
+        # 检查 id 去重
+        ids = [item.id for item in v]
+        if len(ids) != len(set(ids)):
+            raise ValueError('存在重复的数据集ID')
+        return v
 
 
 class DatasetPreview(BaseModel):
@@ -158,6 +182,7 @@ class ConfigurationResponse(BaseModel):
     id: int
     name: str
     dataset_id: int
+    user_id: Optional[int] = None  # 创建者ID，用于权限控制
     channels: List[str]
     normalization: str  # 返回字符串以兼容前端
     anomaly_enabled: bool

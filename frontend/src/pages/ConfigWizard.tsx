@@ -57,6 +57,7 @@ import {
   ANOMALY_TYPE_OPTIONS,
   INJECTION_ALGORITHM_OPTIONS,
 } from '@/constants'
+import { useAuth } from '@/contexts/AuthContext'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -72,6 +73,10 @@ const STEPS = [
 ]
 
 export default function ConfigWizard() {
+  // ============ 认证状态 ============
+  const { user } = useAuth()
+  const isAdmin = user?.is_admin ?? false
+
   // ============ 状态定义 ============
   // 配置列表
   const [configurations, setConfigurations] = useState<Configuration[]>([])
@@ -914,26 +919,32 @@ export default function ConfigWizard() {
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="编辑">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEditOpen(record)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="确认删除"
-            description={`确定要删除配置「${record.name}」吗？`}
-            onConfirm={() => handleDelete(record)}
-            okText="删除"
-            cancelText="取消"
-            okButtonProps={{ danger: true }}
-          >
-            <Tooltip title="删除">
-              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+          {/* 仅所有者或管理员可编辑 */}
+          {(isAdmin || record.user_id === user?.id) && (
+            <Tooltip title="编辑">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEditOpen(record)}
+              />
             </Tooltip>
-          </Popconfirm>
+          )}
+          {/* 仅所有者或管理员可删除 */}
+          {(isAdmin || record.user_id === user?.id) && (
+            <Popconfirm
+              title="确认删除"
+              description={`确定要删除配置「${record.name}」吗？`}
+              onConfirm={() => handleDelete(record)}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="删除">
+                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              </Tooltip>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },

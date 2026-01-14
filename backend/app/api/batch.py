@@ -22,10 +22,10 @@ from app.services.utils import safe_rmtree
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
 from app.services.permissions import (
-    check_write_access, check_read_access,
-    ResourceType, ActionType
+    check_read_access, check_owner_or_admin,
+    ResourceType
 )
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, get_admin_user
 
 router = APIRouter(prefix="/api/batch", tags=["batch"])
 
@@ -62,10 +62,10 @@ class BatchExportRequest(BaseModel):
 async def batch_delete_datasets(
     request: BatchDeleteRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_admin_user)  # 仅管理员可用
 ):
     """
-    批量删除数据集
+    批量删除数据集（仅管理员）
     
     每个数据集单独事务处理，失败不影响其他
     """
@@ -83,14 +83,6 @@ async def batch_delete_datasets(
             if not dataset:
                 failed_ids.append(dataset_id)
                 errors.append(f"数据集 {dataset_id} 不存在")
-                continue
-            
-            # 权限检查
-            try:
-                check_write_access(dataset, current_user, ActionType.DELETE, ResourceType.DATASET)
-            except HTTPException as e:
-                failed_ids.append(dataset_id)
-                errors.append(f"数据集 {dataset_id}: {e.detail}")
                 continue
             
             # 收集要删除的文件目录（commit 成功后再删）
@@ -146,7 +138,9 @@ async def batch_delete_configurations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """批量删除配置"""
+    """
+    批量删除配置（所有者或管理员）
+    """
     success_count = 0
     failed_ids = []
     errors = []
@@ -161,12 +155,9 @@ async def batch_delete_configurations(
                 errors.append(f"配置 {config_id} 不存在")
                 continue
             
-            # 获取关联数据集检查权限
-            dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
-            dataset = dataset_result.scalar_one_or_none()
-            
+            # 仅所有者或管理员可删除
             try:
-                check_write_access(config, current_user, ActionType.DELETE, ResourceType.CONFIGURATION, parent_dataset=dataset)
+                check_owner_or_admin(config, current_user, "删除配置")
             except HTTPException as e:
                 failed_ids.append(config_id)
                 errors.append(f"配置 {config_id}: {e.detail}")
@@ -195,7 +186,9 @@ async def batch_delete_results(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """批量删除结果"""
+    """
+    批量删除结果（所有者或管理员）
+    """
     success_count = 0
     failed_ids = []
     errors = []
@@ -210,12 +203,9 @@ async def batch_delete_results(
                 errors.append(f"结果 {result_id} 不存在")
                 continue
             
-            # 获取关联数据集检查权限
-            dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
-            dataset = dataset_result.scalar_one_or_none()
-            
+            # 仅所有者或管理员可删除
             try:
-                check_write_access(result_obj, current_user, ActionType.DELETE, ResourceType.RESULT, parent_dataset=dataset)
+                check_owner_or_admin(result_obj, current_user, "删除结果")
             except HTTPException as e:
                 failed_ids.append(result_id)
                 errors.append(f"结果 {result_id}: {e.detail}")
@@ -496,10 +486,10 @@ def _parse_import_zip(zip_path: str) -> dict:
 @router.post("/import/preview")
 async def preview_import(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_admin_user)  # 仅管理员可用
 ):
     """
-    预览导入内容
+    预览导入内容（仅管理员）
     
     返回 ZIP 文件中包含的数据集、配置、结果数量
     """
@@ -532,10 +522,10 @@ async def preview_import(
 async def import_data(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_admin_user)  # 仅管理员可用
 ):
     """
-    导入数据集、配置和结果
+    导入数据集、配置和结果（仅管理员）
     
     会创建新的数据集，ID 会重新分配
     """

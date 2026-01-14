@@ -51,4 +51,7 @@ from app.schemas.schemas import (
     ModelTemplateResponse,
     ModelTemplateBrief,
     PRESET_MODEL_TEMPLATES,
+    # 数据集排序相关 schemas
+    DatasetSortOrderItem,
+    DatasetSortOrderUpdate,
 )

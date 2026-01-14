@@ -41,6 +41,7 @@ import {
   LineChartOutlined,
   ExportOutlined,
   ImportOutlined,
+  SortAscendingOutlined,
 } from '@ant-design/icons'
 
 import type { Dataset, DatasetPreview, DatasetUpdate, DataQualityReport, OutlierMethod, CleaningResult } from '@/types'
@@ -60,6 +61,8 @@ import { APP_CONFIG } from '@/config/app'
 import DataQualityReportComponent from '@/components/DataQualityReport'
 import DataCleaningModal from '@/components/DataCleaningModal'
 import DataExploration from '@/components/DataExploration'
+import DatasetSortModal from '@/components/DatasetSortModal'
+import { useAuth } from '@/contexts/AuthContext'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -69,6 +72,10 @@ const { Dragger } = Upload
 const MAX_VISIBLE_COLUMNS = 5
 
 export default function DataHub() {
+  // ============ 认证状态 ============
+  const { user } = useAuth()
+  const isAdmin = user?.is_admin ?? false
+
   // ============ 状态定义 ============
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(false)
@@ -118,6 +125,9 @@ export default function DataHub() {
     results_count: number
   } | null>(null)
   const [importing, setImporting] = useState(false)
+
+  // 排序相关
+  const [sortModalOpen, setSortModalOpen] = useState(false)
 
   // ============ 数据获取 ============
   const fetchDatasets = useCallback(async () => {
@@ -631,26 +641,32 @@ export default function DataHub() {
               onClick={() => handleDownload(record)}
             />
           </Tooltip>
-          <Tooltip title="编辑">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEditModalOpen(record)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="确认删除"
-            description={`确定要删除数据集「${record.name}」吗？相关的配置和结果也会被删除。`}
-            onConfirm={() => handleDelete(record)}
-            okText="删除"
-            cancelText="取消"
-            okButtonProps={{ danger: true }}
-          >
-            <Tooltip title="删除">
-              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+          {/* 仅管理员可编辑 */}
+          {isAdmin && (
+            <Tooltip title="编辑">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEditModalOpen(record)}
+              />
             </Tooltip>
-          </Popconfirm>
+          )}
+          {/* 仅管理员可删除 */}
+          {isAdmin && (
+            <Popconfirm
+              title="确认删除"
+              description={`确定要删除数据集「${record.name}」吗？相关的配置和结果也会被删除。`}
+              onConfirm={() => handleDelete(record)}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="删除">
+                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              </Tooltip>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -669,12 +685,24 @@ export default function DataHub() {
             <Text type="secondary">管理时间序列数据集，支持上传、预览、下载</Text>
           </div>
           <Space>
-            <Button icon={<ImportOutlined />} onClick={handleImportModalOpen}>
-              导入
-            </Button>
-            <Button type="primary" icon={<UploadOutlined />} onClick={handleUploadModalOpen}>
-              上传数据集
-            </Button>
+            {/* 仅管理员可排序 */}
+            {isAdmin && (
+              <Button icon={<SortAscendingOutlined />} onClick={() => setSortModalOpen(true)}>
+                排序
+              </Button>
+            )}
+            {/* 仅管理员可导入 */}
+            {isAdmin && (
+              <Button icon={<ImportOutlined />} onClick={handleImportModalOpen}>
+                导入
+              </Button>
+            )}
+            {/* 仅管理员可上传 */}
+            {isAdmin && (
+              <Button type="primary" icon={<UploadOutlined />} onClick={handleUploadModalOpen}>
+                上传数据集
+              </Button>
+            )}
           </Space>
         </div>
       </Card>
@@ -691,22 +719,25 @@ export default function DataHub() {
             >
               导出选中
             </Button>
-            <Popconfirm
-              title="批量删除"
-              description={`确定要删除选中的 ${selectedRowKeys.length} 个数据集吗？相关的配置和结果也会被删除。`}
-              onConfirm={handleBatchDelete}
-              okText="删除"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
-            >
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                loading={batchDeleting}
+            {/* 仅管理员可批量删除 */}
+            {isAdmin && (
+              <Popconfirm
+                title="批量删除"
+                description={`确定要删除选中的 ${selectedRowKeys.length} 个数据集吗？相关的配置和结果也会被删除。`}
+                onConfirm={handleBatchDelete}
+                okText="删除"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
               >
-                批量删除
-              </Button>
-            </Popconfirm>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  loading={batchDeleting}
+                >
+                  批量删除
+                </Button>
+              </Popconfirm>
+            )}
             <Button type="link" onClick={() => setSelectedRowKeys([])}>
               取消选择
             </Button>
@@ -745,9 +776,11 @@ export default function DataHub() {
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description="暂无数据集"
               >
-                <Button type="primary" onClick={handleUploadModalOpen}>
-                  上传第一个数据集
-                </Button>
+                {isAdmin && (
+                  <Button type="primary" onClick={handleUploadModalOpen}>
+                    上传第一个数据集
+                  </Button>
+                )}
               </Empty>
             ),
           }}
@@ -1047,6 +1080,13 @@ export default function DataHub() {
           )}
         </Form>
       </Modal>
+
+      {/* 排序弹窗 */}
+      <DatasetSortModal
+        open={sortModalOpen}
+        onClose={() => setSortModalOpen(false)}
+        onSuccess={fetchDatasets}
+      />
     </div>
   )
 }

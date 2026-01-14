@@ -397,26 +397,30 @@ const ModelTemplateManager: React.FC = () => {
       title: '操作',
       key: 'action',
       width: 180,
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="查看详情">
-            <Button
-              type="text"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => handleViewDetail(record.id)}
-            />
-          </Tooltip>
-          <Tooltip title="复制">
-            <Button
-              type="text"
-              size="small"
-              icon={<CopyOutlined />}
-              onClick={() => handleDuplicate(record.id)}
-            />
-          </Tooltip>
-          {(!record.is_system || user?.is_admin) && (
-            <>
+      render: (_, record) => {
+        // 判断是否可以编辑/删除：管理员可操作所有，普通用户只能操作自己的非系统模板
+        const canEdit = user?.is_admin || (!record.is_system && record.user_id === user?.id);
+        const canDelete = user?.is_admin || (!record.is_system && record.user_id === user?.id);
+        
+        return (
+          <Space size="small">
+            <Tooltip title="查看详情">
+              <Button
+                type="text"
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={() => handleViewDetail(record.id)}
+              />
+            </Tooltip>
+            <Tooltip title="复制">
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => handleDuplicate(record.id)}
+              />
+            </Tooltip>
+            {canEdit && (
               <Tooltip title="编辑">
                 <Button
                   type="text"
@@ -425,6 +429,8 @@ const ModelTemplateManager: React.FC = () => {
                   onClick={() => handleEdit(record)}
                 />
               </Tooltip>
+            )}
+            {canDelete && (
               <Popconfirm
                 title="确定删除此模板？"
                 onConfirm={() => handleDelete(record.id)}
@@ -435,10 +441,10 @@ const ModelTemplateManager: React.FC = () => {
                   <Button type="text" size="small" danger icon={<DeleteOutlined />} />
                 </Tooltip>
               </Popconfirm>
-            </>
-          )}
-        </Space>
-      ),
+            )}
+          </Space>
+        );
+      },
     },
   ];
 

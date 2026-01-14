@@ -24,9 +24,9 @@ from app.services.utils import (
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
 from app.services.permissions import (
-    check_read_access, check_write_access, check_dataset_write_access,
+    check_read_access, check_owner_or_admin,
     build_result_query, get_isolation_conditions,
-    ResourceType, ActionType
+    ResourceType
 )
 from app.api.auth import get_current_user
 
@@ -88,8 +88,7 @@ async def upload_result(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    # 检查用户是否有权向该数据集上传结果（只有所有者可以）
-    check_dataset_write_access(dataset, current_user, "上传结果")
+    # 任何登录用户都可以上传结果（数据集公开，结果归属上传者）
     
     # 校验 configuration_id 归属
     if configuration_id is not None:
@@ -275,6 +274,7 @@ async def list_model_names(
 @router.get("/all", response_model=list[ResultResponse])
 async def list_all_results(
     dataset_id: Optional[int] = None,
+    configuration_id: Optional[int] = None,
     algo_name: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -285,6 +285,8 @@ async def list_all_results(
     
     if dataset_id is not None:
         query = query.where(Result.dataset_id == dataset_id)
+    if configuration_id is not None:
+        query = query.where(Result.configuration_id == configuration_id)
     if algo_name is not None:
         query = query.where(Result.algo_name == algo_name)
     
@@ -297,6 +299,7 @@ async def list_all_results(
 @router.get("", response_model=PaginatedResponse[ResultResponse])
 async def list_results(
     dataset_id: Optional[int] = None,
+    configuration_id: Optional[int] = None,
     algo_name: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
@@ -314,6 +317,8 @@ async def list_results(
     
     if dataset_id is not None:
         conditions.append(Result.dataset_id == dataset_id)
+    if configuration_id is not None:
+        conditions.append(Result.configuration_id == configuration_id)
     if algo_name is not None:
         conditions.append(Result.algo_name == algo_name)
     
@@ -452,19 +457,18 @@ async def update_result(
     result_id: int, 
     data: ResultUpdate, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_current_user)
 ):
-    """更新结果信息"""
+    """
+    更新结果信息（所有者或管理员）
+    """
     result = await db.execute(select(Result).where(Result.id == result_id))
     result_obj = result.scalar_one_or_none()
     if not result_obj:
         raise HTTPException(status_code=404, detail="结果不存在")
     
-    # 获取关联数据集
-    dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
-    dataset = dataset_result.scalar_one_or_none()
-    
-    check_write_access(result_obj, current_user, ActionType.WRITE, ResourceType.RESULT, parent_dataset=dataset)
+    # 仅所有者或管理员可编辑
+    check_owner_or_admin(result_obj, current_user, "编辑结果")
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -483,19 +487,18 @@ async def update_result(
 async def delete_result(
     result_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_current_user)
 ):
-    """删除结果"""
+    """
+    删除结果（所有者或管理员）
+    """
     result = await db.execute(select(Result).where(Result.id == result_id))
     result_obj = result.scalar_one_or_none()
     if not result_obj:
         raise HTTPException(status_code=404, detail="结果不存在")
     
-    # 获取关联数据集
-    dataset_result = await db.execute(select(Dataset).where(Dataset.id == result_obj.dataset_id))
-    dataset = dataset_result.scalar_one_or_none()
-    
-    check_write_access(result_obj, current_user, ActionType.DELETE, ResourceType.RESULT, parent_dataset=dataset)
+    # 仅所有者或管理员可删除
+    check_owner_or_admin(result_obj, current_user, "删除结果")
     
     # 记录要删除的目录
     result_dir = settings.RESULTS_DIR / str(result_obj.dataset_id) / str(result_id)

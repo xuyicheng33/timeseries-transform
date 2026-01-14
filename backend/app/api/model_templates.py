@@ -13,6 +13,7 @@ from app.schemas import (
     ModelTemplateBrief, PaginatedResponse, PRESET_MODEL_TEMPLATES
 )
 from app.config import settings
+from app.services.permissions import check_owner_or_admin
 from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/model-templates", tags=["model-templates"])
@@ -251,7 +252,11 @@ async def update_template(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """更新模型模板"""
+    """
+    更新模型模板（所有者或管理员）
+    
+    系统模板仅管理员可修改，用户模板仅所有者或管理员可修改。
+    """
     result = await db.execute(
         select(ModelTemplate).where(ModelTemplate.id == template_id)
     )
@@ -260,12 +265,8 @@ async def update_template(
     if not template:
         raise HTTPException(status_code=404, detail="模型模板不存在")
     
-    # 权限检查：只能修改自己的模板，管理员可以修改系统模板
-    if template.is_system:
-        if not current_user.is_admin:
-            raise HTTPException(status_code=403, detail="系统模板只有管理员可以修改")
-    elif template.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="只能修改自己的模板")
+    # 使用统一的所有者或管理员检查
+    check_owner_or_admin(template, current_user, "编辑模型模板")
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -286,7 +287,11 @@ async def delete_template(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """删除模型模板"""
+    """
+    删除模型模板（所有者或管理员）
+    
+    系统模板仅管理员可删除，用户模板仅所有者或管理员可删除。
+    """
     result = await db.execute(
         select(ModelTemplate).where(ModelTemplate.id == template_id)
     )
@@ -295,12 +300,8 @@ async def delete_template(
     if not template:
         raise HTTPException(status_code=404, detail="模型模板不存在")
     
-    # 权限检查
-    if template.is_system:
-        if not current_user.is_admin:
-            raise HTTPException(status_code=403, detail="系统模板只有管理员可以删除")
-    elif template.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="只能删除自己的模板")
+    # 使用统一的所有者或管理员检查
+    check_owner_or_admin(template, current_user, "删除模型模板")
     
     await db.delete(template)
     await db.commit()

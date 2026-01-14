@@ -17,6 +17,7 @@ export interface Result {
   name: string
   dataset_id: number
   configuration_id: number | null
+  user_id: number | null  // 所有者ID
   filename: string
   model_name: string
   model_version: string

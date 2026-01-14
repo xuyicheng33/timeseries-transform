@@ -7,6 +7,7 @@
 使用方式：
     from app.services.permissions import (
         check_read_access, check_write_access, check_dataset_write_access,
+        check_owner_or_admin,  # 新增：严格的所有者或管理员检查
         build_dataset_query, build_result_query, build_config_query,
         get_isolation_conditions, can_access_result
     )
@@ -14,6 +15,10 @@
 权限模型：
     - 团队共享模式 (ENABLE_DATA_ISOLATION=False)：所有登录用户可读，所有者/管理员可写
     - 用户隔离模式 (ENABLE_DATA_ISOLATION=True)：只能访问自己的或公开的资源
+    
+新增权限规则（2025-01更新）：
+    - 数据集：仅管理员可上传/编辑/删除
+    - 配置/结果/模型模板：本人或管理员可编辑/删除（user_id=NULL 时仅管理员可写）
 """
 from typing import Optional, TypeVar, Type, List, Tuple, Any
 from fastapi import HTTPException
@@ -56,6 +61,53 @@ def is_public(resource) -> bool:
     if hasattr(resource, 'is_public'):
         return resource.is_public
     return False
+
+
+def check_owner_or_admin(
+    resource_user_id: Optional[int],
+    current_user: User,
+    resource_name: str = "资源"
+) -> None:
+    """
+    严格的所有者或管理员权限检查
+    
+    用于：结果/配置/模型模板的编辑和删除操作
+    
+    权限规则：
+    - 管理员：可操作任意资源
+    - 资源所有者：可操作自己的资源
+    - user_id=NULL：仅管理员可操作（历史数据或用户已删除）
+    
+    注意：此函数不考虑 parent_dataset 的权限，是"严格"的所有者检查
+    
+    Args:
+        resource_user_id: 资源的 user_id（可能为 None）
+        current_user: 当前登录用户
+        resource_name: 资源名称（用于错误提示）
+    
+    Raises:
+        HTTPException 403: 非本人且非管理员
+    """
+    # 管理员有所有权限
+    if current_user.is_admin:
+        return
+    
+    # user_id 为 NULL 时，仅管理员可操作
+    if resource_user_id is None:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"此{resource_name}的所有者未知，仅管理员可操作"
+        )
+    
+    # 检查是否为本人
+    if resource_user_id == current_user.id:
+        return
+    
+    # 非本人且非管理员
+    raise HTTPException(
+        status_code=403, 
+        detail=f"只能操作自己的{resource_name}，或需要管理员权限"
+    )
 
 
 def check_read_access(

@@ -111,7 +111,9 @@ class Dataset(Base):
     description = Column(Text, default="")
     # 用户关联（用于数据隔离）
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
-    is_public = Column(Boolean, default=False)  # 是否公开（默认私有）
+    is_public = Column(Boolean, default=True)  # 是否公开（默认公开，由管理员统一管理）
+    # 排序权重，越小越靠前
+    sort_order = Column(Integer, default=0, index=True)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
@@ -129,6 +131,8 @@ class Configuration(Base):
     dataset_id = Column(Integer, ForeignKey('datasets.id', ondelete='CASCADE'), nullable=False, index=True)
     # 可选关联模型模板
     model_template_id = Column(Integer, ForeignKey('model_templates.id', ondelete='SET NULL'), nullable=True, index=True)
+    # 用户关联（用于权限控制：本人或管理员可编辑删除）
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
     channels = Column(JSON, default=list)
     normalization = Column(String(50), default="none")
     anomaly_enabled = Column(Boolean, default=False)
@@ -146,6 +150,7 @@ class Configuration(Base):
     # 关系
     dataset = relationship("Dataset", back_populates="configurations")
     model_template = relationship("ModelTemplate")
+    user = relationship("User")
 
 
 class Result(Base):

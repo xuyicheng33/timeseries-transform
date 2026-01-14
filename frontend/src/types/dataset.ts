@@ -14,6 +14,7 @@ export interface Dataset {
   description: string
   user_id: number | null
   is_public: boolean
+  sort_order: number  // 排序顺序
   created_at: string
   updated_at: string
 }

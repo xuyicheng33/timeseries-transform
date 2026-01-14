@@ -1,6 +1,11 @@
 """
 数据集 API 路由
 提供数据集的上传、预览、下载、更新、删除等功能
+
+权限规则（2025-01更新）：
+- 上传/编辑/删除/排序：仅管理员
+- 查看/预览/下载：全员
+- 数据集强制公开（is_public=True）
 """
 import os
 import aiofiles
@@ -9,21 +14,24 @@ import chardet
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 
 from app.database import get_db
 from app.models import Dataset, Configuration, Result, User
-from app.schemas import DatasetCreate, DatasetUpdate, DatasetResponse, DatasetPreview, PaginatedResponse
+from app.schemas import (
+    DatasetCreate, DatasetUpdate, DatasetResponse, DatasetPreview, 
+    PaginatedResponse, DatasetSortOrderUpdate
+)
 from app.config import settings
 from app.services.utils import count_csv_rows, sanitize_filename, sanitize_filename_for_header, safe_rmtree, validate_form_field, validate_description
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
 from app.services.permissions import (
-    check_read_access, check_write_access, 
+    check_read_access, 
     build_dataset_query, get_isolation_conditions,
-    ResourceType, ActionType
+    ResourceType
 )
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, get_admin_user
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
@@ -51,11 +59,15 @@ async def upload_dataset(
     file: UploadFile = File(...),
     name: str = Form(...),
     description: str = Form(""),
-    is_public: bool = Form(False),
+    is_public: bool = Form(True),  # 忽略前端传值，强制公开
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_admin_user)  # 仅管理员可上传
 ):
-    """上传数据集"""
+    """
+    上传数据集（仅管理员）
+    
+    数据集统一由管理员管理，上传后强制公开，全员可见。
+    """
     # 表单字段校验
     name = validate_form_field(name, "数据集名称", max_length=255, min_length=1)
     description = validate_description(description, max_length=1000)
@@ -67,14 +79,14 @@ async def upload_dataset(
     # 清理文件名
     safe_filename = sanitize_filename(file.filename)
     
-    # 创建数据库记录，关联当前用户
+    # 创建数据库记录，关联当前用户，强制公开
     dataset = Dataset(
         name=name, 
         filename=safe_filename, 
         filepath="", 
         description=description,
         user_id=current_user.id,
-        is_public=is_public
+        is_public=True  # 强制公开，忽略前端传值
     )
     db.add(dataset)
     await db.flush()
@@ -136,7 +148,8 @@ async def list_all_datasets(
 ):
     """获取所有数据集（不分页，用于下拉选择等场景，限制最多1000条）"""
     query = build_dataset_query(current_user)
-    query = query.order_by(Dataset.created_at.desc()).limit(1000)
+    # 按 sort_order 升序、id 升序排列，保证稳定排序
+    query = query.order_by(Dataset.sort_order.asc(), Dataset.id.asc()).limit(1000)
     
     result = await db.execute(query)
     return result.scalars().all()
@@ -165,8 +178,8 @@ async def list_datasets(
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     
-    # 查询分页数据
-    query = select(Dataset).order_by(Dataset.created_at.desc())
+    # 查询分页数据，按 sort_order 升序、id 升序排列
+    query = select(Dataset).order_by(Dataset.sort_order.asc(), Dataset.id.asc())
     for cond in conditions:
         query = query.where(cond)
     query = query.offset(offset).limit(page_size)
@@ -292,20 +305,25 @@ async def update_dataset(
     dataset_id: int, 
     data: DatasetUpdate, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_admin_user)  # 仅管理员可编辑
 ):
-    """更新数据集信息"""
+    """
+    更新数据集信息（仅管理员）
+    
+    注意：is_public 字段被忽略，数据集始终保持公开状态。
+    """
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    check_write_access(dataset, current_user, ActionType.WRITE, ResourceType.DATASET)
-    
-    # 更新字段
+    # 更新字段（排除 is_public，强制保持公开）
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="没有提供要更新的字段")
+    
+    # 忽略 is_public 字段，数据集始终公开
+    update_data.pop('is_public', None)
     
     for key, value in update_data.items():
         setattr(dataset, key, value)
@@ -319,15 +337,17 @@ async def update_dataset(
 async def delete_dataset(
     dataset_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_admin_user)  # 仅管理员可删除
 ):
-    """删除数据集"""
+    """
+    删除数据集（仅管理员）
+    
+    会级联删除关联的配置和结果。
+    """
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
-    
-    check_write_access(dataset, current_user, ActionType.DELETE, ResourceType.DATASET)
     
     # 先提交数据库删除，再清理文件（避免事务失败但文件已删除）
     # 级联删除关联的配置
@@ -359,3 +379,47 @@ async def delete_dataset(
         await run_in_executor(safe_rmtree, str(dataset_dir))
     
     return {"message": "数据集及相关数据已删除"}
+
+
+@router.put("/sort-order/batch")
+async def update_sort_order_batch(
+    updates: list[DatasetSortOrderUpdate],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_admin_user)  # 仅管理员可排序
+):
+    """
+    批量更新数据集排序（仅管理员）
+    
+    接收一个数组，每个元素包含 dataset_id 和 sort_order。
+    用于前端拖拽排序后一次性提交所有变更。
+    """
+    if not updates:
+        raise HTTPException(status_code=400, detail="没有提供要更新的排序数据")
+    
+    if len(updates) > 1000:
+        raise HTTPException(status_code=400, detail="单次最多更新1000条记录")
+    
+    # 验证所有数据集存在
+    dataset_ids = [u.dataset_id for u in updates]
+    result = await db.execute(
+        select(Dataset.id).where(Dataset.id.in_(dataset_ids))
+    )
+    existing_ids = set(row[0] for row in result.fetchall())
+    
+    missing_ids = set(dataset_ids) - existing_ids
+    if missing_ids:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"以下数据集不存在: {list(missing_ids)}"
+        )
+    
+    # 批量更新排序
+    for item in updates:
+        await db.execute(
+            update(Dataset)
+            .where(Dataset.id == item.dataset_id)
+            .values(sort_order=item.sort_order)
+        )
+    
+    await db.commit()
+    return {"message": f"已更新 {len(updates)} 个数据集的排序"}

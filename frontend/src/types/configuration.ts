@@ -37,6 +37,7 @@ export interface Configuration {
   id: number
   name: string
   dataset_id: number
+  user_id: number | null  // 所有者ID
   channels: string[]
   normalization: NormalizationType
   anomaly_enabled: boolean

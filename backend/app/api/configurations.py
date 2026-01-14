@@ -15,9 +15,9 @@ from app.schemas import (
 )
 from app.services.utils import generate_standard_filename
 from app.services.permissions import (
-    check_read_access, check_write_access, check_dataset_write_access,
+    check_read_access, check_owner_or_admin,
     build_config_query, get_isolation_conditions,
-    ResourceType, ActionType
+    ResourceType
 )
 from app.api.auth import get_current_user
 
@@ -28,17 +28,18 @@ router = APIRouter(prefix="/api/configurations", tags=["configurations"])
 async def create_configuration(
     data: ConfigurationCreate, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_current_user)
 ):
-    """创建配置"""
+    """
+    创建配置
+    
+    任何登录用户都可以为公开数据集创建配置，配置归属创建者。
+    """
     # 检查数据集是否存在
     result = await db.execute(select(Dataset).where(Dataset.id == data.dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
-    
-    # 检查用户是否有权向该数据集写入配置（只有所有者可以）
-    check_dataset_write_access(dataset, current_user, "添加配置")
     
     # 生成标准文件名
     filename = generate_standard_filename(
@@ -63,7 +64,8 @@ async def create_configuration(
         elif config_data.get(key) is None:
             config_data[key] = ""
     
-    config = Configuration(**config_data, generated_filename=filename)
+    # 创建配置，关联当前用户
+    config = Configuration(**config_data, generated_filename=filename, user_id=current_user.id)
     db.add(config)
     await db.commit()
     await db.refresh(config)
@@ -167,22 +169,24 @@ async def update_configuration(
     config_id: int, 
     data: ConfigurationUpdate, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_current_user)
 ):
-    """更新配置"""
+    """
+    更新配置（所有者或管理员）
+    """
     result = await db.execute(select(Configuration).where(Configuration.id == config_id))
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
     
-    # 检查关联数据集的访问权限
+    # 仅所有者或管理员可编辑
+    check_owner_or_admin(config, current_user, "编辑配置")
+    
+    # 获取关联数据集（用于重新生成文件名）
     dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
     dataset = dataset_result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="关联的数据集不存在")
-    
-    # 只有数据集所有者或管理员可以修改配置
-    check_write_access(config, current_user, ActionType.WRITE, ResourceType.CONFIGURATION, parent_dataset=dataset)
     
     # 更新字段
     update_data = data.model_dump(exclude_unset=True)
@@ -222,20 +226,18 @@ async def update_configuration(
 async def delete_configuration(
     config_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 需要登录
+    current_user: User = Depends(get_current_user)
 ):
-    """删除配置"""
+    """
+    删除配置（所有者或管理员）
+    """
     result = await db.execute(select(Configuration).where(Configuration.id == config_id))
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
     
-    # 检查关联数据集的访问权限
-    dataset_result = await db.execute(select(Dataset).where(Dataset.id == config.dataset_id))
-    dataset = dataset_result.scalar_one_or_none()
-    
-    # 只有数据集所有者或管理员可以删除配置
-    check_write_access(config, current_user, ActionType.DELETE, ResourceType.CONFIGURATION, parent_dataset=dataset)
+    # 仅所有者或管理员可删除
+    check_owner_or_admin(config, current_user, "删除配置")
     
     await db.delete(config)
     await db.commit()

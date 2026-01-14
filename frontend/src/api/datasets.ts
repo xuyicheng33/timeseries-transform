@@ -100,3 +100,17 @@ export async function deleteDataset(id: number): Promise<DeleteResponse> {
   return api.delete(`/datasets/${id}`)
 }
 
+/**
+ * 批量更新数据集排序（仅管理员）
+ */
+export interface DatasetSortOrderUpdate {
+  dataset_id: number
+  sort_order: number
+}
+
+export async function updateDatasetSortOrder(
+  updates: DatasetSortOrderUpdate[]
+): Promise<{ message: string }> {
+  return api.put('/datasets/sort-order/batch', updates)
+}
+

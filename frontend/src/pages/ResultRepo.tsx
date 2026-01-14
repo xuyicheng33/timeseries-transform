@@ -54,12 +54,17 @@ import { download } from '@/utils/download'
 import { formatFileSize, formatDateTime, formatMetric, hasMetrics } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
 import { METRIC_NAMES, METRIC_DESCRIPTIONS } from '@/constants'
+import { useAuth } from '@/contexts/AuthContext'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
 const { Dragger } = Upload
 
 export default function ResultRepo() {
+  // ============ 认证状态 ============
+  const { user } = useAuth()
+  const isAdmin = user?.is_admin ?? false
+
   // ============ 状态定义 ============
   const [results, setResults] = useState<Result[]>([])
   const [loading, setLoading] = useState(false)
@@ -551,26 +556,32 @@ export default function ResultRepo() {
               onClick={() => handleDownload(record)}
             />
           </Tooltip>
-          <Tooltip title="编辑">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEditModalOpen(record)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="确认删除"
-            description={`确定要删除结果「${record.name}」吗？`}
-            onConfirm={() => handleDelete(record)}
-            okText="删除"
-            cancelText="取消"
-            okButtonProps={{ danger: true }}
-          >
-            <Tooltip title="删除">
-              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+          {/* 仅所有者或管理员可编辑 */}
+          {(isAdmin || record.user_id === user?.id) && (
+            <Tooltip title="编辑">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEditModalOpen(record)}
+              />
             </Tooltip>
-          </Popconfirm>
+          )}
+          {/* 仅所有者或管理员可删除 */}
+          {(isAdmin || record.user_id === user?.id) && (
+            <Popconfirm
+              title="确认删除"
+              description={`确定要删除结果「${record.name}」吗？`}
+              onConfirm={() => handleDelete(record)}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="删除">
+                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+              </Tooltip>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
