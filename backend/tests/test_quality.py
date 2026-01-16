@@ -160,6 +160,74 @@ class TestSamplingFunction:
         # 均值误差应该在 20% 以内（采样的统计代表性）
         assert abs(full_mean - sampled_mean) < abs(full_mean) * 0.5 + 0.5, \
             f"采样均值 {sampled_mean:.4f} 与原始均值 {full_mean:.4f} 差异过大"
+    
+    @pytest.fixture
+    def medium_csv_file(self) -> str:
+        """创建一个中等大小的 CSV 文件（sample_size < rows <= max_rows 场景）"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+            f.write("id,value\n")
+            for i in range(300):
+                f.write(f"{i},{i * 0.1}\n")
+            filepath = f.name
+        
+        yield filepath
+        
+        if os.path.exists(filepath):
+            os.unlink(filepath)
+    
+    def test_medium_file_no_sampling(self, medium_csv_file: str):
+        """
+        测试中等文件（sample_size < total_rows <= max_rows）不采样
+        
+        场景：300 行文件，max_rows=500，sample_size=100
+        预期：全量读取，不采样
+        """
+        df, is_sampled, total_rows = _read_csv_with_sampling(
+            medium_csv_file,
+            encoding='utf-8',
+            max_rows=500,      # 300 <= 500，不需要采样
+            sample_size=100    # 即使 sample_size < total_rows
+        )
+        
+        # 关键断言：不应该采样，应该返回全部 300 行
+        assert is_sampled is False, "中等文件不应该被采样"
+        assert total_rows == 300
+        assert len(df) == 300, f"应该返回全部 300 行，实际返回 {len(df)} 行"
+    
+    def test_exact_threshold_no_sampling(self, medium_csv_file: str):
+        """
+        测试刚好等于阈值时不采样
+        
+        场景：300 行文件，max_rows=300
+        预期：全量读取，不采样
+        """
+        df, is_sampled, total_rows = _read_csv_with_sampling(
+            medium_csv_file,
+            encoding='utf-8',
+            max_rows=300,      # 刚好等于行数
+            sample_size=100
+        )
+        
+        assert is_sampled is False
+        assert len(df) == 300
+    
+    def test_just_over_threshold_sampling(self, medium_csv_file: str):
+        """
+        测试刚好超过阈值时采样
+        
+        场景：300 行文件，max_rows=299
+        预期：采样到 sample_size 行
+        """
+        df, is_sampled, total_rows = _read_csv_with_sampling(
+            medium_csv_file,
+            encoding='utf-8',
+            max_rows=299,      # 300 > 299，需要采样
+            sample_size=100
+        )
+        
+        assert is_sampled is True, "超过阈值应该采样"
+        assert total_rows == 300
+        assert len(df) == 100, f"应该采样到 100 行，实际 {len(df)} 行"
 
 
 class TestQualityReportAPI:
