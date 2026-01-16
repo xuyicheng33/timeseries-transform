@@ -127,19 +127,18 @@ class TestSamplingFunction:
         assert len(df) == 50
     
     def test_sample_size_larger_than_rows(self, small_csv_file: str):
-        """测试 sample_size 大于实际行数时不会出错"""
+        """测试 sample_size 大于实际行数时不会出错，且不会丢失数据"""
         df, is_sampled, total_rows = _read_csv_with_sampling(
             small_csv_file,
             encoding='utf-8',
-            max_rows=10,  # 触发采样检查
+            max_rows=10,  # 50 > 10，会触发采样流程
             sample_size=1000  # 大于实际行数
         )
         
-        # 文件只有 50 行，小于 max_rows=10 不成立，所以不会采样
-        # 但 total_rows=50 > max_rows=10，所以会进入采样逻辑
-        # 由于 sample_size > total_rows，蓄水池会包含所有行
         assert total_rows == 50
-        assert len(df) == 50  # 返回全部数据
+        assert len(df) == 50  # 蓄水池包含所有行
+        # is_sampled = False，因为返回的行数等于总行数（没有实际丢弃数据）
+        assert is_sampled is False
     
     def test_sampling_statistics_accuracy(self, large_csv_file: str):
         """测试采样数据的统计特性与原始数据接近"""
