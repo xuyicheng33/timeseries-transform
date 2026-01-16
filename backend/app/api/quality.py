@@ -38,11 +38,11 @@ def _read_csv_with_sampling(filepath: str, encoding: str = "utf-8", max_rows: in
     """
     读取 CSV 文件，支持大文件采样
     
-    采样策略：使用蓄水池采样算法选择行号，然后用 pandas 读取这些行，
-    确保数值类型推断和缺失值处理与完整读取一致。
+    采样策略：使用蓄水池采样算法选择行号，然后用 pandas skiprows 回调函数
+    只读取采样行，确保数值类型推断和缺失值处理与完整读取一致。
     
-    时间复杂度：O(n) 两次遍历（统计行数 + 蓄水池采样行号）
-    内存复杂度：O(sample_size) 仅存储采样行号
+    时间复杂度：O(n) - 需要遍历文件统计行数 + pandas 读取时逐行判断
+    内存复杂度：O(sample_size) - 仅存储采样行号集合
     
     Args:
         filepath: 文件路径
@@ -55,38 +55,50 @@ def _read_csv_with_sampling(filepath: str, encoding: str = "utf-8", max_rows: in
     """
     import random as rng
     
-    # 第一遍：快速统计行数（不解析内容）
-    with open(filepath, 'r', encoding=encoding, errors='replace') as f:
-        total_rows = sum(1 for _ in f) - 1  # 减去表头行
+    # 使用 pandas 读取器统计行数，确保与实际解析一致（处理空行、字段内换行等）
+    # 只读取第一列以最小化内存使用
+    try:
+        row_count_df = pd.read_csv(filepath, encoding=encoding, usecols=[0])
+        total_rows = len(row_count_df)
+        del row_count_df  # 立即释放内存
+    except Exception:
+        # 回退到简单计数（极少数情况）
+        with open(filepath, 'r', encoding=encoding, errors='replace') as f:
+            total_rows = sum(1 for _ in f) - 1
     
     # 判断是否需要采样
     if max_rows and sample_size and total_rows > max_rows:
         # 大文件：使用蓄水池采样算法选择要保留的行号
-        actual_sample_size = min(sample_size, total_rows)  # 防止 sample_size > total_rows
+        actual_sample_size = min(sample_size, total_rows)
         
         # 使用独立的 Random 实例，避免影响全局 RNG
         local_rng = rng.Random(42)  # 固定种子保证可重复性
         
-        # 第二遍：蓄水池采样，只记录行号（内存 O(sample_size)）
-        # 行号从 1 开始（0 是表头）
-        sampled_row_indices = []  # 存储被选中的行号
+        # 蓄水池采样，只记录行号（内存 O(sample_size)）
+        sampled_row_indices = []
         
         for i in range(total_rows):
             if i < actual_sample_size:
-                # 前 k 个行号直接放入蓄水池
-                sampled_row_indices.append(i + 1)  # +1 因为 pandas skiprows 中 0 是表头
+                sampled_row_indices.append(i)
             else:
-                # 以 k/(i+1) 的概率替换蓄水池中的元素
                 j = local_rng.randint(0, i)
                 if j < actual_sample_size:
-                    sampled_row_indices[j] = i + 1
+                    sampled_row_indices[j] = i
         
-        # 计算要跳过的行号（除了表头和采样行之外的所有行）
-        sampled_set = set(sampled_row_indices)
-        skip_rows = [i for i in range(1, total_rows + 1) if i not in sampled_set]
+        # 转换为集合，用于 O(1) 查找（内存仍为 O(sample_size)）
+        sampled_set = frozenset(sampled_row_indices)
+        
+        # 使用 skiprows 回调函数，只保留采样行
+        # 回调函数接收行号（0 是表头，1 开始是数据行）
+        # 返回 True 表示跳过该行
+        def should_skip(row_idx: int) -> bool:
+            if row_idx == 0:  # 保留表头
+                return False
+            # 数据行索引从 0 开始，所以 row_idx - 1
+            return (row_idx - 1) not in sampled_set
         
         # 使用 pandas 读取，保持正确的类型推断和缺失值处理
-        df = pd.read_csv(filepath, encoding=encoding, skiprows=skip_rows)
+        df = pd.read_csv(filepath, encoding=encoding, skiprows=should_skip)
         return df, True, total_rows
     else:
         # 小文件：直接读取
