@@ -78,6 +78,10 @@ test_data/
 # ===========================
 example_data/for_platform_test/
 
+# Demo datasets (use Git LFS or external storage for large files)
+datasets/raw/
+datasets/prepared/
+
 # ===========================
 # Misc
 # ===========================
