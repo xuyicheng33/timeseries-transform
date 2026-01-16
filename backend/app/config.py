@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # Data Preview
     PREVIEW_ROWS: int = 100
     
+    # Large File Protection
+    MAX_ROWS_FOR_FULL_ANALYSIS: int = 500000  # 超过此行数使用采样分析
+    SAMPLE_SIZE_FOR_LARGE_FILES: int = 100000  # 大文件采样行数
+    
     # Downsampling
     DEFAULT_MAX_POINTS: int = 2000
     DOWNSAMPLE_THRESHOLD: int = 5000

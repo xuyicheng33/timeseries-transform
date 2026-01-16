@@ -155,10 +155,12 @@ request.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
-    // 判断是否是认证相关接口（登录/注册）
+    // 判断是否是认证相关接口（登录/注册/刷新）
+    // 注意：前端使用 /auth/login/json 进行登录，需要同时排除
     const isAuthEndpoint =
-      originalRequest?.url?.includes('/auth/login') ||
-      originalRequest?.url?.includes('/auth/register')
+      originalRequest?.url?.includes('/auth/login') ||  // 包括 /auth/login 和 /auth/login/json
+      originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/refresh')
 
     // 401 错误处理
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {

@@ -214,7 +214,7 @@ async def admin_auth_headers(client: AsyncClient, admin_user: User) -> dict:
 
 @pytest_asyncio.fixture
 async def test_dataset(test_session: AsyncSession, test_user: User) -> Dataset:
-    """创建测试数据集"""
+    """创建测试数据集（普通用户所有，用于读取测试）"""
     dataset = Dataset(
         name="Test Dataset",
         filename="test_data.csv",
@@ -225,7 +225,28 @@ async def test_dataset(test_session: AsyncSession, test_user: User) -> Dataset:
         columns=["col1", "col2", "col3", "col4", "col5"],
         description="Test dataset for unit tests",
         user_id=test_user.id,
-        is_public=False
+        is_public=True  # 数据集强制公开
+    )
+    test_session.add(dataset)
+    await test_session.commit()
+    await test_session.refresh(dataset)
+    return dataset
+
+
+@pytest_asyncio.fixture
+async def admin_dataset(test_session: AsyncSession, admin_user: User) -> Dataset:
+    """创建管理员数据集（用于写入测试）"""
+    dataset = Dataset(
+        name="Admin Dataset",
+        filename="admin_data.csv",
+        filepath="/tmp/admin_data.csv",
+        file_size=1024,
+        row_count=100,
+        column_count=5,
+        columns=["col1", "col2", "col3", "col4", "col5"],
+        description="Admin dataset for unit tests",
+        user_id=admin_user.id,
+        is_public=True  # 数据集强制公开
     )
     test_session.add(dataset)
     await test_session.commit()

@@ -42,7 +42,8 @@ services:
     networks:
       - timeseries-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      # 优先使用 curl，其次 wget，最后回退到 Python（Python 镜像必定有）
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || wget -q --spider http://localhost:8000/health || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)\""]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -63,7 +64,9 @@ services:
     networks:
       - timeseries-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      # 使用 wget 或 curl 进行健康检查（nginx 镜像通常包含这些工具）
+      # 如果都不可用，可以改用: ["CMD-SHELL", "exit 0"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || curl -sf http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

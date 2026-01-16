@@ -23,7 +23,7 @@ from app.services.quality import analyze_data_quality
 from app.services.cleaning import preview_cleaning, apply_cleaning
 from app.services.executor import run_in_executor
 from app.services.security import validate_filepath
-from app.services.permissions import check_read_access, check_write_access, ResourceType, ActionType
+from app.services.permissions import check_read_access, ResourceType
 from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/api/quality", tags=["quality"])
@@ -32,6 +32,44 @@ router = APIRouter(prefix="/api/quality", tags=["quality"])
 def _read_csv_sync(filepath: str, encoding: str = "utf-8") -> pd.DataFrame:
     """同步读取 CSV 文件"""
     return pd.read_csv(filepath, encoding=encoding)
+
+
+def _read_csv_with_sampling(filepath: str, encoding: str = "utf-8", max_rows: int = None, sample_size: int = None) -> tuple[pd.DataFrame, bool, int]:
+    """
+    读取 CSV 文件，支持大文件采样
+    
+    Args:
+        filepath: 文件路径
+        encoding: 编码
+        max_rows: 超过此行数则采样
+        sample_size: 采样行数
+    
+    Returns:
+        (DataFrame, is_sampled, total_rows): 数据、是否采样、总行数
+    """
+    # 先快速统计行数（不读取全部数据）
+    with open(filepath, 'r', encoding=encoding, errors='replace') as f:
+        total_rows = sum(1 for _ in f) - 1  # 减去表头
+    
+    if max_rows and sample_size and total_rows > max_rows:
+        # 大文件：使用随机采样
+        # 计算采样比例
+        skip_ratio = 1 - (sample_size / total_rows)
+        
+        # 使用 skiprows 进行随机采样
+        import random
+        random.seed(42)  # 固定种子保证可重复性
+        
+        # 生成要跳过的行号（保留表头，即第0行）
+        all_rows = list(range(1, total_rows + 1))
+        skip_rows = set(random.sample(all_rows, int(total_rows * skip_ratio)))
+        
+        df = pd.read_csv(filepath, encoding=encoding, skiprows=lambda x: x in skip_rows)
+        return df, True, total_rows
+    else:
+        # 小文件：直接读取
+        df = pd.read_csv(filepath, encoding=encoding)
+        return df, False, total_rows
 
 
 def _save_csv_sync(df: pd.DataFrame, filepath: str, encoding: str = "utf-8"):
@@ -55,6 +93,10 @@ async def get_quality_report(
     
     Returns:
         DataQualityReport: 质量报告
+    
+    Note:
+        对于超过 50 万行的大文件，会自动采样 10 万行进行分析，
+        报告中会标注是否为采样分析。
     """
     # 查询数据集
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
@@ -74,12 +116,14 @@ async def get_quality_report(
     if not validate_filepath(dataset.filepath):
         raise HTTPException(status_code=403, detail="文件路径不安全")
     
-    # 读取数据
+    # 读取数据（支持大文件采样）
     try:
-        df = await run_in_executor(
-            _read_csv_sync,
+        df, is_sampled, total_rows = await run_in_executor(
+            _read_csv_with_sampling,
             dataset.filepath,
-            dataset.encoding or "utf-8"
+            dataset.encoding or "utf-8",
+            settings.MAX_ROWS_FOR_FULL_ANALYSIS,
+            settings.SAMPLE_SIZE_FOR_LARGE_FILES
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}")
@@ -99,6 +143,21 @@ async def get_quality_report(
             dataset.name,
             request
         )
+        
+        # 如果是采样分析，在报告中添加说明
+        if is_sampled:
+            from app.schemas import QualitySuggestion
+            sample_note = QualitySuggestion(
+                level="info",
+                column=None,
+                issue=f"由于数据量较大（{total_rows:,} 行），本报告基于 {len(df):,} 行采样数据生成",
+                suggestion="采样分析结果具有统计代表性，但可能无法发现所有异常值",
+                auto_fixable=False
+            )
+            report.suggestions.insert(0, sample_note)
+            # 更新总行数为实际行数
+            report.total_rows = total_rows
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}")
     
@@ -121,6 +180,9 @@ async def generate_quality_report(
     
     Returns:
         DataQualityReport: 质量报告
+    
+    Note:
+        对于超过 50 万行的大文件，会自动采样 10 万行进行分析。
     """
     # 查询数据集
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
@@ -140,12 +202,14 @@ async def generate_quality_report(
     if not validate_filepath(dataset.filepath):
         raise HTTPException(status_code=403, detail="文件路径不安全")
     
-    # 读取数据
+    # 读取数据（支持大文件采样）
     try:
-        df = await run_in_executor(
-            _read_csv_sync,
+        df, is_sampled, total_rows = await run_in_executor(
+            _read_csv_with_sampling,
             dataset.filepath,
-            dataset.encoding or "utf-8"
+            dataset.encoding or "utf-8",
+            settings.MAX_ROWS_FOR_FULL_ANALYSIS,
+            settings.SAMPLE_SIZE_FOR_LARGE_FILES
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}")
@@ -159,6 +223,20 @@ async def generate_quality_report(
             dataset.name,
             request
         )
+        
+        # 如果是采样分析，在报告中添加说明
+        if is_sampled:
+            from app.schemas import QualitySuggestion
+            sample_note = QualitySuggestion(
+                level="info",
+                column=None,
+                issue=f"由于数据量较大（{total_rows:,} 行），本报告基于 {len(df):,} 行采样数据生成",
+                suggestion="采样分析结果具有统计代表性，但可能无法发现所有异常值",
+                auto_fixable=False
+            )
+            report.suggestions.insert(0, sample_note)
+            report.total_rows = total_rows
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}")
     
@@ -247,8 +325,12 @@ async def apply_data_cleaning(
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
     
-    # 权限检查（执行清洗需要写权限）
-    check_write_access(dataset, current_user, ActionType.WRITE, ResourceType.DATASET)
+    # 权限检查（执行清洗需要管理员权限，与数据集上传/编辑/删除保持一致）
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="数据清洗操作仅限管理员执行"
+        )
     
     # 检查文件是否存在
     if not os.path.exists(dataset.filepath):
