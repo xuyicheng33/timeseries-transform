@@ -38,16 +38,19 @@ def _read_csv_with_sampling(filepath: str, encoding: str = "utf-8", max_rows: in
     """
     读取 CSV 文件，支持大文件采样
     
-    采样策略：使用蓄水池采样算法选择行号，然后用 pandas skiprows 回调函数
-    只读取采样行，确保数值类型推断和缺失值处理与完整读取一致。
+    采样策略：使用 pandas chunksize 流式读取 + 蓄水池采样算法，
+    确保数值类型推断、缺失值处理正确，且内存占用可控。
     
-    时间复杂度：O(n) - 需要遍历文件统计行数 + pandas 读取时逐行判断
-    内存复杂度：O(sample_size) - 仅存储采样行号集合
+    时间复杂度：O(n) - 流式遍历一次文件
+    内存复杂度：O(sample_size + chunk_size) - 仅存储采样数据和当前块
+    
+    注意：此实现假设 CSV 文件格式规范（无字段内换行），
+    如有多行字段需求，应在上传时预处理或使用专门的解析器。
     
     Args:
         filepath: 文件路径
         encoding: 编码
-        max_rows: 超过此行数则采样
+        max_rows: 超过此行数则采样（None 表示不采样）
         sample_size: 采样行数
     
     Returns:
@@ -55,55 +58,48 @@ def _read_csv_with_sampling(filepath: str, encoding: str = "utf-8", max_rows: in
     """
     import random as rng
     
-    # 使用 pandas 读取器统计行数，确保与实际解析一致（处理空行、字段内换行等）
-    # 只读取第一列以最小化内存使用
-    try:
-        row_count_df = pd.read_csv(filepath, encoding=encoding, usecols=[0])
-        total_rows = len(row_count_df)
-        del row_count_df  # 立即释放内存
-    except Exception:
-        # 回退到简单计数（极少数情况）
-        with open(filepath, 'r', encoding=encoding, errors='replace') as f:
-            total_rows = sum(1 for _ in f) - 1
-    
-    # 判断是否需要采样
-    if max_rows and sample_size and total_rows > max_rows:
-        # 大文件：使用蓄水池采样算法选择要保留的行号
-        actual_sample_size = min(sample_size, total_rows)
-        
-        # 使用独立的 Random 实例，避免影响全局 RNG
-        local_rng = rng.Random(42)  # 固定种子保证可重复性
-        
-        # 蓄水池采样，只记录行号（内存 O(sample_size)）
-        sampled_row_indices = []
-        
-        for i in range(total_rows):
-            if i < actual_sample_size:
-                sampled_row_indices.append(i)
-            else:
-                j = local_rng.randint(0, i)
-                if j < actual_sample_size:
-                    sampled_row_indices[j] = i
-        
-        # 转换为集合，用于 O(1) 查找（内存仍为 O(sample_size)）
-        sampled_set = frozenset(sampled_row_indices)
-        
-        # 使用 skiprows 回调函数，只保留采样行
-        # 回调函数接收行号（0 是表头，1 开始是数据行）
-        # 返回 True 表示跳过该行
-        def should_skip(row_idx: int) -> bool:
-            if row_idx == 0:  # 保留表头
-                return False
-            # 数据行索引从 0 开始，所以 row_idx - 1
-            return (row_idx - 1) not in sampled_set
-        
-        # 使用 pandas 读取，保持正确的类型推断和缺失值处理
-        df = pd.read_csv(filepath, encoding=encoding, skiprows=should_skip)
-        return df, True, total_rows
-    else:
-        # 小文件：直接读取
+    # 如果不需要采样保护，直接读取
+    if not max_rows or not sample_size:
         df = pd.read_csv(filepath, encoding=encoding)
-        return df, False, total_rows
+        return df, False, len(df)
+    
+    # 使用 chunksize 流式读取，实现蓄水池采样
+    # chunk_size 设为 sample_size 的 1/10，平衡内存和 IO 效率
+    chunk_size = max(1000, sample_size // 10)
+    
+    # 使用独立的 Random 实例，避免影响全局 RNG
+    local_rng = rng.Random(42)  # 固定种子保证可重复性
+    
+    reservoir: list[pd.Series] = []  # 蓄水池，存储采样的行
+    total_rows = 0
+    
+    # 流式读取并采样
+    for chunk in pd.read_csv(filepath, encoding=encoding, chunksize=chunk_size):
+        for idx in range(len(chunk)):
+            row = chunk.iloc[idx]
+            
+            if total_rows < sample_size:
+                # 前 k 个元素直接放入蓄水池
+                reservoir.append(row)
+            else:
+                # 以 k/(i+1) 的概率替换蓄水池中的元素
+                j = local_rng.randint(0, total_rows)
+                if j < sample_size:
+                    reservoir[j] = row
+            
+            total_rows += 1
+    
+    # 判断是否实际进行了采样
+    is_sampled = total_rows > max_rows
+    
+    if is_sampled:
+        # 从蓄水池构建 DataFrame
+        df = pd.DataFrame(reservoir)
+    else:
+        # 文件较小，重新完整读取（保证数据完整性）
+        df = pd.read_csv(filepath, encoding=encoding)
+    
+    return df, is_sampled, total_rows
 
 
 def _save_csv_sync(df: pd.DataFrame, filepath: str, encoding: str = "utf-8"):

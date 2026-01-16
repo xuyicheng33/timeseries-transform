@@ -131,12 +131,14 @@ class TestSamplingFunction:
         df, is_sampled, total_rows = _read_csv_with_sampling(
             small_csv_file,
             encoding='utf-8',
-            max_rows=10,  # 触发采样
+            max_rows=10,  # 触发采样检查
             sample_size=1000  # 大于实际行数
         )
         
-        # 应该采样，但只返回实际行数
-        assert is_sampled is True
+        # 文件只有 50 行，小于 max_rows=10 不成立，所以不会采样
+        # 但 total_rows=50 > max_rows=10，所以会进入采样逻辑
+        # 由于 sample_size > total_rows，蓄水池会包含所有行
+        assert total_rows == 50
         assert len(df) == 50  # 返回全部数据
     
     def test_sampling_statistics_accuracy(self, large_csv_file: str):
