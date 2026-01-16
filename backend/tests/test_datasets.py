@@ -337,4 +337,64 @@ class TestDatasetPublic:
         response = await client.get(f"/api/datasets/{dataset_id}", headers=auth_headers)
         
         assert response.status_code == 200
+    
+    @pytest.mark.asyncio
+    async def test_normal_user_list_public_datasets(self, client: AsyncClient, auth_headers: dict, test_dataset: Dataset):
+        """测试普通用户列出公开数据集"""
+        response = await client.get("/api/datasets", headers=auth_headers)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] >= 1
+        # 应该能看到公开的数据集
+        dataset_names = [item["name"] for item in data["items"]]
+        assert "Test Dataset" in dataset_names
+    
+    @pytest.mark.asyncio
+    async def test_normal_user_preview_public_dataset(self, client: AsyncClient, admin_auth_headers: dict, auth_headers: dict, temp_csv_file: str):
+        """测试普通用户预览公开数据集"""
+        # 管理员上传数据集
+        with open(temp_csv_file, 'rb') as f:
+            upload_response = await client.post(
+                "/api/datasets/upload",
+                headers=admin_auth_headers,
+                files={"file": ("test.csv", f, "text/csv")},
+                data={"name": "Preview Public Dataset"}
+            )
+        
+        dataset_id = upload_response.json()["id"]
+        
+        # 普通用户预览
+        response = await client.get(
+            f"/api/datasets/{dataset_id}/preview?rows=10",
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "columns" in data
+        assert "data" in data
+    
+    @pytest.mark.asyncio
+    async def test_normal_user_download_public_dataset(self, client: AsyncClient, admin_auth_headers: dict, auth_headers: dict, temp_csv_file: str):
+        """测试普通用户下载公开数据集"""
+        # 管理员上传数据集
+        with open(temp_csv_file, 'rb') as f:
+            upload_response = await client.post(
+                "/api/datasets/upload",
+                headers=admin_auth_headers,
+                files={"file": ("test.csv", f, "text/csv")},
+                data={"name": "Download Public Dataset"}
+            )
+        
+        dataset_id = upload_response.json()["id"]
+        
+        # 普通用户下载
+        response = await client.get(
+            f"/api/datasets/{dataset_id}/download",
+            headers=auth_headers
+        )
+        
+        assert response.status_code == 200
+        assert "text/csv" in response.headers.get("content-type", "")
 

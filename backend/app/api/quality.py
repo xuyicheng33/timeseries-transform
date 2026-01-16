@@ -36,7 +36,7 @@ def _read_csv_sync(filepath: str, encoding: str = "utf-8") -> pd.DataFrame:
 
 def _read_csv_with_sampling(filepath: str, encoding: str = "utf-8", max_rows: int = None, sample_size: int = None) -> tuple[pd.DataFrame, bool, int]:
     """
-    读取 CSV 文件，支持大文件采样
+    读取 CSV 文件，支持大文件采样（使用蓄水池采样算法，内存 O(sample_size)）
     
     Args:
         filepath: 文件路径
@@ -47,24 +47,42 @@ def _read_csv_with_sampling(filepath: str, encoding: str = "utf-8", max_rows: in
     Returns:
         (DataFrame, is_sampled, total_rows): 数据、是否采样、总行数
     """
-    # 先快速统计行数（不读取全部数据）
-    with open(filepath, 'r', encoding=encoding, errors='replace') as f:
-        total_rows = sum(1 for _ in f) - 1  # 减去表头
+    import csv
+    import random as rng
     
+    # 先读取表头并快速统计行数
+    with open(filepath, 'r', encoding=encoding, errors='replace') as f:
+        reader = csv.reader(f)
+        header = next(reader)  # 读取表头
+        total_rows = sum(1 for _ in reader)  # 统计数据行数
+    
+    # 判断是否需要采样
     if max_rows and sample_size and total_rows > max_rows:
-        # 大文件：使用随机采样
-        # 计算采样比例
-        skip_ratio = 1 - (sample_size / total_rows)
+        # 大文件：使用蓄水池采样算法（Reservoir Sampling）
+        # 内存复杂度 O(sample_size)，时间复杂度 O(n)，只需一次遍历
+        actual_sample_size = min(sample_size, total_rows)  # 防止 sample_size > total_rows
         
-        # 使用 skiprows 进行随机采样
-        import random
-        random.seed(42)  # 固定种子保证可重复性
+        # 使用独立的 Random 实例，避免影响全局 RNG
+        local_rng = rng.Random(42)  # 固定种子保证可重复性
         
-        # 生成要跳过的行号（保留表头，即第0行）
-        all_rows = list(range(1, total_rows + 1))
-        skip_rows = set(random.sample(all_rows, int(total_rows * skip_ratio)))
+        reservoir = []  # 蓄水池
         
-        df = pd.read_csv(filepath, encoding=encoding, skiprows=lambda x: x in skip_rows)
+        with open(filepath, 'r', encoding=encoding, errors='replace') as f:
+            reader = csv.reader(f)
+            next(reader)  # 跳过表头
+            
+            for i, row in enumerate(reader):
+                if i < actual_sample_size:
+                    # 前 k 个元素直接放入蓄水池
+                    reservoir.append(row)
+                else:
+                    # 以 k/(i+1) 的概率替换蓄水池中的元素
+                    j = local_rng.randint(0, i)
+                    if j < actual_sample_size:
+                        reservoir[j] = row
+        
+        # 构建 DataFrame
+        df = pd.DataFrame(reservoir, columns=header)
         return df, True, total_rows
     else:
         # 小文件：直接读取

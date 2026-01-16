@@ -48,6 +48,8 @@ interface DataQualityReportProps {
   loading?: boolean
   onRefresh?: (method: OutlierMethod) => void
   onOpenCleaning?: () => void
+  /** 是否为管理员（仅管理员可执行数据清洗） */
+  isAdmin?: boolean
 }
 
 export default function DataQualityReport({
@@ -55,6 +57,7 @@ export default function DataQualityReport({
   loading = false,
   onRefresh,
   onOpenCleaning,
+  isAdmin = false,
 }: DataQualityReportProps) {
   const [outlierMethod, setOutlierMethod] = useState<OutlierMethod>('iqr')
 
@@ -428,13 +431,16 @@ export default function DataQualityReport({
                 刷新
               </Button>
             </Tooltip>
-            <Button
-              type="primary"
-              icon={<ToolOutlined />}
-              onClick={onOpenCleaning}
-            >
-              数据清洗
-            </Button>
+            {/* 仅管理员可执行数据清洗 */}
+            {isAdmin && (
+              <Button
+                type="primary"
+                icon={<ToolOutlined />}
+                onClick={onOpenCleaning}
+              >
+                数据清洗
+              </Button>
+            )}
           </Space>
         </Row>
       </Card>

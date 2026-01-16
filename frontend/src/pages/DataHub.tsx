@@ -993,6 +993,7 @@ export default function DataHub() {
             loading={qualityLoading}
             onRefresh={handleQualityRefresh}
             onOpenCleaning={handleOpenCleaning}
+            isAdmin={isAdmin}
           />
         )}
       </Drawer>
