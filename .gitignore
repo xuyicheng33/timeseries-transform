@@ -86,3 +86,5 @@ datasets/prepared/
 # Misc
 # ===========================
 user
+data_for_platform/  
+test/ 
