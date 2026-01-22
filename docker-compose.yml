@@ -29,7 +29,7 @@ services:
       # 数据隔离
       - ENABLE_DATA_ISOLATION=${ENABLE_DATA_ISOLATION:-false}
       # 文件上传
-      - MAX_UPLOAD_SIZE=104857600
+      - MAX_UPLOAD_SIZE=524288000
       # 缓存配置
       - CACHE_MAX_AGE_DAYS=7
       - CACHE_MAX_SIZE_MB=1024

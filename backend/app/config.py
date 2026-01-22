@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     CACHE_DIR: Path = UPLOAD_DIR / "cache"
     
     # File Upload Limits
-    MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024  # 100MB
+    MAX_UPLOAD_SIZE: int = 500 * 1024 * 1024  # 500MB (可根据需要调整)
     ALLOWED_EXTENSIONS: set = {".csv"}
     
     # Data Preview
