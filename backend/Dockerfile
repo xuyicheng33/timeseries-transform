@@ -1,7 +1,7 @@
 # 时序预测平台 - 后端 Dockerfile
 # 使用 Python 3.11 官方镜像
 
-FROM python:3.11-slim
+FROM docker.m.daocloud.io/library/python:3.11-slim
 
 # 使用阿里云 Debian 镜像源加速（国内服务器）
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources

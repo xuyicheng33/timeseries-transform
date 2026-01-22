@@ -2,7 +2,7 @@
 # 多阶段构建：先构建，再用 Nginx 部署
 
 # ============ 构建阶段 ============
-FROM node:20-alpine AS builder
+FROM docker.m.daocloud.io/library/node:20-alpine AS builder
 
 WORKDIR /app
 

@@ -18,7 +18,7 @@ export const APP_CONFIG = {
 
   // 上传配置
   UPLOAD: {
-    MAX_SIZE: 100 * 1024 * 1024, // 100MB
+    MAX_SIZE: 500 * 1024 * 1024, // 100MB
     ALLOWED_TYPES: ['.csv'],
     TIMEOUT: 300000, // 5分钟
   },
