@@ -104,7 +104,6 @@ class Folder(Base):
     parent_id = Column(Integer, ForeignKey('folders.id', ondelete='CASCADE'), nullable=True, index=True)
     sort_order = Column(Integer, default=0, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
-    folder_id = Column(Integer, ForeignKey('folders.id', ondelete='SET NULL'), nullable=True, index=True)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
@@ -128,6 +127,7 @@ class Dataset(Base):
     description = Column(Text, default="")
     # 用户关联（用于数据隔离）
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    folder_id = Column(Integer, ForeignKey('folders.id', ondelete='SET NULL'), nullable=True, index=True)
     is_public = Column(Boolean, default=True)  # 是否公开（默认公开，由管理员统一管理）
     # 排序权重，越小越靠前
     sort_order = Column(Integer, default=0, index=True)
