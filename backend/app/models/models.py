@@ -96,6 +96,23 @@ class User(Base):
     model_templates = relationship("ModelTemplate", back_populates="user")
 
 
+class Folder(Base):
+    __tablename__ = "folders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    parent_id = Column(Integer, ForeignKey('folders.id', ondelete='CASCADE'), nullable=True, index=True)
+    sort_order = Column(Integer, default=0, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    folder_id = Column(Integer, ForeignKey('folders.id', ondelete='SET NULL'), nullable=True, index=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    parent = relationship("Folder", remote_side=[id], backref="children")
+    user = relationship("User")
+    datasets = relationship("Dataset", back_populates="folder")
+
+
 class Dataset(Base):
     __tablename__ = "datasets"
     
@@ -119,6 +136,7 @@ class Dataset(Base):
     
     # 关系
     user = relationship("User", back_populates="datasets")
+    folder = relationship("Folder", back_populates="datasets")
     configurations = relationship("Configuration", back_populates="dataset", cascade="all, delete-orphan")
     results = relationship("Result", back_populates="dataset", cascade="all, delete-orphan")
 

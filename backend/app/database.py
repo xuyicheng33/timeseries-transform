@@ -66,7 +66,7 @@ async def init_db():
     3. 支持数据库结构的版本控制和回滚
     """
     # 确保模型已注册到 Base.metadata
-    from app.models import User, Dataset, Configuration, Result  # noqa: F401
+    from app.models import User, Folder, Dataset, Configuration, Result  # noqa: F401
     
     # 仅验证数据库连接是否正常
     async with engine.begin() as conn:

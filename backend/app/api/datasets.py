@@ -17,14 +17,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
 from app.database import get_db
-from app.models import Dataset, Configuration, Result, User
+from app.models import Dataset, Folder, Configuration, Result, User
 from app.schemas import (
-    DatasetCreate, DatasetUpdate, DatasetResponse, DatasetPreview, 
-    PaginatedResponse, DatasetSortOrderUpdate
+    DatasetBatchMoveRequest,
+    DatasetCreate,
+    DatasetPreview,
+    DatasetResponse,
+    DatasetSortOrderUpdate,
+    DatasetUpdate,
+    PaginatedResponse,
 )
 from app.config import settings
 from app.services.utils import count_csv_rows, sanitize_filename, sanitize_filename_for_header, safe_rmtree, validate_form_field, validate_description
 from app.services.executor import run_in_executor
+from app.services.dataset_service import cleanup_paths, plan_dataset_delete
 from app.services.security import validate_filepath
 from app.services.permissions import (
     check_read_access, 
@@ -59,6 +65,7 @@ async def upload_dataset(
     file: UploadFile = File(...),
     name: str = Form(...),
     description: str = Form(""),
+    folder_id: int | None = Form(None),
     is_public: bool = Form(True),  # 忽略前端传值，强制公开
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_admin_user)  # 仅管理员可上传
@@ -71,6 +78,13 @@ async def upload_dataset(
     # 表单字段校验
     name = validate_form_field(name, "数据集名称", max_length=255, min_length=1)
     description = validate_description(description, max_length=1000)
+
+    if folder_id is not None:
+        folder = await db.get(Folder, folder_id)
+        if folder is None:
+            raise HTTPException(status_code=404, detail="Folder not found")
+        if folder.parent_id is not None:
+            raise HTTPException(status_code=400, detail="Only root folders are supported")
     
     # 大小写不敏感的扩展名校验
     if not file.filename.lower().endswith(".csv"):
@@ -90,6 +104,7 @@ async def upload_dataset(
         filepath="", 
         description=description,
         user_id=current_user.id,
+        folder_id=folder_id,
         is_public=True,  # 强制公开，忽略前端传值
         sort_order=max_sort_order + 1  # 新数据集排在最后
     )
@@ -164,6 +179,8 @@ async def list_all_datasets(
 async def list_datasets(
     page: int = 1,
     page_size: int = 20,
+    root_only: bool = False,
+    folder_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -172,6 +189,16 @@ async def list_datasets(
     page = max(1, page)
     page_size = max(1, min(100, page_size))
     offset = (page - 1) * page_size
+
+    if root_only and folder_id is not None:
+        raise HTTPException(status_code=400, detail="root_only and folder_id are mutually exclusive")
+
+    if folder_id is not None:
+        folder = await db.get(Folder, folder_id)
+        if folder is None:
+            raise HTTPException(status_code=404, detail="Folder not found")
+        if folder.parent_id is not None:
+            raise HTTPException(status_code=400, detail="Only root folders are supported")
     
     # 获取数据隔离条件
     conditions, _ = get_isolation_conditions(current_user, Dataset)
@@ -180,6 +207,12 @@ async def list_datasets(
     count_query = select(func.count(Dataset.id))
     for cond in conditions:
         count_query = count_query.where(cond)
+
+    if root_only:
+        count_query = count_query.where(Dataset.folder_id.is_(None))
+    elif folder_id is not None:
+        count_query = count_query.where(Dataset.folder_id == folder_id)
+
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
     
@@ -187,6 +220,12 @@ async def list_datasets(
     query = select(Dataset).order_by(Dataset.sort_order.asc(), Dataset.id.asc())
     for cond in conditions:
         query = query.where(cond)
+
+    if root_only:
+        query = query.where(Dataset.folder_id.is_(None))
+    elif folder_id is not None:
+        query = query.where(Dataset.folder_id == folder_id)
+
     query = query.offset(offset).limit(page_size)
     
     result = await db.execute(query)
@@ -329,6 +368,13 @@ async def update_dataset(
     
     # 忽略 is_public 字段，数据集始终公开
     update_data.pop('is_public', None)
+
+    if "folder_id" in update_data and update_data["folder_id"] is not None:
+        folder = await db.get(Folder, update_data["folder_id"])
+        if folder is None:
+            raise HTTPException(status_code=404, detail="Folder not found")
+        if folder.parent_id is not None:
+            raise HTTPException(status_code=400, detail="Only root folders are supported")
     
     for key, value in update_data.items():
         setattr(dataset, key, value)
@@ -344,46 +390,47 @@ async def delete_dataset(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_admin_user)  # 仅管理员可删除
 ):
-    """
-    删除数据集（仅管理员）
-    
-    会级联删除关联的配置和结果。
-    """
-    result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
-    dataset = result.scalar_one_or_none()
-    if not dataset:
-        raise HTTPException(status_code=404, detail="数据集不存在")
-    
-    # 先提交数据库删除，再清理文件（避免事务失败但文件已删除）
-    # 级联删除关联的配置
-    configs = await db.execute(select(Configuration).where(Configuration.dataset_id == dataset_id))
-    for config in configs.scalars().all():
-        await db.delete(config)
-    
-    # 级联删除关联的结果
-    results_query = await db.execute(select(Result).where(Result.dataset_id == dataset_id))
-    result_dirs_to_delete = []
-    for res in results_query.scalars().all():
-        result_dir = settings.RESULTS_DIR / str(dataset_id) / str(res.id)
-        if result_dir.exists():
-            result_dirs_to_delete.append(str(result_dir))
-        await db.delete(res)
-    
-    # 删除数据集记录
-    await db.delete(dataset)
-    
-    # 先提交数据库事务
+    try:
+        async with db.begin():
+            plan = await plan_dataset_delete(dataset_id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    warnings = await cleanup_paths([plan.dataset_dir, plan.results_dir])
+    response: dict = {"message": "Dataset deleted"}
+    if warnings:
+        response["disk_cleanup_warnings"] = warnings
+    return response
+
+
+@router.post("/batch-move")
+async def batch_move_datasets(
+    data: DatasetBatchMoveRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_admin_user),
+):
+    if data.folder_id is not None:
+        folder = await db.get(Folder, data.folder_id)
+        if folder is None:
+            raise HTTPException(status_code=404, detail="Folder not found")
+        if folder.parent_id is not None:
+            raise HTTPException(status_code=400, detail="Only root folders are supported")
+
+    existing_result = await db.execute(
+        select(Dataset.id).where(Dataset.id.in_(data.dataset_ids))
+    )
+    existing_ids = set(existing_result.scalars().all())
+    missing_ids = sorted(set(data.dataset_ids) - existing_ids)
+    if missing_ids:
+        raise HTTPException(status_code=404, detail=f"Missing datasets: {missing_ids}")
+
+    await db.execute(
+        update(Dataset)
+        .where(Dataset.id.in_(data.dataset_ids))
+        .values(folder_id=data.folder_id)
+    )
     await db.commit()
-    
-    # 数据库提交成功后，再异步清理文件（失败不影响主流程）
-    for result_dir in result_dirs_to_delete:
-        await run_in_executor(safe_rmtree, result_dir)
-    
-    dataset_dir = settings.DATASETS_DIR / str(dataset_id)
-    if dataset_dir.exists():
-        await run_in_executor(safe_rmtree, str(dataset_dir))
-    
-    return {"message": "数据集及相关数据已删除"}
+    return {"message": "Datasets moved", "moved_count": len(data.dataset_ids)}
 
 
 @router.put("/sort-order/batch")

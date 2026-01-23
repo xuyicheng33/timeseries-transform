@@ -13,7 +13,7 @@ export interface Dataset {
   columns: string[]
   description: string
   user_id: number | null
-  is_public: boolean
+  folder_id: number | null
   sort_order: number  // 排序顺序
   created_at: string
   updated_at: string
@@ -30,7 +30,7 @@ export interface DatasetPreview {
 export interface DatasetCreate {
   name: string
   description?: string
-  is_public?: boolean
+  folder_id?: number | null
   file: File
 }
 
@@ -38,6 +38,6 @@ export interface DatasetCreate {
 export interface DatasetUpdate {
   name?: string
   description?: string
-  is_public?: boolean
+  folder_id?: number | null
 }
 

@@ -5,9 +5,16 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import {
+  Badge,
+  Col,
   Card,
   Table,
   Button,
+  Dropdown,
+  Menu,
+  Radio,
+  Row,
+  Select,
   Space,
   Modal,
   Form,
@@ -21,31 +28,41 @@ import {
   Typography,
   Descriptions,
   Empty,
-  Switch,
   Drawer,
   Spin,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { UploadFile, UploadProps } from 'antd/es/upload'
 import {
-  UploadOutlined,
-  EyeOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
-  DeleteOutlined,
+  EyeOutlined,
+  ExportOutlined,
   InboxOutlined,
   FileTextOutlined,
-  GlobalOutlined,
-  LockOutlined,
+  FolderOutlined,
+  HomeOutlined,
   SafetyCertificateOutlined,
   LineChartOutlined,
-  ExportOutlined,
   ImportOutlined,
+  MoreOutlined,
+  PlusOutlined,
   SortAscendingOutlined,
+  UploadOutlined,
 } from '@ant-design/icons'
 
-import type { Dataset, DatasetPreview, DatasetUpdate, DataQualityReport, OutlierMethod, CleaningResult } from '@/types'
+import type {
+  CleaningResult,
+  DataQualityReport,
+  Dataset,
+  DatasetPreview,
+  DatasetUpdate,
+  Folder,
+  OutlierMethod,
+} from '@/types'
 import {
+  batchMoveDatasets,
   getDatasets,
   uploadDataset,
   previewDataset as fetchPreviewDataset,
@@ -53,6 +70,7 @@ import {
   deleteDataset,
   getDatasetDownloadPath,
 } from '@/api/datasets'
+import { createFolder, deleteFolder, getFolders, updateFolder as updateFolderApi } from '@/api/folders'
 import { getQualityReport } from '@/api/quality'
 import { batchDeleteDatasets, exportData, previewImport, importData } from '@/api/batch'
 import { download } from '@/utils/download'
@@ -62,6 +80,7 @@ import DataQualityReportComponent from '@/components/DataQualityReport'
 import DataCleaningModal from '@/components/DataCleaningModal'
 import DataExploration from '@/components/DataExploration'
 import DatasetSortModal from '@/components/DatasetSortModal'
+import FolderSortModal from '@/components/FolderSortModal'
 import { useAuth } from '@/contexts/AuthContext'
 
 const { Title, Text } = Typography
@@ -70,6 +89,25 @@ const { Dragger } = Upload
 
 // 列名展示的最大数量
 const MAX_VISIBLE_COLUMNS = 5
+
+type FolderSortValue = 'manual' | 'name_asc' | 'name_desc' | 'time_desc' | 'time_asc'
+
+function resolveFolderSort(
+  value: FolderSortValue
+): { sortBy: 'manual' | 'name' | 'time'; order: 'asc' | 'desc' } {
+  switch (value) {
+    case 'name_asc':
+      return { sortBy: 'name', order: 'asc' }
+    case 'name_desc':
+      return { sortBy: 'name', order: 'desc' }
+    case 'time_asc':
+      return { sortBy: 'time', order: 'asc' }
+    case 'time_desc':
+      return { sortBy: 'time', order: 'desc' }
+    default:
+      return { sortBy: 'manual', order: 'asc' }
+  }
+}
 
 export default function DataHub() {
   // ============ 认证状态 ============
@@ -82,6 +120,28 @@ export default function DataHub() {
   const [total, setTotal] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  const [folders, setFolders] = useState<Folder[]>([])
+  const [foldersLoading, setFoldersLoading] = useState(false)
+  const [rootDatasetCount, setRootDatasetCount] = useState(0)
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null)
+  const [folderSort, setFolderSort] = useState<FolderSortValue>('manual')
+  const [folderSortModalOpen, setFolderSortModalOpen] = useState(false)
+
+  const [folderModalOpen, setFolderModalOpen] = useState(false)
+  const [folderForm] = Form.useForm()
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
+  const [folderSaving, setFolderSaving] = useState(false)
+
+  const [deleteFolderModalOpen, setDeleteFolderModalOpen] = useState(false)
+  const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null)
+  const [deleteFolderAction, setDeleteFolderAction] = useState<'move_to_root' | 'cascade'>(
+    'move_to_root'
+  )
+  const [deleteFolderConfirmName, setDeleteFolderConfirmName] = useState('')
+  const [folderDeleting, setFolderDeleting] = useState(false)
+
+  const [batchMoving, setBatchMoving] = useState(false)
 
   // 上传相关
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
@@ -130,22 +190,171 @@ export default function DataHub() {
   const [sortModalOpen, setSortModalOpen] = useState(false)
 
   // ============ 数据获取 ============
+  const fetchFolders = useCallback(async () => {
+    setFoldersLoading(true)
+    try {
+      const { sortBy, order } = resolveFolderSort(folderSort)
+      const response = await getFolders(sortBy, order)
+      setFolders(response.items)
+      setRootDatasetCount(response.root_dataset_count)
+    } catch {
+      // Error is handled by the API layer
+    } finally {
+      setFoldersLoading(false)
+    }
+  }, [folderSort])
+
   const fetchDatasets = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await getDatasets(currentPage, pageSize)
+      const options =
+        selectedFolderId === null
+          ? { rootOnly: true }
+          : { folderId: selectedFolderId }
+      const response = await getDatasets(currentPage, pageSize, options)
       setDatasets(response.items)
       setTotal(response.total)
     } catch {
-      // 错误已在 API 层处理
+      // Error is handled by the API layer
     } finally {
       setLoading(false)
     }
-  }, [currentPage, pageSize])
+  }, [currentPage, pageSize, selectedFolderId])
+
+  useEffect(() => {
+    fetchFolders()
+  }, [fetchFolders])
 
   useEffect(() => {
     fetchDatasets()
   }, [fetchDatasets])
+
+  const selectedFolderMenuKey =
+    selectedFolderId === null ? 'root' : `folder-${selectedFolderId}`
+
+  const handleFolderMenuClick = (key: string) => {
+    if (key === 'create') {
+      setEditingFolder(null)
+      setFolderModalOpen(true)
+      folderForm.resetFields()
+      return
+    }
+
+    if (key === 'root') {
+      setSelectedFolderId(null)
+      setCurrentPage(1)
+      setSelectedRowKeys([])
+      return
+    }
+
+    if (key.startsWith('folder-')) {
+      const id = Number(key.slice('folder-'.length))
+      if (!Number.isNaN(id)) {
+        setSelectedFolderId(id)
+        setCurrentPage(1)
+        setSelectedRowKeys([])
+      }
+    }
+  }
+
+  const handleOpenRenameFolder = (folder: Folder) => {
+    setEditingFolder(folder)
+    setFolderModalOpen(true)
+    folderForm.setFieldsValue({ name: folder.name })
+  }
+
+  const handleCloseFolderModal = () => {
+    setFolderModalOpen(false)
+    setEditingFolder(null)
+    folderForm.resetFields()
+  }
+
+  const handleSaveFolder = async () => {
+    try {
+      const values = await folderForm.validateFields()
+      setFolderSaving(true)
+
+      if (editingFolder) {
+        await updateFolderApi(editingFolder.id, { name: values.name })
+        message.success('重命名成功')
+      } else {
+        await createFolder({ name: values.name, parent_id: null })
+        message.success('创建成功')
+      }
+
+      handleCloseFolderModal()
+      fetchFolders()
+    } catch {
+      // Error is handled by the API layer
+    } finally {
+      setFolderSaving(false)
+    }
+  }
+
+  const handleOpenDeleteFolder = (folder: Folder) => {
+    if (folder.dataset_count === 0) {
+      Modal.confirm({
+        title: '删除文件夹',
+        content: `确认删除文件夹「${folder.name}」吗？`,
+        okText: '删除',
+        cancelText: '取消',
+        okButtonProps: { danger: true },
+        onOk: async () => {
+          await deleteFolder(folder.id, { action: 'move_to_root' })
+          message.success('删除成功')
+          if (selectedFolderId === folder.id) {
+            setSelectedFolderId(null)
+            setCurrentPage(1)
+            setSelectedRowKeys([])
+          }
+          fetchFolders()
+          fetchDatasets()
+        },
+      })
+      return
+    }
+
+    setDeletingFolder(folder)
+    setDeleteFolderAction('move_to_root')
+    setDeleteFolderConfirmName('')
+    setDeleteFolderModalOpen(true)
+  }
+
+  const handleCloseDeleteFolderModal = () => {
+    setDeleteFolderModalOpen(false)
+    setDeletingFolder(null)
+    setDeleteFolderAction('move_to_root')
+    setDeleteFolderConfirmName('')
+  }
+
+  const handleConfirmDeleteFolder = async () => {
+    if (!deletingFolder) return
+
+    setFolderDeleting(true)
+    try {
+      const wasSelected = selectedFolderId === deletingFolder.id
+      const params =
+        deleteFolderAction === 'cascade'
+          ? { action: 'cascade' as const, confirm_name: deleteFolderConfirmName }
+          : { action: 'move_to_root' as const }
+
+      await deleteFolder(deletingFolder.id, params)
+      message.success('删除成功')
+
+      handleCloseDeleteFolderModal()
+      if (wasSelected) {
+        setSelectedFolderId(null)
+        setCurrentPage(1)
+        setSelectedRowKeys([])
+      }
+      fetchFolders()
+      fetchDatasets()
+    } catch {
+      // Error is handled by the API layer
+    } finally {
+      setFolderDeleting(false)
+    }
+  }
 
   // ============ 上传功能 ============
   const handleUploadModalOpen = () => {
@@ -206,7 +415,7 @@ export default function DataHub() {
         values.name,
         values.description || '',
         uploadFile,
-        values.is_public ?? false,
+        values.folder_id ?? null,
         (percent) => setUploadProgress(percent)
       )
 
@@ -214,8 +423,9 @@ export default function DataHub() {
       setUploading(false)
       handleUploadModalClose()
       fetchDatasets()
+      fetchFolders()
     } catch {
-      // 错误已在 API 层处理
+      // Error is handled by the API layer
       setUploading(false)
     }
   }
@@ -231,7 +441,7 @@ export default function DataHub() {
       const data = await fetchPreviewDataset(dataset.id, APP_CONFIG.PREVIEW.DEFAULT_ROWS)
       setPreviewData(data)
     } catch {
-      // 错误已在 API 层处理
+      // Error is handled by the API layer
     } finally {
       setPreviewLoading(false)
     }
@@ -276,7 +486,7 @@ export default function DataHub() {
     editForm.setFieldsValue({
       name: dataset.name,
       description: dataset.description,
-      is_public: dataset.is_public,
+      folder_id: dataset.folder_id,
     })
   }
 
@@ -300,8 +510,10 @@ export default function DataHub() {
       if (values.description !== editingDataset.description) {
         updateData.description = values.description
       }
-      if (values.is_public !== editingDataset.is_public) {
-        updateData.is_public = values.is_public
+      const nextFolderId = (values.folder_id ?? null) as number | null
+      const currentFolderId = (editingDataset.folder_id ?? null) as number | null
+      if (nextFolderId !== currentFolderId) {
+        updateData.folder_id = nextFolderId
       }
 
       if (Object.keys(updateData).length === 0) {
@@ -316,8 +528,9 @@ export default function DataHub() {
       setEditLoading(false)
       handleEditModalClose()
       fetchDatasets()
+      fetchFolders()
     } catch {
-      // 错误已在 API 层处理
+      // Error is handled by the API layer
       setEditLoading(false)
     }
   }
@@ -368,6 +581,7 @@ export default function DataHub() {
     setCleaningModalOpen(false)
     // 刷新数据集列表
     fetchDatasets()
+    fetchFolders()
     // 如果创建了新数据集，提示用户
     if (result.new_dataset_id) {
       message.success(`已创建新数据集: ${result.new_dataset_name}`)
@@ -407,10 +621,37 @@ export default function DataHub() {
       }
       setSelectedRowKeys([])
       fetchDatasets()
+      fetchFolders()
     } catch {
       message.error('批量删除失败')
     } finally {
       setBatchDeleting(false)
+    }
+  }
+
+  const handleBatchMove = async (target: 'root' | number) => {
+    if (!isAdmin) return
+
+    const datasetIds = selectedRowKeys
+      .map((key) => Number(key))
+      .filter((id) => !Number.isNaN(id))
+
+    if (datasetIds.length === 0) {
+      message.warning('请先选择要移动的数据集')
+      return
+    }
+
+    setBatchMoving(true)
+    try {
+      await batchMoveDatasets(datasetIds, target === 'root' ? null : target)
+      message.success('移动成功')
+      setSelectedRowKeys([])
+      fetchDatasets()
+      fetchFolders()
+    } catch {
+      message.error('批量移动失败')
+    } finally {
+      setBatchMoving(false)
     }
   }
 
@@ -487,6 +728,7 @@ export default function DataHub() {
       )
       handleImportModalClose()
       fetchDatasets()
+      fetchFolders()
     } catch {
       message.error('导入失败')
     } finally {
@@ -500,8 +742,9 @@ export default function DataHub() {
       await deleteDataset(dataset.id)
       message.success('删除成功')
       fetchDatasets()
+      fetchFolders()
     } catch {
-      // 错误已在 API 层处理
+      // Error is handled by the API layer
     }
   }
 
@@ -540,19 +783,10 @@ export default function DataHub() {
       key: 'name',
       width: 200,
       ellipsis: true,
-      render: (name: string, record: Dataset) => (
+      render: (name: string) => (
         <Space>
           <FileTextOutlined style={{ color: '#1890ff' }} />
           <Text strong>{name}</Text>
-          {record.is_public ? (
-            <Tooltip title="公开数据集">
-              <GlobalOutlined style={{ color: '#52c41a', fontSize: 12 }} />
-            </Tooltip>
-          ) : (
-            <Tooltip title="私有数据集">
-              <LockOutlined style={{ color: '#faad14', fontSize: 12 }} />
-            </Tooltip>
-          )}
         </Space>
       ),
     },
@@ -567,6 +801,23 @@ export default function DataHub() {
           <Text type="secondary">{filename}</Text>
         </Tooltip>
       ),
+    },
+    {
+      title: '文件夹',
+      dataIndex: 'folder_id',
+      key: 'folder_id',
+      width: 140,
+      render: (folderId: number | null) => {
+        if (folderId === null) {
+          return <Text type="secondary">根目录</Text>
+        }
+        const folder = folders.find((item) => item.id === folderId)
+        return folder ? (
+          <Tag icon={<FolderOutlined />}>{folder.name}</Tag>
+        ) : (
+          <Text type="secondary">-</Text>
+        )
+      },
     },
     {
       title: '大小',
@@ -707,85 +958,264 @@ export default function DataHub() {
         </div>
       </Card>
 
-      {/* 批量操作栏 */}
-      {selectedRowKeys.length > 0 && (
-        <Card style={{ marginBottom: 16 }} size="small">
-          <Space>
-            <Text>已选择 {selectedRowKeys.length} 项</Text>
-            <Button
-              icon={<ExportOutlined />}
-              onClick={handleExport}
-              loading={exporting}
-            >
-              导出选中
-            </Button>
-            {/* 仅管理员可批量删除 */}
-            {isAdmin && (
-              <Popconfirm
-                title="批量删除"
-                description={`确定要删除选中的 ${selectedRowKeys.length} 个数据集吗？相关的配置和结果也会被删除。`}
-                onConfirm={handleBatchDelete}
-                okText="删除"
-                cancelText="取消"
-                okButtonProps={{ danger: true }}
-              >
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  loading={batchDeleting}
-                >
-                  批量删除
-                </Button>
-              </Popconfirm>
-            )}
-            <Button type="link" onClick={() => setSelectedRowKeys([])}>
-              取消选择
-            </Button>
-          </Space>
-        </Card>
-      )}
-
-      {/* 数据集列表 */}
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={datasets}
-          rowKey="id"
-          loading={loading}
-          scroll={{ x: 1400 }}
-          rowSelection={{
-            selectedRowKeys,
-            onChange: (keys) => setSelectedRowKeys(keys),
-          }}
-          pagination={{
-            current: currentPage,
-            pageSize: pageSize,
-            total: total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (t) => `共 ${t} 个数据集`,
-            pageSizeOptions: ['10', '20', '50'],
-            onChange: (page, size) => {
-              setCurrentPage(page)
-              setPageSize(size)
-            },
-          }}
-          locale={{
-            emptyText: (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="暂无数据集"
-              >
-                {isAdmin && (
-                  <Button type="primary" onClick={handleUploadModalOpen}>
-                    上传第一个数据集
+      <Row gutter={16}>
+        <Col xs={24} md={7} lg={6} xl={5}>
+          <Card
+            size="small"
+            title="文件夹"
+            extra={
+              <Space size="small">
+                <Select<FolderSortValue>
+                  size="small"
+                  style={{ width: 140 }}
+                  value={folderSort}
+                  onChange={(value) => setFolderSort(value)}
+                  options={[
+                    { label: '手动排序', value: 'manual' },
+                    { label: '名称 A-Z', value: 'name_asc' },
+                    { label: '名称 Z-A', value: 'name_desc' },
+                    { label: '创建时间（最新）', value: 'time_desc' },
+                    { label: '创建时间（最旧）', value: 'time_asc' },
+                  ]}
+                />
+                {isAdmin && folderSort === 'manual' && (
+                  <Button size="small" onClick={() => setFolderSortModalOpen(true)}>
+                    文件夹排序
                   </Button>
                 )}
-              </Empty>
-            ),
-          }}
-        />
-      </Card>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          >
+            {foldersLoading ? (
+              <div style={{ textAlign: 'center', padding: 24 }}>
+                <Spin />
+              </div>
+            ) : (
+              <Menu
+                mode="inline"
+                selectedKeys={[selectedFolderMenuKey]}
+                onClick={({ key }) => handleFolderMenuClick(String(key))}
+              >
+                <Menu.Item key="root" icon={<HomeOutlined />}>
+                  <Space>
+                    <span>根目录</span>
+                    <Badge count={rootDatasetCount} size="small" />
+                  </Space>
+                </Menu.Item>
+                <Menu.Divider />
+                {folders.map((folder) => (
+                  <Menu.Item key={`folder-${folder.id}`} icon={<FolderOutlined />}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <Space size={6}>
+                        <span>{folder.name}</span>
+                        <Badge count={folder.dataset_count} size="small" />
+                      </Space>
+                      {isAdmin && (
+                        <Dropdown
+                          menu={{
+                            items: [
+                              { key: 'rename', label: '重命名' },
+                              { key: 'delete', label: '删除', danger: true },
+                            ],
+                            onClick: ({ key }) => {
+                              if (key === 'rename') {
+                                handleOpenRenameFolder(folder)
+                              } else if (key === 'delete') {
+                                handleOpenDeleteFolder(folder)
+                              }
+                            },
+                          }}
+                          trigger={['click']}
+                        >
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<MoreOutlined />}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </Dropdown>
+                      )}
+                    </div>
+                  </Menu.Item>
+                ))}
+                {isAdmin && (
+                  <>
+                    <Menu.Divider />
+                    <Menu.Item key="create" icon={<PlusOutlined />}>
+                      新建文件夹
+                    </Menu.Item>
+                  </>
+                )}
+              </Menu>
+            )}
+          </Card>
+        </Col>
+
+        <Col xs={24} md={17} lg={18} xl={19}>
+          {selectedRowKeys.length > 0 && (
+            <Card style={{ marginBottom: 16 }} size="small">
+              <Space wrap>
+                <Text>已选择 {selectedRowKeys.length} 项</Text>
+                <Button icon={<ExportOutlined />} onClick={handleExport} loading={exporting}>
+                  导出选中
+                </Button>
+                {isAdmin && (
+                  <Select
+                    style={{ width: 220 }}
+                    placeholder="移动到..."
+                    disabled={batchMoving}
+                    onSelect={(value) => handleBatchMove(value as 'root' | number)}
+                    options={[
+                      { label: '根目录', value: 'root' },
+                      ...folders.map((folder) => ({ label: folder.name, value: folder.id })),
+                    ]}
+                  />
+                )}
+                {isAdmin && (
+                  <Popconfirm
+                    title="批量删除"
+                    description={`确定要删除选中的 ${selectedRowKeys.length} 个数据集吗？相关的配置和结果也会被删除。`}
+                    onConfirm={handleBatchDelete}
+                    okText="删除"
+                    cancelText="取消"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button danger icon={<DeleteOutlined />} loading={batchDeleting}>
+                      批量删除
+                    </Button>
+                  </Popconfirm>
+                )}
+                <Button type="link" onClick={() => setSelectedRowKeys([])}>
+                  取消选择
+                </Button>
+              </Space>
+            </Card>
+          )}
+
+          <Card>
+            <Table
+              columns={columns}
+              dataSource={datasets}
+              rowKey="id"
+              loading={loading}
+              scroll={{ x: 1500 }}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: (keys) => setSelectedRowKeys(keys),
+              }}
+              pagination={{
+                current: currentPage,
+                pageSize: pageSize,
+                total: total,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (t) => `共 ${t} 个数据集`,
+                pageSizeOptions: ['10', '20', '50'],
+                onChange: (page, size) => {
+                  setCurrentPage(page)
+                  setPageSize(size)
+                },
+              }}
+              locale={{
+                emptyText: (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据集">
+                    {isAdmin && (
+                      <Button type="primary" onClick={handleUploadModalOpen}>
+                        上传第一个数据集
+                      </Button>
+                    )}
+                  </Empty>
+                ),
+              }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <FolderSortModal
+        open={folderSortModalOpen}
+        onClose={() => setFolderSortModalOpen(false)}
+        onSuccess={fetchFolders}
+      />
+
+      <Modal
+        title={editingFolder ? '重命名文件夹' : '新建文件夹'}
+        open={folderModalOpen}
+        onCancel={handleCloseFolderModal}
+        onOk={handleSaveFolder}
+        okText={editingFolder ? '保存' : '创建'}
+        cancelText="取消"
+        confirmLoading={folderSaving}
+        maskClosable={!folderSaving}
+        closable={!folderSaving}
+      >
+        <Form form={folderForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="name"
+            label="文件夹名称"
+            rules={[
+              { required: true, message: '请输入文件夹名称' },
+              { max: 255, message: '名称不能超过255个字符' },
+            ]}
+          >
+            <Input placeholder="请输入文件夹名称" disabled={folderSaving} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="删除文件夹"
+        open={deleteFolderModalOpen}
+        onCancel={handleCloseDeleteFolderModal}
+        onOk={handleConfirmDeleteFolder}
+        okText="删除"
+        cancelText="取消"
+        confirmLoading={folderDeleting}
+        okButtonProps={{
+          danger: true,
+          disabled:
+            deleteFolderAction === 'cascade' &&
+            deleteFolderConfirmName !== deletingFolder?.name,
+        }}
+        maskClosable={!folderDeleting}
+        closable={!folderDeleting}
+      >
+        {deletingFolder && (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Text>
+              文件夹「{deletingFolder.name}」包含 {deletingFolder.dataset_count} 个数据集
+            </Text>
+            <Radio.Group
+              value={deleteFolderAction}
+              onChange={(e) => setDeleteFolderAction(e.target.value)}
+            >
+              <Space direction="vertical">
+                <Radio value="move_to_root">将数据集移到根目录（推荐）</Radio>
+                <Radio value="cascade">
+                  <Text type="danger">同时删除所有数据集（不可恢复）</Text>
+                </Radio>
+              </Space>
+            </Radio.Group>
+            {deleteFolderAction === 'cascade' && (
+              <div>
+                <Text type="danger">请输入文件夹名称确认：</Text>
+                <Input
+                  placeholder={deletingFolder.name}
+                  value={deleteFolderConfirmName}
+                  onChange={(e) => setDeleteFolderConfirmName(e.target.value)}
+                />
+              </div>
+            )}
+          </Space>
+        )}
+      </Modal>
 
       {/* 上传 Modal */}
       <Modal
@@ -836,14 +1266,13 @@ export default function DataHub() {
             />
           </Form.Item>
 
-          <Form.Item
-            name="is_public"
-            label="公开数据集"
-            valuePropName="checked"
-            initialValue={false}
-            tooltip="公开后，其他登录用户可以查看和下载此数据集"
-          >
-            <Switch disabled={uploading} />
+          <Form.Item name="folder_id" label="文件夹">
+            <Select
+              placeholder="选择文件夹（可选，默认根目录）"
+              allowClear
+              disabled={uploading}
+              options={folders.map((folder) => ({ label: folder.name, value: folder.id }))}
+            />
           </Form.Item>
 
           {uploading && (
@@ -955,13 +1384,13 @@ export default function DataHub() {
             />
           </Form.Item>
 
-          <Form.Item
-            name="is_public"
-            label="公开数据集"
-            valuePropName="checked"
-            tooltip="公开后，其他登录用户可以查看和下载此数据集，但只有您可以修改"
-          >
-            <Switch disabled={editLoading} />
+          <Form.Item name="folder_id" label="文件夹">
+            <Select
+              placeholder="选择文件夹（可选，默认根目录）"
+              allowClear
+              disabled={editLoading}
+              options={folders.map((folder) => ({ label: folder.name, value: folder.id }))}
+            />
           </Form.Item>
         </Form>
       </Modal>

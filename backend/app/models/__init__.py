@@ -1,1 +1,1 @@
-from app.models.models import User, Dataset, Configuration, Result, Experiment, experiment_results, ModelTemplate
+from app.models.models import User, Folder, Dataset, Configuration, Result, Experiment, experiment_results, ModelTemplate

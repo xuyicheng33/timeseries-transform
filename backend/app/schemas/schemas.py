@@ -49,6 +49,7 @@ class DatasetUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     description: Optional[str] = None
     is_public: Optional[bool] = None
+    folder_id: Optional[int] = None
 
     @field_validator('name')
     @classmethod
@@ -68,6 +69,7 @@ class DatasetResponse(DatasetBase):
     column_count: int
     columns: List[str]
     user_id: Optional[int] = None
+    folder_id: Optional[int] = None
     is_public: bool = True
     sort_order: int = 0  # 排序权重
     created_at: datetime
@@ -99,10 +101,95 @@ class DatasetSortOrderUpdate(BaseModel):
         return v
 
 
+class DatasetBatchMoveRequest(BaseModel):
+    dataset_ids: List[int]
+    folder_id: Optional[int] = None
+
+    @field_validator("dataset_ids")
+    @classmethod
+    def validate_dataset_ids(cls, v: List[int]) -> List[int]:
+        if not v:
+            raise ValueError("dataset_ids must not be empty")
+        if len(v) > 1000:
+            raise ValueError("Too many dataset ids")
+        if len(v) != len(set(v)):
+            raise ValueError("Duplicate dataset ids")
+        return v
+
+
 class DatasetPreview(BaseModel):
     columns: List[str]
     data: List[Dict[str, Any]]
     total_rows: int
+
+
+# ============ Folder Schemas ============
+class FolderBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    parent_id: Optional[int] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Name must not be empty")
+        return v
+
+
+class FolderCreate(FolderBase):
+    pass
+
+
+class FolderUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("Name must not be empty")
+        return v
+
+
+class FolderResponse(BaseModel):
+    id: int
+    name: str
+    parent_id: Optional[int] = None
+    sort_order: int = 0
+    dataset_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FolderSortOrderItem(BaseModel):
+    id: int
+    sort_order: int
+
+
+class FolderSortOrderUpdate(BaseModel):
+    orders: List[FolderSortOrderItem]
+
+    @field_validator("orders")
+    @classmethod
+    def validate_orders(cls, v: List[FolderSortOrderItem]) -> List[FolderSortOrderItem]:
+        if len(v) > 1000:
+            raise ValueError("Too many items")
+        ids = [item.id for item in v]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate folder ids")
+        return v
+
+
+class FolderListResponse(BaseModel):
+    items: List[FolderResponse]
+    total: int
+    root_dataset_count: int = 0
 
 
 # ============ Configuration Schemas ============

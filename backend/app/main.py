@@ -7,7 +7,7 @@ from app.config import settings, init_directories
 from app.database import init_db, close_db, async_session_maker
 from app.services.executor import shutdown_executor
 from app.services.auth import init_jwt_secret
-from app.api import datasets, configurations, results, visualization, auth, quality, exploration, batch, comparison, experiments, model_templates, reports, advanced_viz
+from app.api import folders, datasets, configurations, results, visualization, auth, quality, exploration, batch, comparison, experiments, model_templates, reports, advanced_viz
 
 
 async def init_preset_model_templates():
@@ -114,6 +114,7 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(auth.router)  # 认证路由
+app.include_router(folders.router)
 app.include_router(datasets.router)
 app.include_router(configurations.router)
 app.include_router(results.router)

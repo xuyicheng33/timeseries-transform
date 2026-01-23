@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import settings
 from app.database import Base
-from app.models import User, Dataset, Configuration, Result  # 确保所有模型都被导入
+from app.models import User, Folder, Dataset, Configuration, Result  # 确保所有模型都被导入
 
 # Alembic Config 对象
 config = context.config

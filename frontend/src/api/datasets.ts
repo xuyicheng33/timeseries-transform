@@ -18,14 +18,16 @@ export async function uploadDataset(
   name: string,
   description: string,
   file: File,
-  isPublic: boolean = false,
+  folderId?: number | null,
   onProgress?: (percent: number) => void
 ): Promise<Dataset> {
   const formData = new FormData()
   formData.append('name', name)
   formData.append('description', description)
   formData.append('file', file)
-  formData.append('is_public', String(isPublic))
+  if (folderId !== undefined && folderId !== null) {
+    formData.append('folder_id', String(folderId))
+  }
 
   return api.post('/datasets/upload', formData, {
     timeout: 300000, // 5分钟
@@ -43,10 +45,17 @@ export async function uploadDataset(
  */
 export async function getDatasets(
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  options?: { rootOnly?: boolean; folderId?: number | null }
 ): Promise<PaginatedResponse<Dataset>> {
+  const params: Record<string, unknown> = { page, page_size: pageSize }
+  if (options?.rootOnly) {
+    params.root_only = true
+  } else if (options?.folderId !== undefined && options.folderId !== null) {
+    params.folder_id = options.folderId
+  }
   return api.get('/datasets', {
-    params: { page, page_size: pageSize },
+    params,
   })
 }
 
@@ -98,6 +107,16 @@ export async function updateDataset(
  */
 export async function deleteDataset(id: number): Promise<DeleteResponse> {
   return api.delete(`/datasets/${id}`)
+}
+
+export async function batchMoveDatasets(
+  datasetIds: number[],
+  folderId: number | null
+): Promise<{ message: string; moved_count: number }> {
+  return api.post('/datasets/batch-move', {
+    dataset_ids: datasetIds,
+    folder_id: folderId,
+  })
 }
 
 /**

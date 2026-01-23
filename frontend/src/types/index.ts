@@ -10,6 +10,16 @@ export type {
   DatasetUpdate,
 } from './dataset'
 
+// Folder
+export type {
+  Folder,
+  FolderListResponse,
+  FolderCreate,
+  FolderUpdate,
+  FolderSortOrderItem,
+  FolderSortOrderUpdate,
+} from './folder'
+
 // Configuration
 export type {
   NormalizationType,
