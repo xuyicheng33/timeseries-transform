@@ -101,6 +101,7 @@ class Folder(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
+    description = Column(Text, default="")
     parent_id = Column(Integer, ForeignKey('folders.id', ondelete='CASCADE'), nullable=True, index=True)
     sort_order = Column(Integer, default=0, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)

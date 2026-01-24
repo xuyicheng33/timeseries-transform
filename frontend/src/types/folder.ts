@@ -1,6 +1,7 @@
 export interface Folder {
   id: number
   name: string
+  description: string
   parent_id: number | null
   sort_order: number
   dataset_count: number
@@ -16,11 +17,13 @@ export interface FolderListResponse {
 
 export interface FolderCreate {
   name: string
+  description?: string
   parent_id?: number | null
 }
 
 export interface FolderUpdate {
   name?: string
+  description?: string
 }
 
 export interface FolderSortOrderItem {

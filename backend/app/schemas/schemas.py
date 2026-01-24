@@ -126,6 +126,7 @@ class DatasetPreview(BaseModel):
 # ============ Folder Schemas ============
 class FolderBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
+    description: str = Field(default="", max_length=1000)
     parent_id: Optional[int] = None
 
     @field_validator("name")
@@ -136,6 +137,11 @@ class FolderBase(BaseModel):
             raise ValueError("Name must not be empty")
         return v
 
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, v: str) -> str:
+        return v.strip() if v else ""
+
 
 class FolderCreate(FolderBase):
     pass
@@ -143,6 +149,7 @@ class FolderCreate(FolderBase):
 
 class FolderUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=1000)
 
     @field_validator("name")
     @classmethod
@@ -154,10 +161,18 @@ class FolderUpdate(BaseModel):
             raise ValueError("Name must not be empty")
         return v
 
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return v.strip()
+
 
 class FolderResponse(BaseModel):
     id: int
     name: str
+    description: str
     parent_id: Optional[int] = None
     sort_order: int = 0
     dataset_count: int = 0

@@ -74,6 +74,7 @@ async def list_folders(
         FolderResponse(
             id=folder.id,
             name=folder.name,
+            description=folder.description,
             parent_id=folder.parent_id,
             sort_order=folder.sort_order,
             dataset_count=dataset_count,
@@ -98,6 +99,13 @@ async def create_folder(
         raise HTTPException(status_code=400, detail="Only root folders are supported")
 
     name = validate_form_field(data.name, "Folder name", max_length=255, min_length=1)
+    description = validate_form_field(
+        data.description,
+        "Folder description",
+        max_length=1000,
+        min_length=0,
+        required=False,
+    )
 
     existing = await db.execute(
         select(Folder.id).where(Folder.parent_id.is_(None), Folder.name == name)
@@ -111,7 +119,13 @@ async def create_folder(
     max_sort_order = max_sort_result.scalar()
     sort_order = (max_sort_order if max_sort_order is not None else -1) + 1
 
-    folder = Folder(name=name, parent_id=None, sort_order=sort_order, user_id=admin.id)
+    folder = Folder(
+        name=name,
+        description=description,
+        parent_id=None,
+        sort_order=sort_order,
+        user_id=admin.id,
+    )
     db.add(folder)
     await db.commit()
     await db.refresh(folder)
@@ -119,6 +133,7 @@ async def create_folder(
     return FolderResponse(
         id=folder.id,
         name=folder.name,
+        description=folder.description,
         parent_id=folder.parent_id,
         sort_order=folder.sort_order,
         dataset_count=0,
@@ -153,6 +168,15 @@ async def update_folder(
             raise HTTPException(status_code=400, detail="Folder name already exists")
         folder.name = name
 
+    if data.description is not None:
+        folder.description = validate_form_field(
+            data.description,
+            "Folder description",
+            max_length=1000,
+            min_length=0,
+            required=False,
+        )
+
     await db.commit()
     await db.refresh(folder)
 
@@ -163,6 +187,7 @@ async def update_folder(
     return FolderResponse(
         id=folder.id,
         name=folder.name,
+        description=folder.description,
         parent_id=folder.parent_id,
         sort_order=folder.sort_order,
         dataset_count=dataset_count,

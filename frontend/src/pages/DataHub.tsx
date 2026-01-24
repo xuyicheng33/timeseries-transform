@@ -260,7 +260,7 @@ export default function DataHub() {
   const handleOpenRenameFolder = (folder: Folder) => {
     setEditingFolder(folder)
     setFolderModalOpen(true)
-    folderForm.setFieldsValue({ name: folder.name })
+    folderForm.setFieldsValue({ name: folder.name, description: folder.description })
   }
 
   const handleCloseFolderModal = () => {
@@ -275,10 +275,17 @@ export default function DataHub() {
       setFolderSaving(true)
 
       if (editingFolder) {
-        await updateFolderApi(editingFolder.id, { name: values.name })
+        await updateFolderApi(editingFolder.id, {
+          name: values.name,
+          description: values.description || '',
+        })
         message.success('重命名成功')
       } else {
-        await createFolder({ name: values.name, parent_id: null })
+        await createFolder({
+          name: values.name,
+          description: values.description || '',
+          parent_id: null,
+        })
         message.success('创建成功')
       }
 
@@ -1014,7 +1021,13 @@ export default function DataHub() {
                       }}
                     >
                       <Space size={6}>
-                        <span>{folder.name}</span>
+                        {folder.description ? (
+                          <Tooltip title={folder.description}>
+                            <span>{folder.name}</span>
+                          </Tooltip>
+                        ) : (
+                          <span>{folder.name}</span>
+                        )}
                         <Badge count={folder.dataset_count} size="small" />
                       </Space>
                       {isAdmin && (
@@ -1166,6 +1179,17 @@ export default function DataHub() {
             ]}
           >
             <Input placeholder="请输入文件夹名称" disabled={folderSaving} />
+          </Form.Item>
+          <Form.Item
+            name="description"
+            label="描述"
+            rules={[{ max: 1000, message: '描述不能超过1000个字符' }]}
+          >
+            <Input.TextArea
+              placeholder="可选"
+              disabled={folderSaving}
+              autoSize={{ minRows: 3, maxRows: 6 }}
+            />
           </Form.Item>
         </Form>
       </Modal>
