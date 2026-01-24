@@ -9,6 +9,7 @@ Create Date: 2026-01-24
 from typing import Sequence, Union
 
 from alembic import op
+import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -19,17 +20,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    dialect_name = bind.dialect.name if bind is not None else ""
+
+    if dialect_name == "sqlite":
+        op.create_index(
+            "uq_folders_parent_id_name",
+            "folders",
+            ["parent_id", "name"],
+            unique=True,
+        )
+        return
+
     op.create_unique_constraint(
-        "uq_folders_parent_id_name",
-        "folders",
-        ["parent_id", "name"],
+        "uq_folders_parent_id_name", "folders", ["parent_id", "name"]
     )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "uq_folders_parent_id_name",
-        "folders",
-        type_="unique",
-    )
+    bind = op.get_bind()
+    dialect_name = bind.dialect.name if bind is not None else ""
 
+    if dialect_name == "sqlite":
+        op.drop_index("uq_folders_parent_id_name", table_name="folders")
+        return
+
+    op.drop_constraint("uq_folders_parent_id_name", "folders", type_="unique")
