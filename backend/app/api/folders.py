@@ -14,7 +14,7 @@ from app.schemas import (
 )
 from app.services.dataset_service import cleanup_paths, plan_dataset_delete
 from app.services.permissions import get_isolation_conditions
-from app.services.utils import validate_form_field
+from app.services.utils import validate_description, validate_form_field
 
 router = APIRouter(prefix="/api/folders", tags=["folders"])
 
@@ -127,13 +127,7 @@ async def create_folder(
         await _validate_parent_id(db, parent_id)
 
     name = validate_form_field(data.name, "Folder name", max_length=255, min_length=1)
-    description = validate_form_field(
-        data.description,
-        "Folder description",
-        max_length=1000,
-        min_length=0,
-        required=False,
-    )
+    description = validate_description(data.description, max_length=1000)
 
     parent_condition = (
         Folder.parent_id.is_(None) if parent_id is None else Folder.parent_id == parent_id
@@ -201,13 +195,7 @@ async def update_folder(
         folder.name = name
 
     if data.description is not None:
-        folder.description = validate_form_field(
-            data.description,
-            "Folder description",
-            max_length=1000,
-            min_length=0,
-            required=False,
-        )
+        folder.description = validate_description(data.description, max_length=1000)
 
     await db.commit()
     await db.refresh(folder)

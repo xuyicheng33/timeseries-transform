@@ -2,10 +2,13 @@
  * 主布局组件
  */
 
+import { useState } from 'react'
 import { Layout, Menu, Typography, Dropdown, Avatar, Space, message } from 'antd'
 import type { MenuProps } from 'antd'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import {
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
@@ -23,6 +26,9 @@ export default function MainLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
+  const [siderCollapsed, setSiderCollapsed] = useState(
+    () => localStorage.getItem('layout:siderCollapsed') === '1'
+  )
 
   const menuItems = ROUTES.map((route) => ({
     key: route.path,
@@ -63,11 +69,27 @@ export default function MainLayout() {
     }
   }
 
+  const toggleSider = () => {
+    setSiderCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('layout:siderCollapsed', next ? '1' : '0')
+      return next
+    })
+  }
+
   return (
     <Layout className="main-layout">
       <Header className="main-header">
         <div className="header-content">
           <div className="header-left">
+            <button
+              type="button"
+              className="sider-trigger"
+              aria-label={siderCollapsed ? '展开侧边栏' : '收起侧边栏'}
+              onClick={toggleSider}
+            >
+              {siderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            </button>
             <Title level={3} className="app-title">
               {APP_NAME}
             </Title>
@@ -93,9 +115,17 @@ export default function MainLayout() {
         </div>
       </Header>
       <Layout>
-        <Sider width={220} className="main-sider">
+        <Sider
+          width={220}
+          collapsedWidth={56}
+          collapsible
+          trigger={null}
+          collapsed={siderCollapsed}
+          className="main-sider"
+        >
           <Menu
             mode="inline"
+            inlineCollapsed={siderCollapsed}
             selectedKeys={[location.pathname]}
             items={menuItems}
             onClick={({ key }) => navigate(key)}
@@ -109,4 +139,3 @@ export default function MainLayout() {
     </Layout>
   )
 }
-

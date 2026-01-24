@@ -30,6 +30,19 @@ class TestFolderAPI:
         assert data["description"] == "Root folder"
 
     @pytest.mark.asyncio
+    async def test_folder_description_allows_newlines_and_tabs(
+        self, client: AsyncClient, admin_auth_headers: dict
+    ):
+        description = "Line1\n\tLine2"
+        response = await client.post(
+            "/api/folders",
+            json={"name": "Root", "description": description, "parent_id": None},
+            headers=admin_auth_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["description"] == description
+
+    @pytest.mark.asyncio
     async def test_create_subfolder_success(self, client: AsyncClient, admin_auth_headers: dict):
         root_resp = await client.post(
             "/api/folders",

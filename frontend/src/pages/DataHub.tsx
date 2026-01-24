@@ -91,6 +91,7 @@ const { Dragger } = Upload
 
 // 列名展示的最大数量
 const MAX_VISIBLE_COLUMNS = 5
+const DESCRIPTION_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'pre-wrap', tabSize: 4 }
 
 type FolderSortValue = 'manual' | 'name_asc' | 'name_desc' | 'time_desc' | 'time_asc'
 
@@ -312,7 +313,7 @@ export default function DataHub() {
         }}
       >
         {folder.description ? (
-          <Tooltip title={folder.description}>
+          <Tooltip title={<span style={DESCRIPTION_TEXT_STYLE}>{folder.description}</span>}>
             <span
               style={{
                 flex: 1,
@@ -1111,8 +1112,8 @@ export default function DataHub() {
       ellipsis: true,
       render: (description: string) =>
         description ? (
-          <Tooltip title={description}>
-            <Text type="secondary">{description}</Text>
+          <Tooltip title={<span style={DESCRIPTION_TEXT_STYLE}>{description}</span>}>
+            <Text type="secondary">{description.replace(/\s+/g, ' ').trim()}</Text>
           </Tooltip>
         ) : (
           <Text type="secondary">-</Text>
@@ -1303,6 +1304,7 @@ export default function DataHub() {
                 multiple={false}
                 blockNode
                 showIcon={false}
+                className="datahub-folder-tree"
                 expandedKeys={folderTreeExpandedKeys}
                 onExpand={(keys) => setFolderTreeExpandedKeys(keys)}
                 treeData={folderTreeData}
@@ -1432,9 +1434,11 @@ export default function DataHub() {
                         </Space>
                       </div>
                       {folder.description ? (
-                        <Text type="secondary" ellipsis={{ tooltip: folder.description }}>
-                          {folder.description}
-                        </Text>
+                        <Tooltip title={<span style={DESCRIPTION_TEXT_STYLE}>{folder.description}</span>}>
+                          <Text type="secondary" ellipsis>
+                            {folder.description.replace(/\s+/g, ' ').trim()}
+                          </Text>
+                        </Tooltip>
                       ) : (
                         <Text type="secondary">-</Text>
                       )}
@@ -1544,7 +1548,7 @@ export default function DataHub() {
             <Descriptions.Item label="名称">{folderInfoFolder.name}</Descriptions.Item>
             <Descriptions.Item label="描述">
               {folderInfoFolder.description ? (
-                <Text>{folderInfoFolder.description}</Text>
+                <Text style={DESCRIPTION_TEXT_STYLE}>{folderInfoFolder.description}</Text>
               ) : (
                 <Text type="secondary">-</Text>
               )}
@@ -1792,7 +1796,7 @@ export default function DataHub() {
             </Descriptions.Item>
             {previewDataset.description && (
               <Descriptions.Item label="描述" span={4}>
-                {previewDataset.description}
+                <Text style={DESCRIPTION_TEXT_STYLE}>{previewDataset.description}</Text>
               </Descriptions.Item>
             )}
           </Descriptions>

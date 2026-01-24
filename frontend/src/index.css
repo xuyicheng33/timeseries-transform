@@ -9,3 +9,15 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.datahub-folder-tree .ant-tree-indent-unit {
+  width: 12px;
+}
+
+.datahub-folder-tree .ant-tree-switcher {
+  width: 18px;
+}
+
+.datahub-folder-tree .ant-tree-node-content-wrapper {
+  padding-inline: 2px;
+}

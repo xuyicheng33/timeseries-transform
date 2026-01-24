@@ -36,6 +36,28 @@
   gap: 16px;
 }
 
+.sider-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sider-trigger:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.sider-trigger .anticon {
+  font-size: 18px;
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -110,4 +132,3 @@
   min-height: calc(100vh - 64px);
   overflow: auto;
 }
-

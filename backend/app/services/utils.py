@@ -58,9 +58,28 @@ def validate_form_field(value: str, field_name: str, max_length: int = 255,
     return value
 
 
-def validate_description(value: str, max_length: int = 1000) -> str:
-    """校验描述字段（允许为空，更长的长度限制）"""
-    return validate_form_field(value, "描述", max_length=max_length, min_length=0, required=False)
+def validate_description(value: str | None, max_length: int = 1000) -> str:
+    """校验描述字段（允许为空，允许换行/制表符）"""
+    # 去除首尾空白
+    value = value.strip() if value else ""
+
+    # 允许为空
+    if not value:
+        return value
+
+    # 统一换行符，避免 Windows CRLF 带来的差异
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+
+    # 长度校验
+    if len(value) > max_length:
+        raise HTTPException(status_code=400, detail=f"描述长度不能超过{max_length}个字符")
+
+    # 控制字符校验：允许 \n \t，其余控制字符拒绝
+    dangerous_pattern = r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]"
+    if re.search(dangerous_pattern, value):
+        raise HTTPException(status_code=400, detail="描述包含非法字符（仅允许换行符和制表符）")
+
+    return value
 
 
 # ============ 文件名处理 ============

@@ -149,6 +149,23 @@ class TestDatasetUpload:
         assert data["row_count"] == 100
         assert data["column_count"] == 3
         assert data["is_public"] == True  # 强制公开
+
+    @pytest.mark.asyncio
+    async def test_upload_dataset_description_allows_newlines_and_tabs(
+        self, client: AsyncClient, admin_auth_headers: dict, temp_csv_file: str
+    ):
+        """测试描述字段支持换行符与制表符"""
+        description = "Line1\n\tLine2"
+        with open(temp_csv_file, 'rb') as f:
+            response = await client.post(
+                "/api/datasets/upload",
+                headers=admin_auth_headers,
+                files={"file": ("test.csv", f, "text/csv")},
+                data={"name": "Uploaded Dataset", "description": description},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["description"] == description
     
     @pytest.mark.asyncio
     async def test_upload_dataset_forbidden_for_normal_user(self, client: AsyncClient, auth_headers: dict, temp_csv_file: str):
