@@ -209,7 +209,7 @@ async def delete_folder(
     deleted_configs = 0
     deleted_results = 0
 
-    async with db.begin():
+    try:
         for dataset_id in dataset_ids:
             plan = await plan_dataset_delete(dataset_id, db)
             deleted_datasets += 1
@@ -219,6 +219,10 @@ async def delete_folder(
             cleanup_targets.add(plan.results_dir)
 
         await db.delete(folder)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete folder") from exc
 
     warnings = await cleanup_paths(cleanup_targets)
     response = {

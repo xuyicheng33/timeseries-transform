@@ -391,10 +391,14 @@ async def delete_dataset(
     current_user: User = Depends(get_admin_user)  # 仅管理员可删除
 ):
     try:
-        async with db.begin():
-            plan = await plan_dataset_delete(dataset_id, db)
+        plan = await plan_dataset_delete(dataset_id, db)
+        await db.commit()
     except ValueError as exc:
+        await db.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete dataset") from exc
 
     warnings = await cleanup_paths([plan.dataset_dir, plan.results_dir])
     response: dict = {"message": "Dataset deleted"}
