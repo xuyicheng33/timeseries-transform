@@ -279,7 +279,7 @@ export default function DataHub() {
           name: values.name,
           description: values.description || '',
         })
-        message.success('重命名成功')
+        message.success('保存成功')
       } else {
         await createFolder({
           name: values.name,
@@ -1034,7 +1034,7 @@ export default function DataHub() {
                         <Dropdown
                           menu={{
                             items: [
-                              { key: 'rename', label: '重命名' },
+                              { key: 'rename', label: '编辑' },
                               { key: 'delete', label: '删除', danger: true },
                             ],
                             onClick: ({ key }) => {
@@ -1159,7 +1159,7 @@ export default function DataHub() {
       />
 
       <Modal
-        title={editingFolder ? '重命名文件夹' : '新建文件夹'}
+        title={editingFolder ? '编辑文件夹' : '新建文件夹'}
         open={folderModalOpen}
         onCancel={handleCloseFolderModal}
         onOk={handleSaveFolder}
