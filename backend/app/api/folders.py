@@ -171,7 +171,7 @@ async def create_folder(
     )
 
 
-@router.put("/{folder_id}", response_model=FolderResponse)
+@router.put("/{folder_id:int}", response_model=FolderResponse)
 async def update_folder(
     folder_id: int,
     data: FolderUpdate,
@@ -228,7 +228,7 @@ async def update_folder(
     )
 
 
-@router.delete("/{folder_id}")
+@router.delete("/{folder_id:int}")
 async def delete_folder(
     folder_id: int,
     action: str = Query(..., regex="^(move_to_root|cascade)$"),

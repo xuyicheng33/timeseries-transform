@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Modal, List, message, Typography, Space, Tag, Empty, Spin } from 'antd'
-import { HolderOutlined, FolderOutlined } from '@ant-design/icons'
+import { HolderOutlined } from '@ant-design/icons'
 import type { Folder } from '@/types'
 import { getFolders, reorderFolders } from '@/api/folders'
 
@@ -146,7 +146,6 @@ export default function FolderSortModal({
               <Space style={{ width: '100%' }}>
                 <HolderOutlined style={{ color: '#999', cursor: 'grab' }} />
                 <Tag color="blue">{index + 1}</Tag>
-                <FolderOutlined style={{ color: '#1890ff' }} />
                 <Text strong style={{ flex: 1 }}>
                   {item.name}
                 </Text>

@@ -1,0 +1,4108 @@
+{
+  "validation_time": "2026-01-24 11:20:22",
+  "total_datasets": 23,
+  "datasets": {
+    "all_baseinfo": {
+      "status": "success",
+      "file_count": 422,
+      "sampled_files": [
+        {
+          "file": "._all_baseinfo_20241211.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_baseinfo_20241212.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_baseinfo_20241213.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_baseinfo_20250709.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "all_baseinfo_20241211.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 80,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_baseinfo_20250707.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_baseinfo_20250708.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_baseinfo_20250709.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "datetime",
+            "wpthopower",
+            "pvthopower"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "datetime",
+          "pvthopower",
+          "wpthopower",
+          "Unnamed: 0"
+        ]
+      },
+      "time_range": {
+        "min": "2024-12-11 21:04:00",
+        "max": "2025-07-09 01:39:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower",
+            "Unnamed: 0"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 211,
+          "actual": 422
+        }
+      ],
+      "quality_stats": {}
+    },
+    "all_day_powergeneration": {
+      "status": "success",
+      "file_count": 18,
+      "sampled_files": [
+        {
+          "file": "._all_day_powergeneration_202411.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_day_powergeneration_202412.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_day_powergeneration_202501.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_day_powergeneration_202507.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "all_day_powergeneration_202411.csv",
+          "columns": [
+            "datetime",
+            "allproducequantity",
+            "allselfusequantity",
+            "allnetquantity",
+            "pvproducequantity",
+            "pvselfusequantity",
+            "pvnetquantity",
+            "wpproducequantity",
+            "wpselfusequantity",
+            "wpnetquantity",
+            "alleffecthour",
+            "pveffecthour",
+            "wpeffecthour",
+            "pvtheoryquantity",
+            "pvefficiency",
+            "allcydquantity",
+            "allcydquantityrate",
+            "pvcydquantity",
+            "pvcydquantityrate",
+            "wpcydquantity",
+            "wpcydquantityrate"
+          ],
+          "column_count": 21,
+          "row_count_sample": 11,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_day_powergeneration_202505.csv",
+          "columns": [
+            "datetime",
+            "allproducequantity",
+            "allselfusequantity",
+            "allnetquantity",
+            "pvproducequantity",
+            "pvselfusequantity",
+            "pvnetquantity",
+            "wpproducequantity",
+            "wpselfusequantity",
+            "wpnetquantity",
+            "alleffecthour",
+            "pveffecthour",
+            "wpeffecthour",
+            "pvtheoryquantity",
+            "pvefficiency",
+            "allcydquantity",
+            "allcydquantityrate",
+            "pvcydquantity",
+            "pvcydquantityrate",
+            "wpcydquantity",
+            "wpcydquantityrate",
+            "alloffgridquantity",
+            "pvoffgridquantity",
+            "wpoffgridquantity",
+            "allselfusequantityrate",
+            "pvselfusequantityrate",
+            "wpselfusequantityrate"
+          ],
+          "column_count": 27,
+          "row_count_sample": 31,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_day_powergeneration_202506.csv",
+          "columns": [
+            "datetime",
+            "allproducequantity",
+            "allselfusequantity",
+            "allnetquantity",
+            "pvproducequantity",
+            "pvselfusequantity",
+            "pvnetquantity",
+            "wpproducequantity",
+            "wpselfusequantity",
+            "wpnetquantity",
+            "alleffecthour",
+            "pveffecthour",
+            "wpeffecthour",
+            "pvtheoryquantity",
+            "pvefficiency",
+            "allcydquantity",
+            "allcydquantityrate",
+            "pvcydquantity",
+            "pvcydquantityrate",
+            "wpcydquantity",
+            "wpcydquantityrate",
+            "alloffgridquantity",
+            "pvoffgridquantity",
+            "wpoffgridquantity",
+            "allselfusequantityrate",
+            "pvselfusequantityrate",
+            "wpselfusequantityrate"
+          ],
+          "column_count": 27,
+          "row_count_sample": 30,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_day_powergeneration_202507.csv",
+          "columns": [
+            "datetime",
+            "allproducequantity",
+            "allselfusequantity",
+            "allnetquantity",
+            "pvproducequantity",
+            "pvselfusequantity",
+            "pvnetquantity",
+            "wpproducequantity",
+            "wpselfusequantity",
+            "wpnetquantity",
+            "alleffecthour",
+            "pveffecthour",
+            "wpeffecthour",
+            "pvtheoryquantity",
+            "pvefficiency",
+            "allcydquantity",
+            "allcydquantityrate",
+            "pvcydquantity",
+            "pvcydquantityrate",
+            "wpcydquantity",
+            "wpcydquantityrate",
+            "alloffgridquantity",
+            "pvoffgridquantity",
+            "wpoffgridquantity",
+            "allselfusequantityrate",
+            "pvselfusequantityrate",
+            "wpselfusequantityrate"
+          ],
+          "column_count": 27,
+          "row_count_sample": 9,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "pveffecthour",
+            "allnetquantity",
+            "pvnetquantity",
+            "datetime",
+            "wpeffecthour",
+            "allproducequantity",
+            "wpselfusequantity",
+            "wpnetquantity",
+            "alleffecthour",
+            "allcydquantityrate",
+            "pvselfusequantity",
+            "allselfusequantity",
+            "pvproducequantity",
+            "pvefficiency",
+            "pvcydquantity",
+            "pvtheoryquantity",
+            "allcydquantity",
+            "pvcydquantityrate",
+            "wpcydquantity",
+            "wpcydquantityrate",
+            "wpproducequantity"
+          ],
+          [
+            "pveffecthour",
+            "allnetquantity",
+            "pvoffgridquantity",
+            "pvnetquantity",
+            "alloffgridquantity",
+            "pvselfusequantityrate",
+            "datetime",
+            "wpeffecthour",
+            "allproducequantity",
+            "wpselfusequantity",
+            "wpnetquantity",
+            "alleffecthour",
+            "wpoffgridquantity",
+            "wpselfusequantityrate",
+            "allcydquantityrate",
+            "pvselfusequantity",
+            "allselfusequantity",
+            "pvproducequantity",
+            "pvefficiency",
+            "pvcydquantity",
+            "pvtheoryquantity",
+            "allselfusequantityrate",
+            "allcydquantity",
+            "pvcydquantityrate",
+            "wpcydquantity",
+            "wpcydquantityrate",
+            "wpproducequantity"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "pveffecthour",
+          "allnetquantity",
+          "Unnamed: 0",
+          "pvoffgridquantity",
+          "allselfusequantity",
+          "pvnetquantity",
+          "alloffgridquantity",
+          "pvselfusequantityrate",
+          "datetime",
+          "pvproducequantity",
+          "wpeffecthour",
+          "pvefficiency",
+          "allproducequantity",
+          "pvcydquantity",
+          "wpselfusequantity",
+          "pvtheoryquantity",
+          "wpnetquantity",
+          "alleffecthour",
+          "wpoffgridquantity",
+          "wpselfusequantityrate",
+          "allselfusequantityrate",
+          "allcydquantity",
+          "allcydquantityrate",
+          "pvcydquantityrate",
+          "pvselfusequantity",
+          "wpcydquantity",
+          "wpcydquantityrate",
+          "wpproducequantity"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-20 00:00:00",
+        "max": "2025-07-09 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "pveffecthour",
+            "allnetquantity",
+            "Unnamed: 0",
+            "pvoffgridquantity",
+            "allselfusequantity",
+            "pvnetquantity",
+            "alloffgridquantity",
+            "pvselfusequantityrate",
+            "datetime",
+            "pvproducequantity",
+            "wpeffecthour",
+            "pvefficiency",
+            "allproducequantity",
+            "pvcydquantity",
+            "wpselfusequantity",
+            "pvtheoryquantity",
+            "wpnetquantity",
+            "alleffecthour",
+            "wpoffgridquantity",
+            "wpselfusequantityrate",
+            "allselfusequantityrate",
+            "allcydquantity",
+            "allcydquantityrate",
+            "pvcydquantityrate",
+            "pvselfusequantity",
+            "wpcydquantity",
+            "wpcydquantityrate",
+            "wpproducequantity"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 9,
+          "actual": 18
+        }
+      ],
+      "quality_stats": {}
+    },
+    "all_thopower": {
+      "status": "success",
+      "file_count": 24,
+      "sampled_files": [
+        {
+          "file": "._all_thopower_20241130.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_thopower_20241201.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_thopower_20241202.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._all_thopower_20241211.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "all_thopower_20241130.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_thopower_20241209.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_thopower_20241210.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "all_thopower_20241211.csv",
+          "columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "datetime",
+            "wpthopower",
+            "pvthopower"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "datetime",
+          "pvthopower",
+          "wpthopower",
+          "Unnamed: 0"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-30 19:59:00",
+        "max": "2024-12-11 03:55:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "datetime",
+            "pvthopower",
+            "wpthopower",
+            "Unnamed: 0"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 12,
+          "actual": 24
+        }
+      ],
+      "quality_stats": {}
+    },
+    "bay_day_powergeneration": {
+      "status": "success",
+      "file_count": 18,
+      "sampled_files": [
+        {
+          "file": "._bay_day_powergeneration_202411.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._bay_day_powergeneration_202412.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._bay_day_powergeneration_202501.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._bay_day_powergeneration_202507.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "bay_day_powergeneration_202411.csv",
+          "columns": [
+            "datetime",
+            "bayid",
+            "quantity"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "bay_day_powergeneration_202505.csv",
+          "columns": [
+            "datetime",
+            "bayid",
+            "quantity",
+            "generathour"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "bay_day_powergeneration_202506.csv",
+          "columns": [
+            "datetime",
+            "bayid",
+            "quantity",
+            "generathour"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "bay_day_powergeneration_202507.csv",
+          "columns": [
+            "datetime",
+            "bayid",
+            "quantity",
+            "generathour"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "datetime",
+            "quantity",
+            "bayid"
+          ],
+          [
+            "datetime",
+            "quantity",
+            "generathour",
+            "bayid"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "datetime",
+          "Unnamed: 0",
+          "generathour",
+          "bayid",
+          "quantity"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-22 00:00:00",
+        "max": "2025-07-01 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "datetime",
+            "Unnamed: 0",
+            "generathour",
+            "bayid",
+            "quantity"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 9,
+          "actual": 18
+        }
+      ],
+      "quality_stats": {}
+    },
+    "computeschedule": {
+      "status": "success",
+      "file_count": 4,
+      "sampled_files": [
+        {
+          "file": "._computeschedule.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._computeschedule_copy1.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "computeschedule.csv",
+          "columns": [
+            "totalanalogid",
+            "dayanalogid",
+            "computedatetime",
+            "accumulatorvalue",
+            "daylastvalue",
+            "daystartdatetime"
+          ],
+          "column_count": 6,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "computeschedule_copy1.csv",
+          "columns": [
+            "totalanalogid",
+            "dayanalogid",
+            "computedatetime",
+            "accumulatorvalue",
+            "daylastvalue",
+            "daystartdatetime"
+          ],
+          "column_count": 6,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "daystartdatetime",
+            "totalanalogid",
+            "accumulatorvalue",
+            "dayanalogid",
+            "daylastvalue",
+            "computedatetime"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "dayanalogid",
+          "Unnamed: 0",
+          "daystartdatetime",
+          "daylastvalue",
+          "totalanalogid",
+          "computedatetime",
+          "accumulatorvalue"
+        ]
+      },
+      "time_range": {
+        "min": "2024-12-12 19:05:00",
+        "max": "2025-07-09 18:08:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "dayanalogid",
+            "Unnamed: 0",
+            "daystartdatetime",
+            "daylastvalue",
+            "totalanalogid",
+            "computedatetime",
+            "accumulatorvalue"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 2,
+          "actual": 4
+        }
+      ],
+      "quality_stats": {}
+    },
+    "his_node": {
+      "status": "success",
+      "file_count": 10,
+      "sampled_files": [
+        {
+          "file": "._his_node.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._his_node_alarm.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._his_node_app.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._his_node_net.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "his_node.csv",
+          "columns": [
+            "hostname",
+            "nodeType",
+            "syscpu",
+            "sysmem",
+            "sysmemfree",
+            "sysmemused",
+            "sysmempercent",
+            "sysdisktoal",
+            "sysdiskfree",
+            "sysdiskused",
+            "sysdiskpercent",
+            "startDate",
+            "lastUpdateTime"
+          ],
+          "column_count": 13,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "his_node_app.csv",
+          "columns": [
+            "hostname",
+            "appname",
+            "servername",
+            "registermsg",
+            "type",
+            "ctx",
+            "objectid",
+            "delay",
+            "maxrestarttime",
+            "autorun",
+            "isguarden",
+            "state",
+            "dutystate",
+            "cpu",
+            "mem",
+            "memPercent",
+            "startDate",
+            "lastUpdateTime"
+          ],
+          "column_count": 18,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "his_node_disk.csv",
+          "columns": [
+            "hostname",
+            "mountPoint",
+            "discName",
+            "discTotal",
+            "discFree",
+            "discUsed",
+            "discPercent",
+            "lastUpdateTime"
+          ],
+          "column_count": 8,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "his_node_net.csv",
+          "columns": [
+            "hostname",
+            "netCardName",
+            "netConnetName",
+            "ip",
+            "netmask",
+            "netState",
+            "sendSpeed",
+            "recvSpeed",
+            "sendKb",
+            "recvKb",
+            "lastUpdateTime"
+          ],
+          "column_count": 11,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "startDate",
+            "sysmemfree",
+            "sysmemused",
+            "nodeType",
+            "sysmem",
+            "sysdisktoal",
+            "sysmempercent",
+            "sysdiskfree",
+            "sysdiskused",
+            "lastUpdateTime",
+            "syscpu",
+            "hostname",
+            "sysdiskpercent"
+          ],
+          [
+            "startDate",
+            "maxrestarttime",
+            "registermsg",
+            "dutystate",
+            "appname",
+            "isguarden",
+            "delay",
+            "mem",
+            "state",
+            "servername",
+            "autorun",
+            "cpu",
+            "memPercent",
+            "lastUpdateTime",
+            "objectid",
+            "hostname",
+            "type",
+            "ctx"
+          ],
+          [
+            "discTotal",
+            "discName",
+            "discFree",
+            "discPercent",
+            "discUsed",
+            "mountPoint",
+            "lastUpdateTime",
+            "hostname"
+          ],
+          [
+            "sendKb",
+            "netState",
+            "recvKb",
+            "recvSpeed",
+            "netConnetName",
+            "netmask",
+            "lastUpdateTime",
+            "ip",
+            "hostname",
+            "sendSpeed",
+            "netCardName"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "maxrestarttime",
+          "netState",
+          "recvKb",
+          "mem",
+          "delay",
+          "state",
+          "cpu",
+          "memPercent",
+          "netmask",
+          "sysdisktoal",
+          "sysdiskfree",
+          "mountPoint",
+          "lastUpdateTime",
+          "syscpu",
+          "objectid",
+          "startDate",
+          "discFree",
+          "recvSpeed",
+          "sysmem",
+          "ip",
+          "registermsg",
+          "Unnamed: 0",
+          "dutystate",
+          "appname",
+          "isguarden",
+          "autorun",
+          "discPercent",
+          "netConnetName",
+          "sysmempercent",
+          "sysdiskused",
+          "netCardName",
+          "hostname",
+          "sysmemused",
+          "type",
+          "ctx",
+          "discTotal",
+          "discName",
+          "sendKb",
+          "sysmemfree",
+          "sendSpeed",
+          "servername",
+          "discUsed",
+          "nodeType",
+          "sysdiskpercent"
+        ]
+      },
+      "time_range": {
+        "min": "1970-01-01 00:00:00.000000020",
+        "max": "2024-10-17 20:26:19"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现5种不同的列组合",
+          "diff_columns": [
+            "maxrestarttime",
+            "netState",
+            "recvKb",
+            "mem",
+            "delay",
+            "state",
+            "cpu",
+            "memPercent",
+            "netmask",
+            "sysdisktoal",
+            "sysdiskfree",
+            "mountPoint",
+            "lastUpdateTime",
+            "syscpu",
+            "objectid",
+            "startDate",
+            "discFree",
+            "recvSpeed",
+            "sysmem",
+            "ip",
+            "registermsg",
+            "Unnamed: 0",
+            "dutystate",
+            "appname",
+            "isguarden",
+            "autorun",
+            "discPercent",
+            "netConnetName",
+            "sysmempercent",
+            "sysdiskused",
+            "netCardName",
+            "hostname",
+            "sysmemused",
+            "type",
+            "ctx",
+            "discTotal",
+            "discName",
+            "sendKb",
+            "sysmemfree",
+            "sendSpeed",
+            "servername",
+            "discUsed",
+            "nodeType",
+            "sysdiskpercent"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 5,
+          "actual": 10
+        }
+      ],
+      "quality_stats": {}
+    },
+    "hisaccumulator": {
+      "status": "success",
+      "file_count": 48,
+      "sampled_files": [
+        {
+          "file": "._hisaccumulator_20240101.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._hisaccumulator_20241018.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._hisaccumulator_20241019.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._hisaccumulator_20241109.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "hisaccumulator_20240101.csv",
+          "columns": [
+            "SAVETIME",
+            "ACCUMULATORID",
+            "EQUIPID",
+            "MEASTYPEID",
+            "DATATIME",
+            "CALVALUE",
+            "AMOUNTVALUE",
+            "QUALITY"
+          ],
+          "column_count": 8,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "hisaccumulator_20241107.csv",
+          "columns": [
+            "SAVETIME",
+            "ACCUMULATORID",
+            "EQUIPID",
+            "MEASTYPEID",
+            "DATATIME",
+            "CALVALUE",
+            "AMOUNTVALUE",
+            "QUALITY"
+          ],
+          "column_count": 8,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "hisaccumulator_20241108.csv",
+          "columns": [
+            "SAVETIME",
+            "ACCUMULATORID",
+            "EQUIPID",
+            "MEASTYPEID",
+            "DATATIME",
+            "CALVALUE",
+            "AMOUNTVALUE",
+            "QUALITY"
+          ],
+          "column_count": 8,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "hisaccumulator_20241109.csv",
+          "columns": [
+            "SAVETIME",
+            "ACCUMULATORID",
+            "EQUIPID",
+            "MEASTYPEID",
+            "DATATIME",
+            "CALVALUE",
+            "AMOUNTVALUE",
+            "QUALITY"
+          ],
+          "column_count": 8,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "SAVETIME",
+            "DATATIME",
+            "MEASTYPEID",
+            "EQUIPID",
+            "AMOUNTVALUE",
+            "ACCUMULATORID",
+            "CALVALUE",
+            "QUALITY"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "Unnamed: 0",
+          "SAVETIME",
+          "DATATIME",
+          "MEASTYPEID",
+          "EQUIPID",
+          "AMOUNTVALUE",
+          "ACCUMULATORID",
+          "CALVALUE",
+          "QUALITY"
+        ]
+      },
+      "time_range": {
+        "min": "2024-01-01 00:00:00",
+        "max": "2024-11-09 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "Unnamed: 0",
+            "SAVETIME",
+            "DATATIME",
+            "MEASTYPEID",
+            "EQUIPID",
+            "AMOUNTVALUE",
+            "ACCUMULATORID",
+            "CALVALUE",
+            "QUALITY"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 24,
+          "actual": 48
+        }
+      ],
+      "quality_stats": {}
+    },
+    "hisagcavcstation": {
+      "status": "success",
+      "file_count": 2,
+      "sampled_files": [
+        {
+          "file": "._hisagcavcstation.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "hisagcavcstation.csv",
+          "columns": [
+            "stationid",
+            "savetime",
+            "name",
+            "stationtype",
+            "agcdregacc",
+            "agcdlimitp",
+            "agcdlimitt",
+            "avcdvolpacount",
+            "avcdvoladcount"
+          ],
+          "column_count": 9,
+          "row_count_sample": 6,
+          "encoding": "utf-8"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "stationtype",
+            "agcdlimitp",
+            "savetime",
+            "avcdvolpacount",
+            "name",
+            "avcdvoladcount",
+            "stationid",
+            "agcdlimitt",
+            "agcdregacc"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "stationtype",
+          "agcdlimitp",
+          "Unnamed: 0",
+          "savetime",
+          "avcdvolpacount",
+          "name",
+          "avcdvoladcount",
+          "stationid",
+          "agcdlimitt",
+          "agcdregacc"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-25 21:27:00",
+        "max": "2024-12-26 10:36:30"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "stationtype",
+            "agcdlimitp",
+            "Unnamed: 0",
+            "savetime",
+            "avcdvolpacount",
+            "name",
+            "avcdvoladcount",
+            "stationid",
+            "agcdlimitt",
+            "agcdregacc"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 1,
+          "actual": 2
+        }
+      ],
+      "quality_stats": {}
+    },
+    "hisstsgbatst": {
+      "status": "success",
+      "file_count": 4,
+      "sampled_files": [
+        {
+          "file": "._hisstsgbatst_2024.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._hisstsgbatst_2025.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "hisstsgbatst_2024.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "todayinpt",
+            "todayoutpt",
+            "todayfaultnum",
+            "todaybmsfaultnum",
+            "todaypcsfaultnum",
+            "todaymaxintm",
+            "todaymaxouttm"
+          ],
+          "column_count": 9,
+          "row_count_sample": 39,
+          "encoding": "ascii"
+        },
+        {
+          "file": "hisstsgbatst_2025.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "todayinpt",
+            "todayoutpt",
+            "todayfaultnum",
+            "todaybmsfaultnum",
+            "todaypcsfaultnum",
+            "todaymaxintm",
+            "todaymaxouttm"
+          ],
+          "column_count": 9,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "todaybmsfaultnum",
+            "todayoutpt",
+            "savetime",
+            "todaymaxouttm",
+            "todaymaxintm",
+            "todaypcsfaultnum",
+            "todayinpt",
+            "todayfaultnum",
+            "id"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "todaybmsfaultnum",
+          "todayoutpt",
+          "Unnamed: 0",
+          "savetime",
+          "todaymaxouttm",
+          "todaymaxintm",
+          "todaypcsfaultnum",
+          "todayinpt",
+          "todayfaultnum",
+          "id"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-21 00:00:04.523000",
+        "max": "2025-04-10 00:00:03.749000"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "todaybmsfaultnum",
+            "todayoutpt",
+            "Unnamed: 0",
+            "savetime",
+            "todaymaxouttm",
+            "todaymaxintm",
+            "todaypcsfaultnum",
+            "todayinpt",
+            "todayfaultnum",
+            "id"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 2,
+          "actual": 4
+        }
+      ],
+      "quality_stats": {}
+    },
+    "hisstsgbatstation": {
+      "status": "success",
+      "file_count": 4,
+      "sampled_files": [
+        {
+          "file": "._hisstsgbatstation_2024.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._hisstsgbatstation_2025.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "hisstsgbatstation_2024.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "todayinpt",
+            "todayoutpt",
+            "todayincycles",
+            "todayoutcycles",
+            "todayintm",
+            "todayouttm",
+            "todayfaultnum",
+            "todaybmsfaultnum",
+            "todaypcsfaultnum"
+          ],
+          "column_count": 11,
+          "row_count_sample": 36,
+          "encoding": "ascii"
+        },
+        {
+          "file": "hisstsgbatstation_2025.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "todayinpt",
+            "todayoutpt",
+            "todayincycles",
+            "todayoutcycles",
+            "todayintm",
+            "todayouttm",
+            "todayfaultnum",
+            "todaybmsfaultnum",
+            "todaypcsfaultnum"
+          ],
+          "column_count": 11,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "todaybmsfaultnum",
+            "todayoutpt",
+            "todayoutcycles",
+            "savetime",
+            "todayouttm",
+            "todayintm",
+            "todaypcsfaultnum",
+            "todayinpt",
+            "todayfaultnum",
+            "id",
+            "todayincycles"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "todaybmsfaultnum",
+          "todayoutcycles",
+          "todayoutpt",
+          "Unnamed: 0",
+          "savetime",
+          "todayouttm",
+          "todayintm",
+          "todaypcsfaultnum",
+          "todayinpt",
+          "todayfaultnum",
+          "id",
+          "todayincycles"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-21 00:00:04.523000",
+        "max": "2025-04-10 00:00:03.749000"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "todaybmsfaultnum",
+            "todayoutcycles",
+            "todayoutpt",
+            "Unnamed: 0",
+            "savetime",
+            "todayouttm",
+            "todayintm",
+            "todaypcsfaultnum",
+            "todayinpt",
+            "todayfaultnum",
+            "id",
+            "todayincycles"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 2,
+          "actual": 4
+        }
+      ],
+      "quality_stats": {}
+    },
+    "inverter_day_powergeneration": {
+      "status": "success",
+      "file_count": 18,
+      "sampled_files": [
+        {
+          "file": "._inverter_day_powergeneration_202411.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._inverter_day_powergeneration_202412.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._inverter_day_powergeneration_202501.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._inverter_day_powergeneration_202507.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "inverter_day_powergeneration_202411.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "inverter_day_powergeneration_202505.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity",
+            "lostquant"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "inverter_day_powergeneration_202506.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity",
+            "lostquant"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "inverter_day_powergeneration_202507.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity",
+            "lostquant"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity"
+          ],
+          [
+            "accumulatorid",
+            "lostquant",
+            "devid",
+            "datetime",
+            "quantity"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "datetime",
+          "Unnamed: 0",
+          "accumulatorid",
+          "lostquant",
+          "devid",
+          "quantity"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-20 00:00:00",
+        "max": "2025-07-01 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "datetime",
+            "Unnamed: 0",
+            "accumulatorid",
+            "lostquant",
+            "devid",
+            "quantity"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 9,
+          "actual": 18
+        }
+      ],
+      "quality_stats": {}
+    },
+    "powerforecast_fd_weatherdata": {
+      "status": "success",
+      "file_count": 422,
+      "sampled_files": [
+        {
+          "file": "._powerforecast_fd_weatherdata_20241025.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_fd_weatherdata_20241026.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_fd_weatherdata_20241028.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_fd_weatherdata_20250709.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "powerforecast_fd_weatherdata_20241025.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 18,
+          "row_count_sample": 2,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_fd_weatherdata_20250707.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 18,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_fd_weatherdata_20250708.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 18,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_fd_weatherdata_20250709.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 18,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "pressure",
+            "datatime",
+            "ws_hub",
+            "savetime",
+            "ws_10",
+            "ws_50",
+            "ws_70",
+            "temperature",
+            "stationid",
+            "wd_10",
+            "wd_30",
+            "wd_50",
+            "wd_70",
+            "ws_30",
+            "wd_hub",
+            "filename",
+            "id",
+            "humidity"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "ws_hub",
+          "Unnamed: 0",
+          "savetime",
+          "ws_50",
+          "temperature",
+          "wd_30",
+          "wd_hub",
+          "filename",
+          "pressure",
+          "datatime",
+          "ws_70",
+          "ws_10",
+          "stationid",
+          "wd_10",
+          "wd_50",
+          "wd_70",
+          "ws_30",
+          "id",
+          "humidity"
+        ]
+      },
+      "time_range": {
+        "min": "2024-10-25 21:55:40",
+        "max": "2025-07-09 08:11:15"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "ws_hub",
+            "Unnamed: 0",
+            "savetime",
+            "ws_50",
+            "temperature",
+            "wd_30",
+            "wd_hub",
+            "filename",
+            "pressure",
+            "datatime",
+            "ws_70",
+            "ws_10",
+            "stationid",
+            "wd_10",
+            "wd_50",
+            "wd_70",
+            "ws_30",
+            "id",
+            "humidity"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 211,
+          "actual": 422
+        }
+      ],
+      "quality_stats": {}
+    },
+    "powerforecast_fd_weatherforecast": {
+      "status": "success",
+      "file_count": 374,
+      "sampled_files": [
+        {
+          "file": "._powerforecast_fd_weatherforecast_20241202.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_fd_weatherforecast_20241203.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_fd_weatherforecast_20241204.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_fd_weatherforecast_20250709.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "powerforecast_fd_weatherforecast_20241202.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 19,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_fd_weatherforecast_20250707.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 19,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_fd_weatherforecast_20250708.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 19,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_fd_weatherforecast_20250709.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "datatime",
+            "temperature",
+            "humidity",
+            "pressure",
+            "ws_10",
+            "wd_10",
+            "ws_30",
+            "wd_30",
+            "ws_50",
+            "wd_50",
+            "ws_70",
+            "wd_70",
+            "ws_hub",
+            "wd_hub"
+          ],
+          "column_count": 19,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "savetime",
+            "ws_50",
+            "wd_30",
+            "wd_hub",
+            "filename",
+            "ws_10",
+            "forecast_fromtime",
+            "wd_50",
+            "ws_30",
+            "id",
+            "humidity",
+            "ws_hub",
+            "temperature",
+            "pressure",
+            "datatime",
+            "ws_70",
+            "stationid",
+            "wd_10",
+            "wd_70"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "ws_hub",
+          "Unnamed: 0",
+          "savetime",
+          "ws_50",
+          "temperature",
+          "wd_30",
+          "wd_hub",
+          "filename",
+          "pressure",
+          "datatime",
+          "ws_70",
+          "ws_10",
+          "forecast_fromtime",
+          "stationid",
+          "wd_10",
+          "wd_50",
+          "wd_70",
+          "ws_30",
+          "id",
+          "humidity"
+        ]
+      },
+      "time_range": {
+        "min": "2024-12-01 19:29:57",
+        "max": "2025-07-08 06:49:13"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "ws_hub",
+            "Unnamed: 0",
+            "savetime",
+            "ws_50",
+            "temperature",
+            "wd_30",
+            "wd_hub",
+            "filename",
+            "pressure",
+            "datatime",
+            "ws_70",
+            "ws_10",
+            "forecast_fromtime",
+            "stationid",
+            "wd_10",
+            "wd_50",
+            "wd_70",
+            "ws_30",
+            "id",
+            "humidity"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 187,
+          "actual": 374
+        }
+      ],
+      "quality_stats": {}
+    },
+    "powerforecast_powerstat": {
+      "status": "success",
+      "file_count": 20,
+      "sampled_files": [
+        {
+          "file": "._powerforecast_powerstat_202410.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_powerstat_202411.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_powerstat_202412.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_powerstat_202507.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "powerforecast_powerstat_202410.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "stationtypeid",
+            "stationid",
+            "districtid",
+            "forecasttype",
+            "statistictime",
+            "runningcapacity",
+            "actualpower",
+            "forecastpower",
+            "ermse",
+            "emae",
+            "recoef",
+            "accuracyrate",
+            "qualifyrate",
+            "pointnum"
+          ],
+          "column_count": 16,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_powerstat_202505.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "stationtypeid",
+            "stationid",
+            "districtid",
+            "forecasttype",
+            "statistictime",
+            "runningcapacity",
+            "actualpower",
+            "forecastpower",
+            "ermse",
+            "emae",
+            "recoef",
+            "accuracyrate",
+            "qualifyrate",
+            "pointnum"
+          ],
+          "column_count": 16,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_powerstat_202506.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "stationtypeid",
+            "stationid",
+            "districtid",
+            "forecasttype",
+            "statistictime",
+            "runningcapacity",
+            "actualpower",
+            "forecastpower",
+            "ermse",
+            "emae",
+            "recoef",
+            "accuracyrate",
+            "qualifyrate",
+            "pointnum"
+          ],
+          "column_count": 16,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_powerstat_202507.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "stationtypeid",
+            "stationid",
+            "districtid",
+            "forecasttype",
+            "statistictime",
+            "runningcapacity",
+            "actualpower",
+            "forecastpower",
+            "ermse",
+            "emae",
+            "recoef",
+            "accuracyrate",
+            "qualifyrate",
+            "pointnum"
+          ],
+          "column_count": 16,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "emae",
+            "recoef",
+            "forecastpower",
+            "ermse",
+            "savetime",
+            "runningcapacity",
+            "stationtypeid",
+            "actualpower",
+            "accuracyrate",
+            "qualifyrate",
+            "stationid",
+            "forecasttype",
+            "districtid",
+            "id",
+            "pointnum",
+            "statistictime"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "forecastpower",
+          "Unnamed: 0",
+          "ermse",
+          "savetime",
+          "runningcapacity",
+          "stationtypeid",
+          "actualpower",
+          "accuracyrate",
+          "qualifyrate",
+          "forecasttype",
+          "statistictime",
+          "emae",
+          "recoef",
+          "stationid",
+          "districtid",
+          "id",
+          "pointnum"
+        ]
+      },
+      "time_range": {
+        "min": "2024-10-25 20:02:06",
+        "max": "2025-07-03 00:00:01"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "forecastpower",
+            "Unnamed: 0",
+            "ermse",
+            "savetime",
+            "runningcapacity",
+            "stationtypeid",
+            "actualpower",
+            "accuracyrate",
+            "qualifyrate",
+            "forecasttype",
+            "statistictime",
+            "emae",
+            "recoef",
+            "stationid",
+            "districtid",
+            "id",
+            "pointnum"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 10,
+          "actual": 20
+        }
+      ],
+      "quality_stats": {}
+    },
+    "powerforecast_short": {
+      "status": "success",
+      "file_count": 398,
+      "sampled_files": [
+        {
+          "file": "._powerforecast_short_20241026.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_short_20241101.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_short_20241121.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_short_20250709.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "powerforecast_short_20241026.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecastvaluetime",
+            "forecastvalue",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 10,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_short_20250707.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecastvaluetime",
+            "forecastvalue",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 10,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_short_20250708.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecastvaluetime",
+            "forecastvalue",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 10,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_short_20250709.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecastvaluetime",
+            "forecastvalue",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 10,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "forecastvaluetime",
+            "savetime",
+            "runningcapacity",
+            "forecast_fromtime",
+            "stationid",
+            "filename",
+            "id",
+            "actualvalue",
+            "actualvaluetime",
+            "forecastvalue"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "forecastvaluetime",
+          "Unnamed: 0",
+          "savetime",
+          "runningcapacity",
+          "forecast_fromtime",
+          "stationid",
+          "filename",
+          "id",
+          "actualvalue",
+          "actualvaluetime",
+          "forecastvalue"
+        ]
+      },
+      "time_range": {
+        "min": "2024-10-26 15:49:51",
+        "max": "2025-07-08 06:33:38"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "forecastvaluetime",
+            "Unnamed: 0",
+            "savetime",
+            "runningcapacity",
+            "forecast_fromtime",
+            "stationid",
+            "filename",
+            "id",
+            "actualvalue",
+            "actualvaluetime",
+            "forecastvalue"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 199,
+          "actual": 398
+        }
+      ],
+      "quality_stats": {}
+    },
+    "powerforecast_ultrashort": {
+      "status": "success",
+      "file_count": 420,
+      "sampled_files": [
+        {
+          "file": "._powerforecast_ultrashort_20241026.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_ultrashort_20241028.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_ultrashort_20241030.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._powerforecast_ultrashort_20250709.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "powerforecast_ultrashort_20241026.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecast_totime",
+            "forecastvalue_01",
+            "forecastvalue_02",
+            "forecastvalue_03",
+            "forecastvalue_04",
+            "forecastvalue_05",
+            "forecastvalue_06",
+            "forecastvalue_07",
+            "forecastvalue_08",
+            "forecastvalue_09",
+            "forecastvalue_10",
+            "forecastvalue_11",
+            "forecastvalue_12",
+            "forecastvalue_13",
+            "forecastvalue_14",
+            "forecastvalue_15",
+            "forecastvalue_16",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 25,
+          "row_count_sample": 93,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_ultrashort_20250707.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecast_totime",
+            "forecastvalue_01",
+            "forecastvalue_02",
+            "forecastvalue_03",
+            "forecastvalue_04",
+            "forecastvalue_05",
+            "forecastvalue_06",
+            "forecastvalue_07",
+            "forecastvalue_08",
+            "forecastvalue_09",
+            "forecastvalue_10",
+            "forecastvalue_11",
+            "forecastvalue_12",
+            "forecastvalue_13",
+            "forecastvalue_14",
+            "forecastvalue_15",
+            "forecastvalue_16",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 25,
+          "row_count_sample": 96,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_ultrashort_20250708.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecast_totime",
+            "forecastvalue_01",
+            "forecastvalue_02",
+            "forecastvalue_03",
+            "forecastvalue_04",
+            "forecastvalue_05",
+            "forecastvalue_06",
+            "forecastvalue_07",
+            "forecastvalue_08",
+            "forecastvalue_09",
+            "forecastvalue_10",
+            "forecastvalue_11",
+            "forecastvalue_12",
+            "forecastvalue_13",
+            "forecastvalue_14",
+            "forecastvalue_15",
+            "forecastvalue_16",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 25,
+          "row_count_sample": 96,
+          "encoding": "ascii"
+        },
+        {
+          "file": "powerforecast_ultrashort_20250709.csv",
+          "columns": [
+            "id",
+            "savetime",
+            "filename",
+            "stationid",
+            "forecast_fromtime",
+            "forecast_totime",
+            "forecastvalue_01",
+            "forecastvalue_02",
+            "forecastvalue_03",
+            "forecastvalue_04",
+            "forecastvalue_05",
+            "forecastvalue_06",
+            "forecastvalue_07",
+            "forecastvalue_08",
+            "forecastvalue_09",
+            "forecastvalue_10",
+            "forecastvalue_11",
+            "forecastvalue_12",
+            "forecastvalue_13",
+            "forecastvalue_14",
+            "forecastvalue_15",
+            "forecastvalue_16",
+            "actualvaluetime",
+            "actualvalue",
+            "runningcapacity"
+          ],
+          "column_count": 25,
+          "row_count_sample": 75,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "forecastvalue_03",
+            "forecastvalue_04",
+            "savetime",
+            "filename",
+            "forecastvalue_07",
+            "forecastvalue_05",
+            "forecast_fromtime",
+            "forecastvalue_06",
+            "forecastvalue_14",
+            "forecast_totime",
+            "forecastvalue_10",
+            "id",
+            "forecastvalue_13",
+            "runningcapacity",
+            "forecastvalue_15",
+            "forecastvalue_11",
+            "forecastvalue_12",
+            "forecastvalue_02",
+            "actualvalue",
+            "actualvaluetime",
+            "forecastvalue_08",
+            "stationid",
+            "forecastvalue_01",
+            "forecastvalue_16",
+            "forecastvalue_09"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "forecastvalue_03",
+          "forecastvalue_04",
+          "Unnamed: 0",
+          "savetime",
+          "forecastvalue_13",
+          "runningcapacity",
+          "forecastvalue_15",
+          "forecastvalue_11",
+          "forecastvalue_12",
+          "filename",
+          "forecastvalue_02",
+          "actualvalue",
+          "actualvaluetime",
+          "forecastvalue_10",
+          "forecastvalue_07",
+          "forecastvalue_05",
+          "forecastvalue_08",
+          "forecast_fromtime",
+          "forecastvalue_09",
+          "stationid",
+          "forecastvalue_06",
+          "forecastvalue_01",
+          "forecastvalue_14",
+          "forecast_totime",
+          "forecastvalue_16",
+          "id"
+        ]
+      },
+      "time_range": {
+        "min": "2024-10-26 15:49:51",
+        "max": "2025-07-09 18:00:12"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "forecastvalue_03",
+            "forecastvalue_04",
+            "Unnamed: 0",
+            "savetime",
+            "forecastvalue_13",
+            "runningcapacity",
+            "forecastvalue_15",
+            "forecastvalue_11",
+            "forecastvalue_12",
+            "filename",
+            "forecastvalue_02",
+            "actualvalue",
+            "actualvaluetime",
+            "forecastvalue_10",
+            "forecastvalue_07",
+            "forecastvalue_05",
+            "forecastvalue_08",
+            "forecast_fromtime",
+            "forecastvalue_09",
+            "stationid",
+            "forecastvalue_06",
+            "forecastvalue_01",
+            "forecastvalue_14",
+            "forecast_totime",
+            "forecastvalue_16",
+            "id"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 210,
+          "actual": 420
+        }
+      ],
+      "quality_stats": {}
+    },
+    "station_baseinfo": {
+      "status": "success",
+      "file_count": 422,
+      "sampled_files": [
+        {
+          "file": "._station_baseinfo_20241211.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_baseinfo_20241212.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_baseinfo_20241213.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_baseinfo_20250709.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "station_baseinfo_20241211.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower",
+            "aevwindspeed"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_baseinfo_20250707.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower",
+            "aevwindspeed",
+            "accumirrad"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_baseinfo_20250708.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower",
+            "aevwindspeed",
+            "accumirrad"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_baseinfo_20250709.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower",
+            "aevwindspeed",
+            "accumirrad"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "thopower",
+            "datetime",
+            "aevwindspeed",
+            "stationid"
+          ],
+          [
+            "thopower",
+            "aevwindspeed",
+            "stationid",
+            "datetime",
+            "accumirrad"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "thopower",
+          "datetime",
+          "Unnamed: 0",
+          "accumirrad",
+          "aevwindspeed",
+          "stationid"
+        ]
+      },
+      "time_range": {
+        "min": "2024-12-11 21:04:00",
+        "max": "2025-07-09 00:03:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "thopower",
+            "datetime",
+            "Unnamed: 0",
+            "accumirrad",
+            "aevwindspeed",
+            "stationid"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 211,
+          "actual": 422
+        }
+      ],
+      "quality_stats": {}
+    },
+    "station_day_powergeneration": {
+      "status": "success",
+      "file_count": 18,
+      "sampled_files": [
+        {
+          "file": "._station_day_powergeneration_202411.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_day_powergeneration_202412.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_day_powergeneration_202501.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_day_powergeneration_202507.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "station_day_powergeneration_202411.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "producequantity",
+            "selfusequantity",
+            "netquantity",
+            "effecthour",
+            "generathour",
+            "availtyrate",
+            "theoryquantity",
+            "efficiency",
+            "cydquantity",
+            "cydquantityrate"
+          ],
+          "column_count": 12,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_day_powergeneration_202505.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "producequantity",
+            "selfusequantity",
+            "netquantity",
+            "effecthour",
+            "generathour",
+            "availtyrate",
+            "theoryquantity",
+            "efficiency",
+            "cydquantity",
+            "cydquantityrate",
+            "offgridquantity",
+            "selfusequantityrate"
+          ],
+          "column_count": 14,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_day_powergeneration_202506.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "producequantity",
+            "selfusequantity",
+            "netquantity",
+            "effecthour",
+            "generathour",
+            "availtyrate",
+            "theoryquantity",
+            "efficiency",
+            "cydquantity",
+            "cydquantityrate",
+            "offgridquantity",
+            "selfusequantityrate"
+          ],
+          "column_count": 14,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_day_powergeneration_202507.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "producequantity",
+            "selfusequantity",
+            "netquantity",
+            "effecthour",
+            "generathour",
+            "availtyrate",
+            "theoryquantity",
+            "efficiency",
+            "cydquantity",
+            "cydquantityrate",
+            "offgridquantity",
+            "selfusequantityrate"
+          ],
+          "column_count": 14,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "effecthour",
+            "generathour",
+            "availtyrate",
+            "theoryquantity",
+            "netquantity",
+            "stationid",
+            "cydquantityrate",
+            "cydquantity",
+            "datetime",
+            "producequantity",
+            "efficiency",
+            "selfusequantity"
+          ],
+          [
+            "effecthour",
+            "generathour",
+            "availtyrate",
+            "theoryquantity",
+            "offgridquantity",
+            "netquantity",
+            "stationid",
+            "cydquantityrate",
+            "cydquantity",
+            "datetime",
+            "producequantity",
+            "efficiency",
+            "selfusequantity",
+            "selfusequantityrate"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "effecthour",
+          "Unnamed: 0",
+          "generathour",
+          "availtyrate",
+          "theoryquantity",
+          "offgridquantity",
+          "netquantity",
+          "cydquantityrate",
+          "stationid",
+          "cydquantity",
+          "datetime",
+          "producequantity",
+          "efficiency",
+          "selfusequantity",
+          "selfusequantityrate"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-20 00:00:00",
+        "max": "2025-07-04 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "effecthour",
+            "Unnamed: 0",
+            "generathour",
+            "availtyrate",
+            "theoryquantity",
+            "offgridquantity",
+            "netquantity",
+            "cydquantityrate",
+            "stationid",
+            "cydquantity",
+            "datetime",
+            "producequantity",
+            "efficiency",
+            "selfusequantity",
+            "selfusequantityrate"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 9,
+          "actual": 18
+        }
+      ],
+      "quality_stats": {}
+    },
+    "station_thopower": {
+      "status": "success",
+      "file_count": 24,
+      "sampled_files": [
+        {
+          "file": "._station_thopower_20241130.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_thopower_20241201.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_thopower_20241202.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._station_thopower_20241211.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "station_thopower_20241130.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower",
+            "aevwindspeed"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_thopower_20241209.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower",
+            "aevwindspeed"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_thopower_20241210.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "station_thopower_20241211.csv",
+          "columns": [
+            "datetime",
+            "stationid",
+            "thopower"
+          ],
+          "column_count": 3,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "thopower",
+            "datetime",
+            "aevwindspeed",
+            "stationid"
+          ],
+          [
+            "thopower",
+            "datetime",
+            "stationid"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "thopower",
+          "datetime",
+          "Unnamed: 0",
+          "aevwindspeed",
+          "stationid"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-30 19:59:00",
+        "max": "2024-12-11 00:10:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "thopower",
+            "datetime",
+            "Unnamed: 0",
+            "aevwindspeed",
+            "stationid"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 12,
+          "actual": 24
+        }
+      ],
+      "quality_stats": {}
+    },
+    "windturbine_1min_windspeed": {
+      "status": "success",
+      "file_count": 446,
+      "sampled_files": [
+        {
+          "file": "._windturbine_1min_windspeed_20241129.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_1min_windspeed_20241130.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_1min_windspeed_20241201.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_1min_windspeed_20250709.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "windturbine_1min_windspeed_20241129.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "analog_id",
+            "aevwindspeed"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "windturbine_1min_windspeed_20250707.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "analog_id",
+            "aevwindspeed",
+            "thopower"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "windturbine_1min_windspeed_20250708.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "analog_id",
+            "aevwindspeed",
+            "thopower"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "windturbine_1min_windspeed_20250709.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "analog_id",
+            "aevwindspeed",
+            "thopower"
+          ],
+          "column_count": 5,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "datetime",
+            "devid",
+            "aevwindspeed",
+            "analog_id"
+          ],
+          [
+            "thopower",
+            "devid",
+            "aevwindspeed",
+            "datetime",
+            "analog_id"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "devid",
+          "thopower",
+          "datetime",
+          "Unnamed: 0",
+          "analog_id",
+          "aevwindspeed"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-29 09:41:00",
+        "max": "2025-07-09 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "devid",
+            "thopower",
+            "datetime",
+            "Unnamed: 0",
+            "analog_id",
+            "aevwindspeed"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 223,
+          "actual": 446
+        }
+      ],
+      "quality_stats": {}
+    },
+    "windturbine_day_powergeneration": {
+      "status": "success",
+      "file_count": 18,
+      "sampled_files": [
+        {
+          "file": "._windturbine_day_powergeneration_202411.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_day_powergeneration_202412.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_day_powergeneration_202501.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_day_powergeneration_202507.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "windturbine_day_powergeneration_202411.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity"
+          ],
+          "column_count": 4,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "windturbine_day_powergeneration_202505.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity",
+            "performquantity",
+            "effecthour",
+            "lostquant"
+          ],
+          "column_count": 7,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "windturbine_day_powergeneration_202506.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity",
+            "performquantity",
+            "effecthour",
+            "lostquant"
+          ],
+          "column_count": 7,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "windturbine_day_powergeneration_202507.csv",
+          "columns": [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity",
+            "performquantity",
+            "effecthour",
+            "lostquant"
+          ],
+          "column_count": 7,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "datetime",
+            "devid",
+            "accumulatorid",
+            "quantity"
+          ],
+          [
+            "effecthour",
+            "accumulatorid",
+            "lostquant",
+            "devid",
+            "datetime",
+            "performquantity",
+            "quantity"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "effecthour",
+          "Unnamed: 0",
+          "accumulatorid",
+          "lostquant",
+          "devid",
+          "datetime",
+          "performquantity",
+          "quantity"
+        ]
+      },
+      "time_range": {
+        "min": "2024-11-21 00:00:00",
+        "max": "2025-07-01 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现3种不同的列组合",
+          "diff_columns": [
+            "effecthour",
+            "Unnamed: 0",
+            "accumulatorid",
+            "lostquant",
+            "devid",
+            "datetime",
+            "performquantity",
+            "quantity"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 9,
+          "actual": 18
+        }
+      ],
+      "quality_stats": {}
+    },
+    "windturbine_statusstat": {
+      "status": "success",
+      "file_count": 6,
+      "sampled_files": [
+        {
+          "file": "._windturbine_statusstat_2024.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_statusstat_2025.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._windturbine_statusstat_total.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "windturbine_statusstat_2024.csv",
+          "columns": [
+            "windturbineid",
+            "stattime",
+            "savetime",
+            "total_stat_hours",
+            "maintenanceshutdown_time",
+            "faultshutdown_time",
+            "powergridfault_time",
+            "weathershutdown_time",
+            "fanstandby_time",
+            "normalpower_time",
+            "limitpower_time",
+            "subhealthy_time",
+            "noconnection_time",
+            "manualshutdown_time",
+            "unknownstatus_time"
+          ],
+          "column_count": 15,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "windturbine_statusstat_2025.csv",
+          "columns": [
+            "windturbineid",
+            "stattime",
+            "savetime",
+            "total_stat_hours",
+            "maintenanceshutdown_time",
+            "faultshutdown_time",
+            "powergridfault_time",
+            "weathershutdown_time",
+            "fanstandby_time",
+            "normalpower_time",
+            "limitpower_time",
+            "subhealthy_time",
+            "noconnection_time",
+            "manualshutdown_time",
+            "unknownstatus_time"
+          ],
+          "column_count": 15,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        },
+        {
+          "file": "windturbine_statusstat_total.csv",
+          "columns": [
+            "windturbineid",
+            "stattime",
+            "savetime",
+            "total_stat_hours",
+            "maintenanceshutdown_time",
+            "faultshutdown_time",
+            "powergridfault_time",
+            "weathershutdown_time",
+            "fanstandby_time",
+            "normalpower_time",
+            "limitpower_time",
+            "subhealthy_time",
+            "noconnection_time",
+            "manualshutdown_time",
+            "unknownstatus_time"
+          ],
+          "column_count": 15,
+          "row_count_sample": 100,
+          "encoding": "ascii"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "normalpower_time",
+            "savetime",
+            "noconnection_time",
+            "subhealthy_time",
+            "unknownstatus_time",
+            "stattime",
+            "fanstandby_time",
+            "total_stat_hours",
+            "windturbineid",
+            "powergridfault_time",
+            "faultshutdown_time",
+            "maintenanceshutdown_time",
+            "limitpower_time",
+            "manualshutdown_time",
+            "weathershutdown_time"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "normalpower_time",
+          "Unnamed: 0",
+          "savetime",
+          "stattime",
+          "total_stat_hours",
+          "powergridfault_time",
+          "faultshutdown_time",
+          "maintenanceshutdown_time",
+          "manualshutdown_time",
+          "noconnection_time",
+          "weathershutdown_time",
+          "subhealthy_time",
+          "unknownstatus_time",
+          "windturbineid",
+          "fanstandby_time",
+          "limitpower_time"
+        ]
+      },
+      "time_range": {
+        "min": "1970-01-01 00:00:00.000002024",
+        "max": "2025-07-01 00:00:00"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "normalpower_time",
+            "Unnamed: 0",
+            "savetime",
+            "stattime",
+            "total_stat_hours",
+            "powergridfault_time",
+            "faultshutdown_time",
+            "maintenanceshutdown_time",
+            "manualshutdown_time",
+            "noconnection_time",
+            "weathershutdown_time",
+            "subhealthy_time",
+            "unknownstatus_time",
+            "windturbineid",
+            "fanstandby_time",
+            "limitpower_time"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 3,
+          "actual": 6
+        }
+      ],
+      "quality_stats": {}
+    },
+    "wtoscstmsg": {
+      "status": "success",
+      "file_count": 14,
+      "sampled_files": [
+        {
+          "file": "._wtoscstmsg_202407.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._wtoscstmsg_202412.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._wtoscstmsg_202503.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "._wtoscstmsg_202507.csv",
+          "columns": [
+            "Unnamed: 0"
+          ],
+          "column_count": 1,
+          "row_count_sample": 0,
+          "encoding": "MacRoman"
+        },
+        {
+          "file": "wtoscstmsg_202407.csv",
+          "columns": [
+            "id",
+            "WTNAME",
+            "WTID",
+            "STARTTIME",
+            "STARTVAL",
+            "TAGID",
+            "PARENTBAYTAGID",
+            "TFTAGID",
+            "PARENTBAYID",
+            "BAYID",
+            "TFID",
+            "STID",
+            "FAULTNAME",
+            "OSCNAME"
+          ],
+          "column_count": 14,
+          "row_count_sample": 2,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "wtoscstmsg_202505.csv",
+          "columns": [
+            "id",
+            "WTNAME",
+            "WTID",
+            "STARTTIME",
+            "STARTVAL",
+            "TAGID",
+            "PARENTBAYTAGID",
+            "TFTAGID",
+            "PARENTBAYID",
+            "BAYID",
+            "TFID",
+            "STID",
+            "FAULTNAME",
+            "OSCNAME"
+          ],
+          "column_count": 14,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "wtoscstmsg_202506.csv",
+          "columns": [
+            "id",
+            "WTNAME",
+            "WTID",
+            "STARTTIME",
+            "STARTVAL",
+            "TAGID",
+            "PARENTBAYTAGID",
+            "TFTAGID",
+            "PARENTBAYID",
+            "BAYID",
+            "TFID",
+            "STID",
+            "FAULTNAME",
+            "OSCNAME"
+          ],
+          "column_count": 14,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        },
+        {
+          "file": "wtoscstmsg_202507.csv",
+          "columns": [
+            "id",
+            "WTNAME",
+            "WTID",
+            "STARTTIME",
+            "STARTVAL",
+            "TAGID",
+            "PARENTBAYTAGID",
+            "TFTAGID",
+            "PARENTBAYID",
+            "BAYID",
+            "TFID",
+            "STID",
+            "FAULTNAME",
+            "OSCNAME"
+          ],
+          "column_count": 14,
+          "row_count_sample": 100,
+          "encoding": "utf-8"
+        }
+      ],
+      "columns_found": {
+        "consistent": false,
+        "versions": [
+          [
+            "Unnamed: 0"
+          ],
+          [
+            "WTID",
+            "TAGID",
+            "TFTAGID",
+            "OSCNAME",
+            "TFID",
+            "WTNAME",
+            "FAULTNAME",
+            "PARENTBAYID",
+            "PARENTBAYTAGID",
+            "STID",
+            "BAYID",
+            "STARTTIME",
+            "id",
+            "STARTVAL"
+          ]
+        ],
+        "common_columns": [],
+        "diff_columns": [
+          "TAGID",
+          "WTID",
+          "TFTAGID",
+          "OSCNAME",
+          "Unnamed: 0",
+          "TFID",
+          "WTNAME",
+          "FAULTNAME",
+          "PARENTBAYID",
+          "PARENTBAYTAGID",
+          "STID",
+          "id",
+          "BAYID",
+          "STARTTIME",
+          "STARTVAL"
+        ]
+      },
+      "time_range": {
+        "min": "2024-07-13 04:16:02",
+        "max": "2025-07-06 12:39:21.022000"
+      },
+      "issues": [
+        {
+          "type": "multiple_versions",
+          "description": "发现2种不同的列组合",
+          "diff_columns": [
+            "TAGID",
+            "WTID",
+            "TFTAGID",
+            "OSCNAME",
+            "Unnamed: 0",
+            "TFID",
+            "WTNAME",
+            "FAULTNAME",
+            "PARENTBAYID",
+            "PARENTBAYTAGID",
+            "STID",
+            "id",
+            "BAYID",
+            "STARTTIME",
+            "STARTVAL"
+          ]
+        },
+        {
+          "type": "file_count_mismatch",
+          "expected": 7,
+          "actual": 14
+        }
+      ],
+      "quality_stats": {}
+    }
+  }
+}

@@ -45,8 +45,6 @@ import {
   InboxOutlined,
   InfoCircleOutlined,
   FileTextOutlined,
-  FolderOutlined,
-  HomeOutlined,
   SafetyCertificateOutlined,
   LineChartOutlined,
   ImportOutlined,
@@ -131,6 +129,7 @@ export default function DataHub() {
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null)
   const [folderSort, setFolderSort] = useState<FolderSortValue>('manual')
   const [folderSortModalOpen, setFolderSortModalOpen] = useState(false)
+  const [folderTreeExpandedKeys, setFolderTreeExpandedKeys] = useState<React.Key[]>(['root'])
 
   const [folderModalOpen, setFolderModalOpen] = useState(false)
   const [folderForm] = Form.useForm()
@@ -275,11 +274,19 @@ export default function DataHub() {
 
   const folderPath = useMemo(() => {
     if (!currentFolder) return []
-    if (currentFolder.parent_id !== null) {
-      const parent = foldersById.get(currentFolder.parent_id)
-      return parent ? [parent, currentFolder] : [currentFolder]
+
+    const path: Folder[] = []
+    const visited = new Set<number>()
+    let cursor: Folder | undefined | null = currentFolder
+
+    while (cursor && !visited.has(cursor.id)) {
+      path.unshift(cursor)
+      visited.add(cursor.id)
+      if (cursor.parent_id === null) break
+      cursor = foldersById.get(cursor.parent_id)
     }
-    return [currentFolder]
+
+    return path
   }, [currentFolder, foldersById])
 
   const childFolders = useMemo(() => {
@@ -288,78 +295,128 @@ export default function DataHub() {
   }, [folders, selectedFolderId])
 
   const folderTreeData: DataNode[] = useMemo(() => {
-    const roots = folders.filter((folder) => folder.parent_id === null)
-    const childrenByParent = new Map<number, Folder[]>()
+    const childrenByParent = new Map<number | null, Folder[]>()
     for (const folder of folders) {
-      if (folder.parent_id === null) continue
       const items = childrenByParent.get(folder.parent_id) ?? []
       items.push(folder)
       childrenByParent.set(folder.parent_id, items)
+    }
+
+    const renderFolderTitle = (folder: Folder) => (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          width: '100%',
+        }}
+      >
+        {folder.description ? (
+          <Tooltip title={folder.description}>
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {folder.name}
+            </span>
+          </Tooltip>
+        ) : (
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {folder.name}
+          </span>
+        )}
+        <Badge count={folder.dataset_count} size="small" />
+      </div>
+    )
+
+    const buildNodes = (parentId: number | null): DataNode[] => {
+      const items = childrenByParent.get(parentId) ?? []
+      return items.map((folder) => {
+        const children = buildNodes(folder.id)
+        return {
+          key: `folder-${folder.id}`,
+          title: renderFolderTitle(folder),
+          children: children.length > 0 ? children : undefined,
+        }
+      })
     }
 
     return [
       {
         key: 'root',
         title: (
-          <Space size={6}>
-            <HomeOutlined />
-            <span>根目录</span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+            }}
+          >
+            <span style={{ flex: 1, minWidth: 0 }}>根目录</span>
             <Badge count={rootDatasetCount} size="small" />
-          </Space>
+          </div>
         ),
-        children: roots.map((folder) => ({
-          key: `folder-${folder.id}`,
-          title: (
-            <Space size={6}>
-              <FolderOutlined />
-              {folder.description ? (
-                <Tooltip title={folder.description}>
-                  <span>{folder.name}</span>
-                </Tooltip>
-              ) : (
-                <span>{folder.name}</span>
-              )}
-              <Badge count={folder.dataset_count} size="small" />
-            </Space>
-          ),
-          children: (childrenByParent.get(folder.id) ?? []).map((child) => ({
-            key: `folder-${child.id}`,
-            title: (
-              <Space size={6}>
-                <FolderOutlined />
-                {child.description ? (
-                  <Tooltip title={child.description}>
-                    <span>{child.name}</span>
-                  </Tooltip>
-                ) : (
-                  <span>{child.name}</span>
-                )}
-                <Badge count={child.dataset_count} size="small" />
-              </Space>
-            ),
-            isLeaf: true,
-          })),
-        })),
+        children: buildNodes(null),
       },
     ]
   }, [folders, rootDatasetCount])
 
   const folderSelectOptions = useMemo(
-    () => [
-      { label: '根目录', value: 'root' as const },
-      ...folders.map((folder) => {
-        if (folder.parent_id === null) {
-          return { label: folder.name, value: folder.id }
+    () => {
+      const buildFolderLabel = (folder: Folder): string => {
+        const parts: string[] = [folder.name]
+        const visited = new Set<number>([folder.id])
+        let cursor: Folder | undefined | null = folder
+
+        while (cursor && cursor.parent_id !== null) {
+          const parent = foldersById.get(cursor.parent_id)
+          if (!parent || visited.has(parent.id)) break
+          parts.unshift(parent.name)
+          visited.add(parent.id)
+          cursor = parent
         }
-        const parentName = foldersById.get(folder.parent_id)?.name
-        return {
-          label: parentName ? `${parentName} / ${folder.name}` : folder.name,
-          value: folder.id,
-        }
-      }),
-    ],
+
+        return parts.join(' / ')
+      }
+
+      return [
+        { label: '根目录', value: 'root' as const },
+        ...folders.map((folder) => ({ label: buildFolderLabel(folder), value: folder.id })),
+      ]
+    },
     [folders, foldersById]
   )
+
+  useEffect(() => {
+    const nextKeys = new Set<React.Key>(['root'])
+    if (selectedFolderId !== null) {
+      nextKeys.add(`folder-${selectedFolderId}`)
+    }
+
+    const visited = new Set<number>()
+    let cursor: Folder | undefined | null = currentFolder
+    while (cursor && cursor.parent_id !== null && !visited.has(cursor.id)) {
+      nextKeys.add(`folder-${cursor.parent_id}`)
+      visited.add(cursor.id)
+      cursor = foldersById.get(cursor.parent_id)
+    }
+
+    setFolderTreeExpandedKeys((prev) => Array.from(new Set([...prev, ...Array.from(nextKeys)])))
+  }, [currentFolder, foldersById, selectedFolderId])
 
   const handleOpenCreateFolder = () => {
     if (currentFolder && currentFolder.parent_id !== null) {
@@ -1244,7 +1301,10 @@ export default function DataHub() {
             ) : (
               <Tree.DirectoryTree
                 multiple={false}
-                defaultExpandAll
+                blockNode
+                showIcon={false}
+                expandedKeys={folderTreeExpandedKeys}
+                onExpand={(keys) => setFolderTreeExpandedKeys(keys)}
                 treeData={folderTreeData}
                 selectedKeys={[selectedTreeKey]}
                 onSelect={(keys) => handleTreeSelect(keys)}
@@ -1318,11 +1378,20 @@ export default function DataHub() {
                           marginBottom: 8,
                         }}
                       >
-                        <Space size={6}>
-                          <FolderOutlined style={{ color: '#1890ff' }} />
-                          <Text strong>{folder.name}</Text>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <Text strong ellipsis style={{ flex: 1, minWidth: 0 }}>
+                            {folder.name}
+                          </Text>
                           <Badge count={folder.dataset_count} size="small" />
-                        </Space>
+                        </div>
                         <Space size={0}>
                           <Tooltip title="描述">
                             <Button

@@ -142,3 +142,42 @@ class TestFolderAPI:
         assert len(dataset_items) == 1
         assert dataset_items[0]["id"] == admin_dataset.id
 
+    @pytest.mark.asyncio
+    async def test_reorder_folders_route_and_sort_order_persisted(
+        self, client: AsyncClient, admin_auth_headers: dict
+    ):
+        first_resp = await client.post(
+            "/api/folders",
+            json={"name": "First", "description": "", "parent_id": None},
+            headers=admin_auth_headers,
+        )
+        assert first_resp.status_code == 200
+        first_id = first_resp.json()["id"]
+
+        second_resp = await client.post(
+            "/api/folders",
+            json={"name": "Second", "description": "", "parent_id": None},
+            headers=admin_auth_headers,
+        )
+        assert second_resp.status_code == 200
+        second_id = second_resp.json()["id"]
+
+        reorder_resp = await client.put(
+            "/api/folders/reorder",
+            json={
+                "orders": [
+                    {"id": first_id, "sort_order": 1},
+                    {"id": second_id, "sort_order": 0},
+                ]
+            },
+            headers=admin_auth_headers,
+        )
+        assert reorder_resp.status_code == 200
+
+        list_resp = await client.get(
+            "/api/folders?sort_by=manual&order=asc", headers=admin_auth_headers
+        )
+        assert list_resp.status_code == 200
+        items = list_resp.json()["items"]
+        root_ids = [item["id"] for item in items if item["parent_id"] is None]
+        assert root_ids.index(second_id) < root_ids.index(first_id)
