@@ -8,11 +8,17 @@ const { Text } = Typography
 
 interface FolderSortModalProps {
   open: boolean
+  parentId: number | null
   onClose: () => void
   onSuccess: () => void
 }
 
-export default function FolderSortModal({ open, onClose, onSuccess }: FolderSortModalProps) {
+export default function FolderSortModal({
+  open,
+  parentId,
+  onClose,
+  onSuccess,
+}: FolderSortModalProps) {
   const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -23,13 +29,13 @@ export default function FolderSortModal({ open, onClose, onSuccess }: FolderSort
     if (open) {
       loadFolders()
     }
-  }, [open])
+  }, [open, parentId])
 
   const loadFolders = async () => {
     setLoading(true)
     try {
       const data = await getFolders('manual', 'asc')
-      setFolders(data.items)
+      setFolders(data.items.filter((folder) => folder.parent_id === parentId))
       setHasChanges(false)
     } catch {
       message.error('加载文件夹列表失败')

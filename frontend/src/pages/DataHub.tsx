@@ -3,15 +3,16 @@
  * 功能：数据集的上传、预览、下载、管理和数据质量检测
  */
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Badge,
+  Breadcrumb,
   Col,
   Card,
+  List,
   Table,
   Button,
   Dropdown,
-  Menu,
   Radio,
   Row,
   Select,
@@ -19,6 +20,7 @@ import {
   Modal,
   Form,
   Input,
+  Tree,
   Upload,
   Progress,
   Tag,
@@ -32,6 +34,7 @@ import {
   Spin,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import type { DataNode } from 'antd/es/tree'
 import type { UploadFile, UploadProps } from 'antd/es/upload'
 import {
   DeleteOutlined,
@@ -40,6 +43,7 @@ import {
   EyeOutlined,
   ExportOutlined,
   InboxOutlined,
+  InfoCircleOutlined,
   FileTextOutlined,
   FolderOutlined,
   HomeOutlined,
@@ -133,6 +137,9 @@ export default function DataHub() {
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
   const [folderSaving, setFolderSaving] = useState(false)
 
+  const [folderInfoModalOpen, setFolderInfoModalOpen] = useState(false)
+  const [folderInfoFolder, setFolderInfoFolder] = useState<Folder | null>(null)
+
   const [deleteFolderModalOpen, setDeleteFolderModalOpen] = useState(false)
   const [deletingFolder, setDeletingFolder] = useState<Folder | null>(null)
   const [deleteFolderAction, setDeleteFolderAction] = useState<'move_to_root' | 'cascade'>(
@@ -146,9 +153,12 @@ export default function DataHub() {
   // 上传相关
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadForm] = Form.useForm()
-  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadFileList, setUploadFileList] = useState<UploadFile[]>([])
+  const [uploadNameByUid, setUploadNameByUid] = useState<Record<string, string>>({})
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadingIndex, setUploadingIndex] = useState(0)
+  const [uploadingTotal, setUploadingTotal] = useState(0)
 
   // 预览相关
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
@@ -229,32 +239,147 @@ export default function DataHub() {
     fetchDatasets()
   }, [fetchDatasets])
 
-  const selectedFolderMenuKey =
-    selectedFolderId === null ? 'root' : `folder-${selectedFolderId}`
+  const foldersById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders])
 
-  const handleFolderMenuClick = (key: string) => {
-    if (key === 'create') {
-      setEditingFolder(null)
-      setFolderModalOpen(true)
-      folderForm.resetFields()
-      return
-    }
-
-    if (key === 'root') {
+  useEffect(() => {
+    if (selectedFolderId !== null && !foldersById.has(selectedFolderId)) {
       setSelectedFolderId(null)
       setCurrentPage(1)
       setSelectedRowKeys([])
+    }
+  }, [foldersById, selectedFolderId])
+
+  const selectedTreeKey = selectedFolderId === null ? 'root' : `folder-${selectedFolderId}`
+
+  const handleSelectFolder = (folderId: number | null) => {
+    setSelectedFolderId(folderId)
+    setCurrentPage(1)
+    setSelectedRowKeys([])
+  }
+
+  const handleTreeSelect = (keys: React.Key[]) => {
+    const key = String(keys[0] ?? 'root')
+    if (key === 'root') {
+      handleSelectFolder(null)
       return
     }
-
     if (key.startsWith('folder-')) {
       const id = Number(key.slice('folder-'.length))
       if (!Number.isNaN(id)) {
-        setSelectedFolderId(id)
-        setCurrentPage(1)
-        setSelectedRowKeys([])
+        handleSelectFolder(id)
       }
     }
+  }
+
+  const currentFolder = selectedFolderId === null ? null : (foldersById.get(selectedFolderId) ?? null)
+
+  const folderPath = useMemo(() => {
+    if (!currentFolder) return []
+    if (currentFolder.parent_id !== null) {
+      const parent = foldersById.get(currentFolder.parent_id)
+      return parent ? [parent, currentFolder] : [currentFolder]
+    }
+    return [currentFolder]
+  }, [currentFolder, foldersById])
+
+  const childFolders = useMemo(() => {
+    const parentId = selectedFolderId === null ? null : selectedFolderId
+    return folders.filter((folder) => folder.parent_id === parentId)
+  }, [folders, selectedFolderId])
+
+  const folderTreeData: DataNode[] = useMemo(() => {
+    const roots = folders.filter((folder) => folder.parent_id === null)
+    const childrenByParent = new Map<number, Folder[]>()
+    for (const folder of folders) {
+      if (folder.parent_id === null) continue
+      const items = childrenByParent.get(folder.parent_id) ?? []
+      items.push(folder)
+      childrenByParent.set(folder.parent_id, items)
+    }
+
+    return [
+      {
+        key: 'root',
+        title: (
+          <Space size={6}>
+            <HomeOutlined />
+            <span>根目录</span>
+            <Badge count={rootDatasetCount} size="small" />
+          </Space>
+        ),
+        children: roots.map((folder) => ({
+          key: `folder-${folder.id}`,
+          title: (
+            <Space size={6}>
+              <FolderOutlined />
+              {folder.description ? (
+                <Tooltip title={folder.description}>
+                  <span>{folder.name}</span>
+                </Tooltip>
+              ) : (
+                <span>{folder.name}</span>
+              )}
+              <Badge count={folder.dataset_count} size="small" />
+            </Space>
+          ),
+          children: (childrenByParent.get(folder.id) ?? []).map((child) => ({
+            key: `folder-${child.id}`,
+            title: (
+              <Space size={6}>
+                <FolderOutlined />
+                {child.description ? (
+                  <Tooltip title={child.description}>
+                    <span>{child.name}</span>
+                  </Tooltip>
+                ) : (
+                  <span>{child.name}</span>
+                )}
+                <Badge count={child.dataset_count} size="small" />
+              </Space>
+            ),
+            isLeaf: true,
+          })),
+        })),
+      },
+    ]
+  }, [folders, rootDatasetCount])
+
+  const folderSelectOptions = useMemo(
+    () => [
+      { label: '根目录', value: 'root' as const },
+      ...folders.map((folder) => {
+        if (folder.parent_id === null) {
+          return { label: folder.name, value: folder.id }
+        }
+        const parentName = foldersById.get(folder.parent_id)?.name
+        return {
+          label: parentName ? `${parentName} / ${folder.name}` : folder.name,
+          value: folder.id,
+        }
+      }),
+    ],
+    [folders, foldersById]
+  )
+
+  const handleOpenCreateFolder = () => {
+    if (currentFolder && currentFolder.parent_id !== null) {
+      message.error('当前版本仅支持两级文件夹')
+      return
+    }
+
+    setEditingFolder(null)
+    setFolderModalOpen(true)
+    folderForm.resetFields()
+  }
+
+  const handleOpenFolderInfo = (folder: Folder) => {
+    setFolderInfoFolder(folder)
+    setFolderInfoModalOpen(true)
+  }
+
+  const handleCloseFolderInfo = () => {
+    setFolderInfoModalOpen(false)
+    setFolderInfoFolder(null)
   }
 
   const handleOpenRenameFolder = (folder: Folder) => {
@@ -272,6 +397,17 @@ export default function DataHub() {
   const handleSaveFolder = async () => {
     try {
       const values = await folderForm.validateFields()
+
+      let parentId: number | null = null
+      if (!editingFolder && selectedFolderId !== null) {
+        const selected = foldersById.get(selectedFolderId)
+        if (!selected || selected.parent_id !== null) {
+          message.error('当前版本仅支持两级文件夹')
+          return
+        }
+        parentId = selectedFolderId
+      }
+
       setFolderSaving(true)
 
       if (editingFolder) {
@@ -284,7 +420,7 @@ export default function DataHub() {
         await createFolder({
           name: values.name,
           description: values.description || '',
-          parent_id: null,
+          parent_id: parentId,
         })
         message.success('创建成功')
       }
@@ -299,20 +435,29 @@ export default function DataHub() {
   }
 
   const handleOpenDeleteFolder = (folder: Folder) => {
-    if (folder.dataset_count === 0) {
+    const children = folders.filter((item) => item.parent_id === folder.id)
+    const totalDatasets =
+      folder.dataset_count + children.reduce((sum, item) => sum + item.dataset_count, 0)
+
+    if (totalDatasets === 0) {
       Modal.confirm({
         title: '删除文件夹',
-        content: `确认删除文件夹「${folder.name}」吗？`,
+        content:
+          children.length > 0
+            ? `确认删除文件夹「${folder.name}」吗？该文件夹包含 ${children.length} 个子文件夹，将一并删除。`
+            : `确认删除文件夹「${folder.name}」吗？`,
         okText: '删除',
         cancelText: '取消',
         okButtonProps: { danger: true },
         onOk: async () => {
           await deleteFolder(folder.id, { action: 'move_to_root' })
           message.success('删除成功')
-          if (selectedFolderId === folder.id) {
-            setSelectedFolderId(null)
-            setCurrentPage(1)
-            setSelectedRowKeys([])
+          const isInSubtree =
+            selectedFolderId !== null &&
+            (selectedFolderId === folder.id ||
+              foldersById.get(selectedFolderId)?.parent_id === folder.id)
+          if (isInSubtree) {
+            handleSelectFolder(null)
           }
           fetchFolders()
           fetchDatasets()
@@ -339,7 +484,10 @@ export default function DataHub() {
 
     setFolderDeleting(true)
     try {
-      const wasSelected = selectedFolderId === deletingFolder.id
+      const isInSubtree =
+        selectedFolderId !== null &&
+        (selectedFolderId === deletingFolder.id ||
+          foldersById.get(selectedFolderId)?.parent_id === deletingFolder.id)
       const params =
         deleteFolderAction === 'cascade'
           ? { action: 'cascade' as const, confirm_name: deleteFolderConfirmName }
@@ -349,10 +497,8 @@ export default function DataHub() {
       message.success('删除成功')
 
       handleCloseDeleteFolderModal()
-      if (wasSelected) {
-        setSelectedFolderId(null)
-        setCurrentPage(1)
-        setSelectedRowKeys([])
+      if (isInSubtree) {
+        handleSelectFolder(null)
       }
       fetchFolders()
       fetchDatasets()
@@ -366,73 +512,160 @@ export default function DataHub() {
   // ============ 上传功能 ============
   const handleUploadModalOpen = () => {
     setUploadModalOpen(true)
-    setUploadFile(null)
+    setUploadFileList([])
+    setUploadNameByUid({})
     setUploadProgress(0)
+    setUploadingIndex(0)
+    setUploadingTotal(0)
     uploadForm.resetFields()
+    uploadForm.setFieldValue('folder_id', selectedFolderId === null ? 'root' : selectedFolderId)
   }
 
   const handleUploadModalClose = () => {
     setUploadModalOpen(false)
-    setUploadFile(null)
+    setUploadFileList([])
+    setUploadNameByUid({})
     setUploadProgress(0)
+    setUploadingIndex(0)
+    setUploadingTotal(0)
     uploadForm.resetFields()
   }
 
   const uploadProps: UploadProps = {
     accept: APP_CONFIG.UPLOAD.ALLOWED_TYPES.join(','),
-    maxCount: 1,
+    multiple: true,
+    maxCount: 100,
+    fileList: uploadFileList,
     beforeUpload: (file) => {
-      // 检查文件大小
+      if (uploadFileList.length >= 100) {
+        message.error('单次最多上传 100 个文件')
+        return Upload.LIST_IGNORE
+      }
+
       if (file.size > APP_CONFIG.UPLOAD.MAX_SIZE) {
         message.error(`文件大小不能超过 ${formatFileSize(APP_CONFIG.UPLOAD.MAX_SIZE)}`)
         return Upload.LIST_IGNORE
       }
-      // 检查文件类型
+
       const isCSV = file.name.toLowerCase().endsWith('.csv')
       if (!isCSV) {
         message.error('只支持 CSV 文件')
         return Upload.LIST_IGNORE
       }
-      // 保存原始 File 对象
-      setUploadFile(file)
-      // 自动填充名称（去掉扩展名）
-      const nameWithoutExt = file.name.replace(/\.csv$/i, '')
-      uploadForm.setFieldValue('name', nameWithoutExt)
-      return false // 阻止自动上传
+
+      return false
     },
-    onRemove: () => {
-      setUploadFile(null)
-      uploadForm.setFieldValue('name', '')
+    onChange: (info) => {
+      const nextList = info.fileList.slice(0, 100)
+      if (info.fileList.length > 100) {
+        message.warning('单次最多上传 100 个文件')
+      }
+      setUploadFileList(nextList)
+      setUploadNameByUid((prev) => {
+        const next: Record<string, string> = {}
+        for (const item of nextList) {
+          next[item.uid] = prev[item.uid] ?? item.name.replace(/\.csv$/i, '')
+        }
+        return next
+      })
     },
-    fileList: uploadFile ? [{ uid: '-1', name: uploadFile.name, status: 'done' } as UploadFile] : [],
+    onRemove: (file) => {
+      setUploadNameByUid((prev) => {
+        const next = { ...prev }
+        delete next[file.uid]
+        return next
+      })
+      return true
+    },
   }
 
   const handleUpload = async () => {
     try {
       const values = await uploadForm.validateFields()
-      if (!uploadFile) {
+      if (uploadFileList.length === 0) {
         message.error('请选择文件')
         return
       }
 
+      const description = values.description || ''
+      const folderValue = values.folder_id
+      const folderId =
+        folderValue === undefined || folderValue === null || folderValue === 'root'
+          ? null
+          : Number(folderValue)
+
+      for (const item of uploadFileList) {
+        const datasetName = (uploadNameByUid[item.uid] ?? item.name.replace(/\.csv$/i, '')).trim()
+        if (!datasetName) {
+          message.error(`数据集名称不能为空：${item.name}`)
+          return
+        }
+        if (datasetName.length > 255) {
+          message.error(`数据集名称不能超过 255 个字符：${item.name}`)
+          return
+        }
+      }
+
       setUploading(true)
       setUploadProgress(0)
+      setUploadingIndex(0)
+      setUploadingTotal(uploadFileList.length)
 
-      await uploadDataset(
-        values.name,
-        values.description || '',
-        uploadFile,
-        values.folder_id ?? null,
-        (percent) => setUploadProgress(percent)
-      )
+      const failed: UploadFile[] = []
+      const failedUids = new Set<string>()
 
-      message.success('上传成功')
-      setUploading(false)
-      handleUploadModalClose()
-      fetchDatasets()
-      fetchFolders()
+      for (let index = 0; index < uploadFileList.length; index += 1) {
+        const item = uploadFileList[index]
+        const file = item.originFileObj as File | undefined
+        if (!file) {
+          failed.push(item)
+          failedUids.add(item.uid)
+          continue
+        }
+
+        const datasetName = (uploadNameByUid[item.uid] ?? item.name.replace(/\.csv$/i, '')).trim()
+        setUploadingIndex(index + 1)
+
+        try {
+          await uploadDataset(datasetName, description, file, folderId, (percent) => {
+            const overall = Math.round(((index + percent / 100) / uploadFileList.length) * 100)
+            setUploadProgress(overall)
+          })
+        } catch {
+          failed.push(item)
+          failedUids.add(item.uid)
+        }
+      }
+
+      const successCount = uploadFileList.length - failed.length
+      if (successCount > 0) {
+        fetchDatasets()
+        fetchFolders()
+      }
+
+      if (failed.length === 0) {
+        message.success('上传成功')
+        handleUploadModalClose()
+        return
+      }
+
+      message.warning(`上传完成：成功 ${successCount}，失败 ${failed.length}`)
+      setUploadFileList(failed)
+      setUploadNameByUid((prev) => {
+        const next: Record<string, string> = {}
+        for (const uid of failedUids) {
+          if (prev[uid] !== undefined) {
+            next[uid] = prev[uid]
+          }
+        }
+        return next
+      })
+      setUploadProgress(0)
+      setUploadingIndex(0)
+      setUploadingTotal(failed.length)
     } catch {
       // Error is handled by the API layer
+    } finally {
       setUploading(false)
     }
   }
@@ -493,7 +726,7 @@ export default function DataHub() {
     editForm.setFieldsValue({
       name: dataset.name,
       description: dataset.description,
-      folder_id: dataset.folder_id,
+      folder_id: dataset.folder_id ?? 'root',
     })
   }
 
@@ -517,7 +750,11 @@ export default function DataHub() {
       if (values.description !== editingDataset.description) {
         updateData.description = values.description
       }
-      const nextFolderId = (values.folder_id ?? null) as number | null
+      const folderValue = values.folder_id
+      const nextFolderId =
+        folderValue === undefined || folderValue === null || folderValue === 'root'
+          ? null
+          : (folderValue as number)
       const currentFolderId = (editingDataset.folder_id ?? null) as number | null
       if (nextFolderId !== currentFolderId) {
         updateData.folder_id = nextFolderId
@@ -810,21 +1047,19 @@ export default function DataHub() {
       ),
     },
     {
-      title: '文件夹',
-      dataIndex: 'folder_id',
-      key: 'folder_id',
-      width: 140,
-      render: (folderId: number | null) => {
-        if (folderId === null) {
-          return <Text type="secondary">根目录</Text>
-        }
-        const folder = folders.find((item) => item.id === folderId)
-        return folder ? (
-          <Tag icon={<FolderOutlined />}>{folder.name}</Tag>
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      width: 220,
+      ellipsis: true,
+      render: (description: string) =>
+        description ? (
+          <Tooltip title={description}>
+            <Text type="secondary">{description}</Text>
+          </Tooltip>
         ) : (
           <Text type="secondary">-</Text>
-        )
-      },
+        ),
     },
     {
       title: '大小',
@@ -930,6 +1165,14 @@ export default function DataHub() {
     },
   ]
 
+  const deletingFolderChildren = deletingFolder
+    ? folders.filter((folder) => folder.parent_id === deletingFolder.id)
+    : []
+  const deletingFolderTotalDatasets = deletingFolder
+    ? deletingFolder.dataset_count +
+      deletingFolderChildren.reduce((sum, folder) => sum + folder.dataset_count, 0)
+    : 0
+
   // ============ 渲染 ============
   return (
     <div style={{ padding: 24 }}>
@@ -999,79 +1242,140 @@ export default function DataHub() {
                 <Spin />
               </div>
             ) : (
-              <Menu
-                mode="inline"
-                selectedKeys={[selectedFolderMenuKey]}
-                onClick={({ key }) => handleFolderMenuClick(String(key))}
-              >
-                <Menu.Item key="root" icon={<HomeOutlined />}>
-                  <Space>
-                    <span>根目录</span>
-                    <Badge count={rootDatasetCount} size="small" />
-                  </Space>
-                </Menu.Item>
-                <Menu.Divider />
-                {folders.map((folder) => (
-                  <Menu.Item key={`folder-${folder.id}`} icon={<FolderOutlined />}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <Space size={6}>
-                        {folder.description ? (
-                          <Tooltip title={folder.description}>
-                            <span>{folder.name}</span>
-                          </Tooltip>
-                        ) : (
-                          <span>{folder.name}</span>
-                        )}
-                        <Badge count={folder.dataset_count} size="small" />
-                      </Space>
-                      {isAdmin && (
-                        <Dropdown
-                          menu={{
-                            items: [
-                              { key: 'rename', label: '编辑' },
-                              { key: 'delete', label: '删除', danger: true },
-                            ],
-                            onClick: ({ key }) => {
-                              if (key === 'rename') {
-                                handleOpenRenameFolder(folder)
-                              } else if (key === 'delete') {
-                                handleOpenDeleteFolder(folder)
-                              }
-                            },
-                          }}
-                          trigger={['click']}
-                        >
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<MoreOutlined />}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </Dropdown>
-                      )}
-                    </div>
-                  </Menu.Item>
-                ))}
-                {isAdmin && (
-                  <>
-                    <Menu.Divider />
-                    <Menu.Item key="create" icon={<PlusOutlined />}>
-                      新建文件夹
-                    </Menu.Item>
-                  </>
-                )}
-              </Menu>
+              <Tree.DirectoryTree
+                multiple={false}
+                defaultExpandAll
+                treeData={folderTreeData}
+                selectedKeys={[selectedTreeKey]}
+                onSelect={(keys) => handleTreeSelect(keys)}
+              />
             )}
           </Card>
         </Col>
 
         <Col xs={24} md={17} lg={18} xl={19}>
+          <Card style={{ marginBottom: 16 }} size="small">
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Breadcrumb>
+                <Breadcrumb.Item>
+                  <a onClick={() => handleSelectFolder(null)}>根目录</a>
+                </Breadcrumb.Item>
+                {folderPath.map((folder) => (
+                  <Breadcrumb.Item key={folder.id}>
+                    <a onClick={() => handleSelectFolder(folder.id)}>{folder.name}</a>
+                  </Breadcrumb.Item>
+                ))}
+              </Breadcrumb>
+              <Space size="small">
+                {currentFolder && (
+                  <Tooltip title="查看描述">
+                    <Button
+                      size="small"
+                      icon={<InfoCircleOutlined />}
+                      onClick={() => handleOpenFolderInfo(currentFolder)}
+                    />
+                  </Tooltip>
+                )}
+                {isAdmin && (
+                  <Button
+                    size="small"
+                    icon={<PlusOutlined />}
+                    onClick={handleOpenCreateFolder}
+                    disabled={Boolean(currentFolder && currentFolder.parent_id !== null)}
+                  >
+                    新建文件夹
+                  </Button>
+                )}
+              </Space>
+            </div>
+          </Card>
+
+          <Card
+            style={{ marginBottom: 16 }}
+            size="small"
+            title={selectedFolderId === null ? '文件夹' : '子文件夹'}
+          >
+            {childFolders.length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无文件夹" />
+            ) : (
+              <List
+                grid={{ gutter: 12, xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }}
+                dataSource={childFolders}
+                renderItem={(folder) => (
+                  <List.Item key={folder.id}>
+                    <Card size="small" hoverable onClick={() => handleSelectFolder(folder.id)}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Space size={6}>
+                          <FolderOutlined style={{ color: '#1890ff' }} />
+                          <Text strong>{folder.name}</Text>
+                          <Badge count={folder.dataset_count} size="small" />
+                        </Space>
+                        <Space size={0}>
+                          <Tooltip title="描述">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<InfoCircleOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenFolderInfo(folder)
+                              }}
+                            />
+                          </Tooltip>
+                          {isAdmin && (
+                            <Dropdown
+                              menu={{
+                                items: [
+                                  { key: 'rename', label: '编辑' },
+                                  { key: 'delete', label: '删除', danger: true },
+                                ],
+                                onClick: ({ key }) => {
+                                  if (key === 'rename') {
+                                    handleOpenRenameFolder(folder)
+                                  } else if (key === 'delete') {
+                                    handleOpenDeleteFolder(folder)
+                                  }
+                                },
+                              }}
+                              trigger={['click']}
+                            >
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<MoreOutlined />}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </Dropdown>
+                          )}
+                        </Space>
+                      </div>
+                      {folder.description ? (
+                        <Text type="secondary" ellipsis={{ tooltip: folder.description }}>
+                          {folder.description}
+                        </Text>
+                      ) : (
+                        <Text type="secondary">-</Text>
+                      )}
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            )}
+          </Card>
+
           {selectedRowKeys.length > 0 && (
             <Card style={{ marginBottom: 16 }} size="small">
               <Space wrap>
@@ -1085,10 +1389,7 @@ export default function DataHub() {
                     placeholder="移动到..."
                     disabled={batchMoving}
                     onSelect={(value) => handleBatchMove(value as 'root' | number)}
-                    options={[
-                      { label: '根目录', value: 'root' },
-                      ...folders.map((folder) => ({ label: folder.name, value: folder.id })),
-                    ]}
+                    options={folderSelectOptions}
                   />
                 )}
                 {isAdmin && (
@@ -1154,9 +1455,42 @@ export default function DataHub() {
 
       <FolderSortModal
         open={folderSortModalOpen}
+        parentId={selectedFolderId}
         onClose={() => setFolderSortModalOpen(false)}
         onSuccess={fetchFolders}
       />
+
+      <Modal
+        title={folderInfoFolder ? `文件夹：${folderInfoFolder.name}` : '文件夹'}
+        open={folderInfoModalOpen}
+        onCancel={handleCloseFolderInfo}
+        footer={[
+          <Button key="close" onClick={handleCloseFolderInfo}>
+            关闭
+          </Button>,
+        ]}
+      >
+        {folderInfoFolder ? (
+          <Descriptions column={1} size="small">
+            <Descriptions.Item label="名称">{folderInfoFolder.name}</Descriptions.Item>
+            <Descriptions.Item label="描述">
+              {folderInfoFolder.description ? (
+                <Text>{folderInfoFolder.description}</Text>
+              ) : (
+                <Text type="secondary">-</Text>
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="创建时间">
+              {formatDateTime(folderInfoFolder.created_at)}
+            </Descriptions.Item>
+            <Descriptions.Item label="更新时间">
+              {formatDateTime(folderInfoFolder.updated_at)}
+            </Descriptions.Item>
+          </Descriptions>
+        ) : (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无信息" />
+        )}
+      </Modal>
 
       <Modal
         title={editingFolder ? '编辑文件夹' : '新建文件夹'}
@@ -1214,8 +1548,11 @@ export default function DataHub() {
         {deletingFolder && (
           <Space direction="vertical" style={{ width: '100%' }}>
             <Text>
-              文件夹「{deletingFolder.name}」包含 {deletingFolder.dataset_count} 个数据集
+              文件夹「{deletingFolder.name}」包含 {deletingFolderTotalDatasets} 个数据集
             </Text>
+            {deletingFolderChildren.length > 0 && (
+              <Text type="secondary">包含 {deletingFolderChildren.length} 个子文件夹</Text>
+            )}
             <Radio.Group
               value={deleteFolderAction}
               onChange={(e) => setDeleteFolderAction(e.target.value)}
@@ -1252,7 +1589,7 @@ export default function DataHub() {
         confirmLoading={uploading}
         maskClosable={!uploading}
         closable={!uploading}
-        width={520}
+        width={760}
       >
         <Form form={uploadForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item label="选择文件" required>
@@ -1267,16 +1604,50 @@ export default function DataHub() {
             </Dragger>
           </Form.Item>
 
-          <Form.Item
-            name="name"
-            label="数据集名称"
-            rules={[
-              { required: true, message: '请输入数据集名称' },
-              { max: 255, message: '名称不能超过255个字符' },
-            ]}
-          >
-            <Input placeholder="请输入数据集名称" disabled={uploading} />
-          </Form.Item>
+          {uploadFileList.length > 0 && (
+            <Form.Item label="文件列表">
+              <Table
+                size="small"
+                rowKey="uid"
+                pagination={false}
+                dataSource={uploadFileList}
+                scroll={{ y: 240 }}
+                columns={[
+                  {
+                    title: '文件',
+                    dataIndex: 'name',
+                    key: 'name',
+                    ellipsis: true,
+                  },
+                  {
+                    title: '数据集名称',
+                    key: 'dataset_name',
+                    width: 300,
+                    render: (_, record: UploadFile) => (
+                      <Input
+                        value={
+                          uploadNameByUid[record.uid] ?? record.name.replace(/\.csv$/i, '')
+                        }
+                        onChange={(e) =>
+                          setUploadNameByUid((prev) => ({
+                            ...prev,
+                            [record.uid]: e.target.value,
+                          }))
+                        }
+                        disabled={uploading}
+                      />
+                    ),
+                  },
+                  {
+                    title: '大小',
+                    key: 'size',
+                    width: 110,
+                    render: (_, record: UploadFile) => formatFileSize(record.size ?? 0),
+                  },
+                ]}
+              />
+            </Form.Item>
+          )}
 
           <Form.Item
             name="description"
@@ -1292,16 +1663,21 @@ export default function DataHub() {
 
           <Form.Item name="folder_id" label="文件夹">
             <Select
-              placeholder="选择文件夹（可选，默认根目录）"
+              placeholder="选择文件夹"
               allowClear
               disabled={uploading}
-              options={folders.map((folder) => ({ label: folder.name, value: folder.id }))}
+              options={folderSelectOptions}
             />
           </Form.Item>
 
           {uploading && (
             <Form.Item label="上传进度">
-              <Progress percent={uploadProgress} status="active" />
+              <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                <Progress percent={uploadProgress} status="active" />
+                <Text type="secondary">
+                  {uploadingIndex}/{uploadingTotal}
+                </Text>
+              </Space>
             </Form.Item>
           )}
         </Form>
@@ -1413,7 +1789,7 @@ export default function DataHub() {
               placeholder="选择文件夹（可选，默认根目录）"
               allowClear
               disabled={editLoading}
-              options={folders.map((folder) => ({ label: folder.name, value: folder.id }))}
+              options={folderSelectOptions}
             />
           </Form.Item>
         </Form>

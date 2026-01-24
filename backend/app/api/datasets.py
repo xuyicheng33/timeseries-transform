@@ -60,6 +60,17 @@ def _detect_encoding_sync(filepath: str) -> str:
         return "utf-8"
 
 
+async def _get_valid_folder(db: AsyncSession, folder_id: int) -> Folder:
+    folder = await db.get(Folder, folder_id)
+    if folder is None:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    if folder.parent_id is not None:
+        parent = await db.get(Folder, folder.parent_id)
+        if parent is None or parent.parent_id is not None:
+            raise HTTPException(status_code=400, detail="Only two folder levels are supported")
+    return folder
+
+
 @router.post("/upload", response_model=DatasetResponse)
 async def upload_dataset(
     file: UploadFile = File(...),
@@ -80,11 +91,7 @@ async def upload_dataset(
     description = validate_description(description, max_length=1000)
 
     if folder_id is not None:
-        folder = await db.get(Folder, folder_id)
-        if folder is None:
-            raise HTTPException(status_code=404, detail="Folder not found")
-        if folder.parent_id is not None:
-            raise HTTPException(status_code=400, detail="Only root folders are supported")
+        await _get_valid_folder(db, folder_id)
     
     # 大小写不敏感的扩展名校验
     if not file.filename.lower().endswith(".csv"):
@@ -194,11 +201,7 @@ async def list_datasets(
         raise HTTPException(status_code=400, detail="root_only and folder_id are mutually exclusive")
 
     if folder_id is not None:
-        folder = await db.get(Folder, folder_id)
-        if folder is None:
-            raise HTTPException(status_code=404, detail="Folder not found")
-        if folder.parent_id is not None:
-            raise HTTPException(status_code=400, detail="Only root folders are supported")
+        await _get_valid_folder(db, folder_id)
     
     # 获取数据隔离条件
     conditions, _ = get_isolation_conditions(current_user, Dataset)
@@ -370,11 +373,7 @@ async def update_dataset(
     update_data.pop('is_public', None)
 
     if "folder_id" in update_data and update_data["folder_id"] is not None:
-        folder = await db.get(Folder, update_data["folder_id"])
-        if folder is None:
-            raise HTTPException(status_code=404, detail="Folder not found")
-        if folder.parent_id is not None:
-            raise HTTPException(status_code=400, detail="Only root folders are supported")
+        await _get_valid_folder(db, update_data["folder_id"])
     
     for key, value in update_data.items():
         setattr(dataset, key, value)
@@ -414,11 +413,7 @@ async def batch_move_datasets(
     current_user: User = Depends(get_admin_user),
 ):
     if data.folder_id is not None:
-        folder = await db.get(Folder, data.folder_id)
-        if folder is None:
-            raise HTTPException(status_code=404, detail="Folder not found")
-        if folder.parent_id is not None:
-            raise HTTPException(status_code=400, detail="Only root folders are supported")
+        await _get_valid_folder(db, data.folder_id)
 
     existing_result = await db.execute(
         select(Dataset.id).where(Dataset.id.in_(data.dataset_ids))

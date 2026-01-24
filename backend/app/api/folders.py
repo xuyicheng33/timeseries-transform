@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth import get_admin_user, get_current_user
@@ -26,6 +26,20 @@ def _validate_sort(sort_by: str, order: str) -> None:
         raise HTTPException(status_code=400, detail="Invalid order")
 
 
+async def _get_folder_or_404(db: AsyncSession, folder_id: int) -> Folder:
+    folder = await db.get(Folder, folder_id)
+    if folder is None:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    return folder
+
+
+async def _validate_parent_id(db: AsyncSession, parent_id: int) -> Folder:
+    parent = await _get_folder_or_404(db, parent_id)
+    if parent.parent_id is not None:
+        raise HTTPException(status_code=400, detail="Only two folder levels are supported")
+    return parent
+
+
 @router.get("", response_model=FolderListResponse)
 async def list_folders(
     sort_by: str = Query("manual"),
@@ -50,17 +64,30 @@ async def list_folders(
             func.coalesce(dataset_count_subq.c.dataset_count, 0).label("dataset_count"),
         )
         .outerjoin(dataset_count_subq, Folder.id == dataset_count_subq.c.folder_id)
-        .where(Folder.parent_id.is_(None))
     )
 
+    level_sort = case((Folder.parent_id.is_(None), 0), else_=1)
     if sort_by == "name":
-        query = query.order_by(Folder.name.asc() if order == "asc" else Folder.name.desc())
+        query = query.order_by(
+            level_sort.asc(),
+            Folder.parent_id.asc(),
+            Folder.name.asc() if order == "asc" else Folder.name.desc(),
+            Folder.id.asc(),
+        )
     elif sort_by == "time":
         query = query.order_by(
-            Folder.created_at.asc() if order == "asc" else Folder.created_at.desc()
+            level_sort.asc(),
+            Folder.parent_id.asc(),
+            Folder.created_at.asc() if order == "asc" else Folder.created_at.desc(),
+            Folder.id.asc(),
         )
     else:
-        query = query.order_by(Folder.sort_order.asc(), Folder.id.asc())
+        query = query.order_by(
+            level_sort.asc(),
+            Folder.parent_id.asc(),
+            Folder.sort_order.asc(),
+            Folder.id.asc(),
+        )
 
     result = await db.execute(query)
     rows = result.all()
@@ -95,8 +122,9 @@ async def create_folder(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
-    if data.parent_id is not None:
-        raise HTTPException(status_code=400, detail="Only root folders are supported")
+    parent_id = data.parent_id
+    if parent_id is not None:
+        await _validate_parent_id(db, parent_id)
 
     name = validate_form_field(data.name, "Folder name", max_length=255, min_length=1)
     description = validate_form_field(
@@ -107,14 +135,15 @@ async def create_folder(
         required=False,
     )
 
-    existing = await db.execute(
-        select(Folder.id).where(Folder.parent_id.is_(None), Folder.name == name)
+    parent_condition = (
+        Folder.parent_id.is_(None) if parent_id is None else Folder.parent_id == parent_id
     )
+    existing = await db.execute(select(Folder.id).where(parent_condition, Folder.name == name))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Folder name already exists")
 
     max_sort_result = await db.execute(
-        select(func.max(Folder.sort_order)).where(Folder.parent_id.is_(None))
+        select(func.max(Folder.sort_order)).where(parent_condition)
     )
     max_sort_order = max_sort_result.scalar()
     sort_order = (max_sort_order if max_sort_order is not None else -1) + 1
@@ -122,7 +151,7 @@ async def create_folder(
     folder = Folder(
         name=name,
         description=description,
-        parent_id=None,
+        parent_id=parent_id,
         sort_order=sort_order,
         user_id=admin.id,
     )
@@ -149,17 +178,20 @@ async def update_folder(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
-    folder = await db.get(Folder, folder_id)
-    if folder is None:
-        raise HTTPException(status_code=404, detail="Folder not found")
+    folder = await _get_folder_or_404(db, folder_id)
     if folder.parent_id is not None:
-        raise HTTPException(status_code=400, detail="Only root folders are supported")
+        await _validate_parent_id(db, folder.parent_id)
 
     if data.name is not None:
         name = validate_form_field(data.name, "Folder name", max_length=255, min_length=1)
+        parent_condition = (
+            Folder.parent_id.is_(None)
+            if folder.parent_id is None
+            else Folder.parent_id == folder.parent_id
+        )
         existing = await db.execute(
             select(Folder.id).where(
-                Folder.parent_id.is_(None),
+                parent_condition,
                 Folder.name == name,
                 Folder.id != folder_id,
             )
@@ -204,24 +236,25 @@ async def delete_folder(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_admin_user),
 ):
-    folder = await db.get(Folder, folder_id)
-    if folder is None:
-        raise HTTPException(status_code=404, detail="Folder not found")
+    folder = await _get_folder_or_404(db, folder_id)
     if folder.parent_id is not None:
-        raise HTTPException(status_code=400, detail="Only root folders are supported")
+        await _validate_parent_id(db, folder.parent_id)
+
+    folder_ids = [folder.id]
+    if folder.parent_id is None:
+        children_result = await db.execute(select(Folder.id).where(Folder.parent_id == folder.id))
+        folder_ids.extend(children_result.scalars().all())
 
     dataset_ids_result = await db.execute(
-        select(Dataset.id).where(Dataset.folder_id == folder_id)
+        select(Dataset.id).where(Dataset.folder_id.in_(folder_ids))
     )
     dataset_ids = dataset_ids_result.scalars().all()
 
     if action == "move_to_root":
-        datasets_result = await db.execute(
-            select(Dataset).where(Dataset.folder_id == folder_id)
-        )
-        datasets = datasets_result.scalars().all()
-        for dataset in datasets:
-            dataset.folder_id = None
+        if dataset_ids:
+            await db.execute(
+                update(Dataset).where(Dataset.id.in_(dataset_ids)).values(folder_id=None)
+            )
         await db.delete(folder)
         await db.commit()
         return {"message": "Folder deleted", "moved_datasets": len(dataset_ids)}
@@ -271,16 +304,23 @@ async def reorder_folders(
         raise HTTPException(status_code=400, detail="No orders provided")
 
     folder_ids = [item.id for item in data.orders]
-    existing_result = await db.execute(
-        select(Folder.id).where(Folder.id.in_(folder_ids), Folder.parent_id.is_(None))
-    )
-    existing_ids = set(existing_result.scalars().all())
+    existing_result = await db.execute(select(Folder).where(Folder.id.in_(folder_ids)))
+    existing_folders = existing_result.scalars().all()
+    existing_ids = {folder.id for folder in existing_folders}
     missing_ids = set(folder_ids) - existing_ids
     if missing_ids:
         raise HTTPException(status_code=404, detail=f"Missing folders: {sorted(missing_ids)}")
 
+    parent_ids = {folder.parent_id for folder in existing_folders}
+    if len(parent_ids) != 1:
+        raise HTTPException(status_code=400, detail="Folders must share the same parent_id")
+
+    parent_id = next(iter(parent_ids))
+    if parent_id is not None:
+        await _validate_parent_id(db, parent_id)
+
     for item in data.orders:
-        folder = await db.get(Folder, item.id)
+        folder = next((f for f in existing_folders if f.id == item.id), None)
         if folder is None:
             continue
         folder.sort_order = item.sort_order
