@@ -276,6 +276,7 @@ async def list_all_results(
     dataset_id: Optional[int] = None,
     configuration_id: Optional[int] = None,
     algo_name: Optional[str] = None,
+    model_name: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -287,8 +288,9 @@ async def list_all_results(
         query = query.where(Result.dataset_id == dataset_id)
     if configuration_id is not None:
         query = query.where(Result.configuration_id == configuration_id)
-    if algo_name is not None:
-        query = query.where(Result.algo_name == algo_name)
+    effective_model_name = model_name or algo_name
+    if effective_model_name is not None:
+        query = query.where(Result.algo_name == effective_model_name)
     
     query = query.limit(1000)
     
@@ -301,6 +303,7 @@ async def list_results(
     dataset_id: Optional[int] = None,
     configuration_id: Optional[int] = None,
     algo_name: Optional[str] = None,
+    model_name: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
@@ -319,8 +322,9 @@ async def list_results(
         conditions.append(Result.dataset_id == dataset_id)
     if configuration_id is not None:
         conditions.append(Result.configuration_id == configuration_id)
-    if algo_name is not None:
-        conditions.append(Result.algo_name == algo_name)
+    effective_model_name = model_name or algo_name
+    if effective_model_name is not None:
+        conditions.append(Result.algo_name == effective_model_name)
     
     # 数据隔离过滤
     isolation_conditions, need_join = get_isolation_conditions(current_user, Result)

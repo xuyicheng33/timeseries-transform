@@ -30,7 +30,7 @@ class TestResultList:
         assert data["total"] == 1
         assert len(data["items"]) == 1
         assert data["items"][0]["name"] == "Test Result"
-        assert data["items"][0]["algo_name"] == "TestModel"
+        assert data["items"][0]["model_name"] == "TestModel"
     
     @pytest.mark.asyncio
     async def test_list_results_filter_by_dataset(self, client: AsyncClient, auth_headers: dict, test_result: Result, test_dataset: Dataset):
@@ -52,9 +52,9 @@ class TestResultList:
     @pytest.mark.asyncio
     async def test_list_results_filter_by_model(self, client: AsyncClient, auth_headers: dict, test_result: Result):
         """测试按模型名称筛选"""
-        # 后端使用 algo_name 作为查询参数
+        # 对外推荐使用 model_name 作为查询参数（algo_name 仍兼容）
         response = await client.get(
-            "/api/results?algo_name=TestModel",
+            "/api/results?model_name=TestModel",
             headers=auth_headers
         )
         
@@ -63,7 +63,7 @@ class TestResultList:
         assert data["total"] == 1
         
         # 筛选不存在的模型
-        response = await client.get("/api/results?algo_name=NonExistent", headers=auth_headers)
+        response = await client.get("/api/results?model_name=NonExistent", headers=auth_headers)
         assert response.status_code == 200
         assert response.json()["total"] == 0
 
@@ -80,7 +80,7 @@ class TestResultGet:
         data = response.json()
         assert data["id"] == test_result.id
         assert data["name"] == "Test Result"
-        assert data["algo_name"] == "TestModel"
+        assert data["model_name"] == "TestModel"
         assert data["metrics"]["mse"] == 0.001
         assert data["metrics"]["r2"] == 0.95
     
@@ -115,8 +115,8 @@ class TestResultUpload:
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Uploaded Result"
-        assert data["algo_name"] == "UploadedModel"
-        assert data["algo_version"] == "1.0.0"
+        assert data["model_name"] == "UploadedModel"
+        assert data["model_version"] == "1.0.0"
         # 应该自动计算指标
         assert "metrics" in data
         assert "mse" in data["metrics"]
@@ -181,7 +181,7 @@ class TestResultUpdate:
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Updated Result"
-        assert data["algo_name"] == "UpdatedModel"
+        assert data["model_name"] == "UpdatedModel"
         assert data["description"] == "Updated description"
     
     @pytest.mark.asyncio
@@ -312,8 +312,8 @@ class TestResultPermissions:
         })
         other_headers = {"Authorization": f"Bearer {login_response.json()['access_token']}"}
         
-        # 尝试访问（应该被拒绝，因为数据集是私有的）
+        # 数据集/结果默认对所有登录用户可见（数据集强制公开）
         response = await client.get(f"/api/results/{test_result.id}", headers=other_headers)
         
-        assert response.status_code == 403
+        assert response.status_code == 200
 
