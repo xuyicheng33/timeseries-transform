@@ -6,6 +6,7 @@
 
 import json
 import os
+import re
 import tempfile
 import zipfile
 from datetime import datetime
@@ -41,8 +42,6 @@ router = APIRouter(prefix="/api/experiments", tags=["experiments"])
 
 
 # ============ 辅助函数 ============
-
-import re
 
 
 def _sanitize_filename(name: str) -> str:
@@ -598,7 +597,7 @@ async def get_experiment_summary(
         )
 
     # 收集模型名称
-    model_names = list(set(r.algo_name for r in results))
+    model_names = sorted({r.algo_name for r in results})
 
     # 收集所有指标
     metrics_data = {"mse": [], "rmse": [], "mae": [], "r2": [], "mape": []}
@@ -658,7 +657,7 @@ async def list_all_tags(db: AsyncSession = Depends(get_db), current_user: User =
         if row:
             all_tags.update(row)
 
-    return {"tags": sorted(list(all_tags))}
+    return {"tags": sorted(all_tags)}
 
 
 # ============ 实验组导出 ============
@@ -932,4 +931,4 @@ async def export_experiment(
     except Exception as e:
         # 出错时立即清理
         await run_in_executor(safe_rmtree, temp_dir)
-        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}") from e

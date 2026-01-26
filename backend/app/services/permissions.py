@@ -103,9 +103,7 @@ def check_owner_or_admin(resource_user_id: int | None, current_user: User, resou
     raise HTTPException(status_code=403, detail=f"只能操作自己的{resource_name}，或需要管理员权限")
 
 
-def check_read_access(
-    resource, user: User, resource_type: str = "资源", parent_dataset: Dataset | None = None
-) -> None:
+def check_read_access(resource, user: User, resource_type: str = "资源", parent_dataset: Dataset | None = None) -> None:
     """
     检查用户对资源的读取权限
 
@@ -250,7 +248,7 @@ def build_dataset_query(user: User, base_query=None):
     if settings.ENABLE_DATA_ISOLATION:
         if not user.is_admin:
             # 普通用户只能看到自己的数据或公开数据
-            base_query = base_query.where(or_(Dataset.user_id == user.id, Dataset.is_public == True))
+            base_query = base_query.where(or_(Dataset.user_id == user.id, Dataset.is_public.is_(True)))
         # 管理员不做过滤
     # 团队共享模式：不过滤
 
@@ -275,7 +273,7 @@ def build_result_query(user: User, base_query=None):
         if not user.is_admin:
             # 普通用户只能看到自己的结果、自己数据集的结果、或公开数据集的结果
             base_query = base_query.join(Dataset).where(
-                or_(Result.user_id == user.id, Dataset.user_id == user.id, Dataset.is_public == True)
+                or_(Result.user_id == user.id, Dataset.user_id == user.id, Dataset.is_public.is_(True))
             )
         # 管理员不做过滤
 
@@ -299,7 +297,7 @@ def build_config_query(user: User, base_query=None):
     if settings.ENABLE_DATA_ISOLATION:
         if not user.is_admin:
             # 普通用户只能看到自己的数据集或公开数据集的配置
-            base_query = base_query.join(Dataset).where(or_(Dataset.user_id == user.id, Dataset.is_public == True))
+            base_query = base_query.join(Dataset).where(or_(Dataset.user_id == user.id, Dataset.is_public.is_(True)))
         # 管理员不做过滤
 
     return base_query
@@ -328,13 +326,13 @@ def get_isolation_conditions(user: User, model_class: type[T]) -> tuple[list[Any
         return conditions, need_join
 
     if model_class == Dataset:
-        conditions.append(or_(Dataset.user_id == user.id, Dataset.is_public == True))
+        conditions.append(or_(Dataset.user_id == user.id, Dataset.is_public.is_(True)))
     elif model_class == Result:
         need_join = True
-        conditions.append(or_(Result.user_id == user.id, Dataset.user_id == user.id, Dataset.is_public == True))
+        conditions.append(or_(Result.user_id == user.id, Dataset.user_id == user.id, Dataset.is_public.is_(True)))
     elif model_class == Configuration:
         need_join = True
-        conditions.append(or_(Dataset.user_id == user.id, Dataset.is_public == True))
+        conditions.append(or_(Dataset.user_id == user.id, Dataset.is_public.is_(True)))
 
     return conditions, need_join
 

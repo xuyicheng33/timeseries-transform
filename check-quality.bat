@@ -18,7 +18,7 @@ if exist venv\Scripts\activate.bat (
     echo 警告: 虚拟环境不存在，使用全局 Python
 )
 
-ruff check app tests
+python -m ruff check app tests
 if %errorlevel% neq 0 (
     echo ❌ Ruff 检查失败
     cd ..
@@ -27,7 +27,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [2/4] 后端 - Black 格式检查...
-black --check app tests
+python -m black --check app tests
 if %errorlevel% neq 0 (
     echo ❌ Black 格式检查失败
     echo 💡 运行 'black app tests' 自动修复

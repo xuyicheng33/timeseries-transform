@@ -142,18 +142,18 @@ async def upload_result(
                 await f.write(chunk)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         await run_in_executor(safe_rmtree, str(result_dir))
         await db.rollback()
-        raise HTTPException(status_code=500, detail="文件上传失败")
+        raise HTTPException(status_code=500, detail="文件上传失败") from e
 
     # 解析 CSV
     try:
         df = await run_in_executor(_parse_result_csv_sync, str(filepath))
-    except Exception:
+    except Exception as e:
         await run_in_executor(safe_rmtree, str(result_dir))
         await db.rollback()
-        raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式")
+        raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式") from e
 
     # 检查上传模式
     has_true_value = "true_value" in df.columns
@@ -183,10 +183,10 @@ async def upload_result(
         # 读取数据集
         try:
             dataset_df = await run_in_executor(_read_dataset_csv_sync, dataset.filepath, dataset.encoding or "utf-8")
-        except Exception:
+        except Exception as e:
             await run_in_executor(safe_rmtree, str(result_dir))
             await db.rollback()
-            raise HTTPException(status_code=500, detail="读取数据集文件失败")
+            raise HTTPException(status_code=500, detail="读取数据集文件失败") from e
 
         # 检查目标列是否存在
         if target_column not in dataset_df.columns:
@@ -210,10 +210,10 @@ async def upload_result(
         # 重新保存包含 true_value 的完整文件
         try:
             await run_in_executor(lambda: df.to_csv(str(filepath), index=False))
-        except Exception:
+        except Exception as e:
             await run_in_executor(safe_rmtree, str(result_dir))
             await db.rollback()
-            raise HTTPException(status_code=500, detail="保存结果文件失败")
+            raise HTTPException(status_code=500, detail="保存结果文件失败") from e
 
     result_obj.filepath = str(filepath)
     result_obj.row_count = len(df)
@@ -230,11 +230,11 @@ async def upload_result(
     except ValueError as e:
         await run_in_executor(safe_rmtree, str(result_dir))
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
         await run_in_executor(safe_rmtree, str(result_dir))
         await db.rollback()
-        raise HTTPException(status_code=400, detail="数据格式错误，true_value 和 predicted_value 必须为数值类型")
+        raise HTTPException(status_code=400, detail="数据格式错误，true_value 和 predicted_value 必须为数值类型") from e
 
     await db.commit()
     await db.refresh(result_obj)
@@ -434,7 +434,7 @@ async def preview_result(
             "total_rows": result_obj.row_count or len(df),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}") from e
 
 
 @router.put("/{result_id}", response_model=ResultResponse)

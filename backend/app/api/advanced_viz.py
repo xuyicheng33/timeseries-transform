@@ -362,7 +362,7 @@ async def analyze_feature_importance(
     try:
         df = await run_in_executor(_read_csv_sync, result_obj.filepath)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}") from e
 
     # 计算特征重要性
     if request.method == "correlation":
@@ -432,7 +432,7 @@ async def calculate_confidence_interval(
     try:
         df = await run_in_executor(_read_csv_sync, result_obj.filepath, ["true_value", "predicted_value"])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}") from e
 
     true_vals = pd.to_numeric(df["true_value"], errors="coerce").values
     pred_vals = pd.to_numeric(df["predicted_value"], errors="coerce").values
@@ -631,7 +631,7 @@ async def decompose_prediction(
     try:
         df = await run_in_executor(_read_csv_sync, result_obj.filepath, ["true_value", "predicted_value"])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}") from e
 
     pred_vals = pd.to_numeric(df["predicted_value"], errors="coerce").values
     true_vals = pd.to_numeric(df["true_value"], errors="coerce").values

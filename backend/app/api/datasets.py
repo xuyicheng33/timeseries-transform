@@ -60,7 +60,7 @@ def _detect_encoding_sync(filepath: str) -> str:
     try:
         detected = chardet.detect(raw)
         return detected.get("encoding", "utf-8") or "utf-8"
-    except:
+    except Exception:
         return "utf-8"
 
 
@@ -143,10 +143,10 @@ async def upload_dataset(
                 await f.write(chunk)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         await run_in_executor(safe_rmtree, str(dataset_dir))
         await db.rollback()
-        raise HTTPException(status_code=500, detail="文件上传失败")
+        raise HTTPException(status_code=500, detail="文件上传失败") from e
 
     # 检测编码
     encoding = await run_in_executor(_detect_encoding_sync, str(filepath))
@@ -154,10 +154,10 @@ async def upload_dataset(
     # 解析CSV
     try:
         df, row_count = await run_in_executor(_parse_csv_sync, str(filepath), encoding)
-    except Exception:
+    except Exception as e:
         await run_in_executor(safe_rmtree, str(dataset_dir))
         await db.rollback()
-        raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式")
+        raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式") from e
 
     dataset.filepath = str(filepath)
     dataset.file_size = total_size
@@ -278,8 +278,8 @@ async def preview_dataset(
         df = await run_in_executor(
             lambda: pd.read_csv(dataset.filepath, encoding=dataset.encoding or "utf-8", nrows=rows)
         )
-    except Exception:
-        raise HTTPException(status_code=500, detail="读取数据集文件失败")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="读取数据集文件失败") from e
 
     # 将 DataFrame 转换为 JSON 兼容格式
     # pandas 的 NaN/Infinity 无法被标准 JSON 序列化，需要转换为 None
@@ -427,7 +427,7 @@ async def update_sort_order_batch(
     # 验证所有数据集存在
     dataset_ids = [item.id for item in data.orders]
     result = await db.execute(select(Dataset.id).where(Dataset.id.in_(dataset_ids)))
-    existing_ids = set(row[0] for row in result.fetchall())
+    existing_ids = {row[0] for row in result.fetchall()}
 
     missing_ids = set(dataset_ids) - existing_ids
     if missing_ids:

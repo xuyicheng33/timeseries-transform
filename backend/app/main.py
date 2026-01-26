@@ -37,7 +37,7 @@ async def init_preset_model_templates():
     async with async_session_maker() as db:
         try:
             # 检查是否已有系统模板
-            result = await db.execute(select(ModelTemplate).where(ModelTemplate.is_system == True).limit(1))
+            result = await db.execute(select(ModelTemplate).where(ModelTemplate.is_system.is_(True)).limit(1))
             existing = result.scalar_one_or_none()
 
             if existing:
@@ -50,7 +50,7 @@ async def init_preset_model_templates():
                 # 检查是否已存在同名模板
                 check_result = await db.execute(
                     select(ModelTemplate).where(
-                        ModelTemplate.name == template_data["name"], ModelTemplate.is_system == True
+                        ModelTemplate.name == template_data["name"], ModelTemplate.is_system.is_(True)
                     )
                 )
                 if check_result.scalar_one_or_none():

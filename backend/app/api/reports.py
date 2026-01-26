@@ -129,7 +129,7 @@ def _generate_markdown_report(
         lines.append("## 实验汇总")
         lines.append("")
         lines.append(f"- **模型数量**: {len(results_data)}")
-        model_names = list(set(r.get("algo_name", "unknown") for r in results_data))
+        model_names = sorted({r.get("algo_name", "unknown") for r in results_data})
         lines.append(f"- **涉及模型**: {', '.join(model_names)}")
         lines.append("")
 
@@ -295,7 +295,7 @@ def _generate_html_report(
     html_parts.append(f"<title>{safe_title}</title>")
     html_parts.append("<style>")
     html_parts.append("""
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                max-width: 900px; margin: 0 auto; padding: 20px; line-height: 1.6; }
         h1 { color: #1a1a1a; border-bottom: 2px solid #1890ff; padding-bottom: 10px; }
         h2 { color: #333; margin-top: 30px; }
@@ -357,7 +357,7 @@ def _generate_html_report(
         html_parts.append("<h2>实验汇总</h2>")
         html_parts.append("<ul>")
         html_parts.append(f"<li><strong>模型数量</strong>: {len(results_data)}</li>")
-        model_names = list(set(_escape_html(r.get("algo_name", "unknown")) for r in results_data))
+        model_names = sorted({_escape_html(r.get("algo_name", "unknown")) for r in results_data})
         html_parts.append(f"<li><strong>涉及模型</strong>: {', '.join(model_names)}</li>")
         html_parts.append("</ul>")
 

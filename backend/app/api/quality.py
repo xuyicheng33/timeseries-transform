@@ -163,7 +163,7 @@ async def get_quality_report(
             settings.SAMPLE_SIZE_FOR_LARGE_FILES,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}") from e
 
     # 构建检测请求
     request = QualityCheckRequest(outlier_method=outlier_method, include_suggestions=True)
@@ -188,7 +188,7 @@ async def get_quality_report(
             report.total_rows = total_rows
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}") from e
 
     return report
 
@@ -241,7 +241,7 @@ async def generate_quality_report(
             settings.SAMPLE_SIZE_FOR_LARGE_FILES,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}") from e
 
     # 生成质量报告
     try:
@@ -262,7 +262,7 @@ async def generate_quality_report(
             report.total_rows = total_rows
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"质量分析失败: {str(e)}") from e
 
     return report
 
@@ -308,13 +308,13 @@ async def preview_data_cleaning(
     try:
         df = await run_in_executor(_read_csv_sync, dataset.filepath, dataset.encoding or "utf-8")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}") from e
 
     # 预览清洗效果
     try:
         preview_result = await run_in_executor(preview_cleaning, df, config)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"清洗预览失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"清洗预览失败: {str(e)}") from e
 
     return preview_result
 
@@ -361,7 +361,7 @@ async def apply_data_cleaning(
     try:
         df = await run_in_executor(_read_csv_sync, dataset.filepath, dataset.encoding or "utf-8")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}") from e
 
     rows_before = len(df)
 
@@ -369,7 +369,7 @@ async def apply_data_cleaning(
     try:
         cleaned_df, cells_modified = await run_in_executor(apply_cleaning, df, config)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"数据清洗失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"数据清洗失败: {str(e)}") from e
 
     rows_after = len(cleaned_df)
     rows_removed = rows_before - rows_after
@@ -384,7 +384,7 @@ async def apply_data_cleaning(
         _, outlier_ratio = analyzer.detect_outliers(method=config.outlier_method, params=config.outlier_params)[1:3]
         dup_ratio = analyzer.analyze_duplicates()[1]
         quality_score, _ = analyzer.calculate_quality_score(missing_ratio, outlier_ratio, dup_ratio, None)
-    except:
+    except Exception:
         quality_score = 0
 
     new_dataset_id = None
@@ -421,7 +421,7 @@ async def apply_data_cleaning(
             await run_in_executor(_save_csv_sync, cleaned_df, str(new_filepath), dataset.encoding or "utf-8")
         except Exception as e:
             await db.rollback()
-            raise HTTPException(status_code=500, detail=f"保存清洗后数据失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"保存清洗后数据失败: {str(e)}") from e
 
         # 更新文件路径和大小
         new_dataset.filepath = str(new_filepath)
@@ -439,7 +439,7 @@ async def apply_data_cleaning(
         try:
             await run_in_executor(_save_csv_sync, cleaned_df, dataset.filepath, dataset.encoding or "utf-8")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"保存清洗后数据失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"保存清洗后数据失败: {str(e)}") from e
 
         # 更新数据集元信息
         dataset.row_count = len(cleaned_df)
@@ -513,7 +513,7 @@ async def get_outlier_details(
     try:
         df = await run_in_executor(_read_csv_sync, dataset.filepath, dataset.encoding or "utf-8")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取数据集文件失败: {str(e)}") from e
 
     if column not in df.columns:
         raise HTTPException(status_code=400, detail=f"列 '{column}' 不存在")
@@ -536,7 +536,7 @@ async def get_outlier_details(
     try:
         outlier_stats, _, _ = await run_in_executor(analyzer.detect_outliers, method, params, [column])
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"异常值检测失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"异常值检测失败: {str(e)}") from e
 
     if not outlier_stats:
         raise HTTPException(status_code=400, detail=f"列 '{column}' 不是数值列")

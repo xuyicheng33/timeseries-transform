@@ -38,7 +38,7 @@ async def init_preset_templates(db: AsyncSession = Depends(get_db), current_user
     for template_data in PRESET_MODEL_TEMPLATES:
         # 检查是否已存在同名系统模板
         existing = await db.execute(
-            select(ModelTemplate).where(ModelTemplate.name == template_data["name"], ModelTemplate.is_system == True)
+            select(ModelTemplate).where(ModelTemplate.name == template_data["name"], ModelTemplate.is_system.is_(True))
         )
         if existing.scalar_one_or_none():
             skipped_count += 1
@@ -106,7 +106,11 @@ async def list_templates(
 
     # 构建查询条件：系统模板 + 公开模板 + 自己的模板
     conditions = [
-        or_(ModelTemplate.is_system == True, ModelTemplate.is_public == True, ModelTemplate.user_id == current_user.id)
+        or_(
+            ModelTemplate.is_system.is_(True),
+            ModelTemplate.is_public.is_(True),
+            ModelTemplate.user_id == current_user.id,
+        )
     ]
 
     if category:
@@ -144,7 +148,11 @@ async def list_all_templates(
 ):
     """获取所有模型模板（不分页，用于下拉选择）"""
     conditions = [
-        or_(ModelTemplate.is_system == True, ModelTemplate.is_public == True, ModelTemplate.user_id == current_user.id)
+        or_(
+            ModelTemplate.is_system.is_(True),
+            ModelTemplate.is_public.is_(True),
+            ModelTemplate.user_id == current_user.id,
+        )
     ]
 
     if category:

@@ -6,6 +6,7 @@
 import hashlib
 import json
 import os
+import threading
 import time
 from typing import Any
 
@@ -172,7 +173,6 @@ def _cleanup_cache_if_needed():
 
 
 # 缓存清理锁，防止高并发时线程堆积
-import threading
 
 _cleanup_lock = threading.Lock()
 
@@ -339,8 +339,8 @@ async def compare_results(
             indices = valid_indices
             total_points = max(total_points, len(indices))
 
-            true_data = list(zip(indices, true_vals_clean.tolist()))
-            pred_data = list(zip(indices, pred_vals_clean.tolist()))
+            true_data = list(zip(indices, true_vals_clean.tolist(), strict=False))
+            pred_data = list(zip(indices, pred_vals_clean.tolist(), strict=False))
 
             is_downsampled = False
             if len(true_data) > data.max_points:
@@ -435,8 +435,8 @@ async def get_metrics(
 
     try:
         df = await run_in_executor(_read_csv_sync, result_obj.filepath, ["true_value", "predicted_value"])
-    except Exception:
-        raise HTTPException(status_code=500, detail="读取结果文件失败")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="读取结果文件失败") from e
 
     if "true_value" not in df.columns or "predicted_value" not in df.columns:
         raise HTTPException(status_code=400, detail="结果文件缺少必需列")
@@ -450,9 +450,9 @@ async def get_metrics(
             true_vals, pred_vals, strategy=NaNHandlingStrategy.FILTER, min_valid_ratio=0.1
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        raise HTTPException(status_code=400, detail="数据格式错误")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="数据格式错误") from e
 
     metrics = calculate_metrics(true_vals, pred_vals)
 
@@ -827,7 +827,7 @@ async def get_radar_chart(
 
     # 计算排名
     def get_rankings(vals: list[float], result_ids: list[int], lower_better: bool = True) -> list[MetricRanking]:
-        indexed = list(zip(result_ids, vals))
+        indexed = list(zip(result_ids, vals, strict=False))
         sorted_list = sorted(indexed, key=lambda x: x[1], reverse=not lower_better)
         rankings = []
         for rank, (rid, val) in enumerate(sorted_list, 1):

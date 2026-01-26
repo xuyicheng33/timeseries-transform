@@ -161,7 +161,7 @@ def _safe_skewness(data: np.ndarray) -> float:
         if std < 1e-10:
             return 0.0
         return float(np.mean(((data - mean) / std) ** 3))
-    except:
+    except Exception:
         return 0.0
 
 
@@ -176,7 +176,7 @@ def _safe_kurtosis(data: np.ndarray) -> float:
         if std < 1e-10:
             return 0.0
         return float(np.mean(((data - mean) / std) ** 4) - 3)
-    except:
+    except Exception:
         return 0.0
 
 
@@ -237,9 +237,9 @@ def _compute_correlation(df: pd.DataFrame, method: str) -> dict:
     # 转换为列表格式
     columns = corr_matrix.columns.tolist()
     matrix = []
-    for i, row_name in enumerate(columns):
+    for i, _row_name in enumerate(columns):
         row = []
-        for j, col_name in enumerate(columns):
+        for j, _col_name in enumerate(columns):
             val = corr_matrix.iloc[i, j]
             row.append(float(val) if pd.notna(val) else None)
         matrix.append(row)
@@ -310,7 +310,7 @@ async def get_trend_analysis(
         try:
             x_values = pd.to_datetime(df[time_column])
             x_values = (x_values - x_values.min()).dt.total_seconds().values
-        except:
+        except Exception:
             x_values = np.arange(len(df))
     else:
         x_values = np.arange(len(df))
@@ -338,12 +338,10 @@ def _compute_trend(x: np.ndarray, y: np.ndarray, window: int, max_points: int) -
     # 移动平均
     if len(y_sampled) >= window:
         ma = np.convolve(y_sampled, np.ones(window) / window, mode="valid")
-        ma_x = x_sampled[window - 1 :]
         # 补齐前面的 NaN
         ma_padded = np.concatenate([np.full(window - 1, np.nan), ma])
     else:
         ma_padded = np.full(len(y_sampled), np.nan)
-        ma_x = x_sampled
 
     # 线性趋势
     try:
@@ -351,7 +349,7 @@ def _compute_trend(x: np.ndarray, y: np.ndarray, window: int, max_points: int) -
         trend_line = np.polyval(z, x_sampled)
         slope = float(z[0])
         trend_direction = "increasing" if slope > 0.001 else ("decreasing" if slope < -0.001 else "stable")
-    except:
+    except Exception:
         trend_line = np.full(len(y_sampled), np.mean(y_sampled))
         slope = 0.0
         trend_direction = "stable"
@@ -640,4 +638,4 @@ async def _load_dataset(dataset: Dataset) -> pd.DataFrame:
         df = await run_in_executor(_read_csv_sync, dataset.filepath, dataset.encoding or "utf-8")
         return df
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取数据集失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取数据集失败: {str(e)}") from e

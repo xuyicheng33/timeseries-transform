@@ -638,7 +638,9 @@ async def analyze_sensitivity(
                 "best_value": best_value,
                 "best_metric": round(best_metric, 6),
                 "is_numeric": is_numeric,
-                "value_metrics": [{"value": v, "metric": round(m, 6)} for v, m in zip(param_values, metric_means)],
+                "value_metrics": [
+                    {"value": v, "metric": round(m, 6)} for v, m in zip(param_values, metric_means, strict=False)
+                ],
             }
         )
 
@@ -666,7 +668,6 @@ async def analyze_sensitivity(
         # 数值型参数的趋势建议
         for s in sensitivities[:3]:
             if s["is_numeric"] and len(s["value_metrics"]) >= 3:
-                values = [vm["value"] for vm in s["value_metrics"]]
                 metrics = [vm["metric"] for vm in s["value_metrics"]]
 
                 # 检查是否单调

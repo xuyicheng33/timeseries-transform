@@ -963,7 +963,7 @@ class ExperimentBase(BaseModel):
     @classmethod
     def validate_tags(cls, v: list[str]) -> list[str]:
         # 去除空白标签，去重
-        cleaned = list(set(tag.strip() for tag in v if tag.strip()))
+        cleaned = list(dict.fromkeys(tag.strip() for tag in v if tag.strip()))
         return cleaned
 
 
@@ -997,7 +997,7 @@ class ExperimentUpdate(BaseModel):
     @classmethod
     def validate_tags(cls, v: list[str] | None) -> list[str] | None:
         if v is not None:
-            return list(set(tag.strip() for tag in v if tag.strip()))
+            return list(dict.fromkeys(tag.strip() for tag in v if tag.strip()))
         return v
 
 

@@ -408,7 +408,7 @@ async def export_data(
     except Exception as e:
         # 出错时立即清理
         await run_in_executor(safe_rmtree, temp_dir)
-        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}") from e
 
 
 # ============ 导入 API ============
@@ -661,7 +661,7 @@ async def import_data(
         # 清理已创建的目录（孤儿文件）
         for dir_path in created_dirs:
             await run_in_executor(safe_rmtree, dir_path)
-        raise HTTPException(status_code=500, detail=f"导入失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"导入失败: {str(e)}") from e
     finally:
         # 清理临时目录
         await run_in_executor(safe_rmtree, temp_dir)

@@ -149,7 +149,7 @@ class TestDatasetUpload:
         assert data["description"] == "Test upload"
         assert data["row_count"] == 100
         assert data["column_count"] == 3
-        assert data["is_public"] == True  # 强制公开
+        assert data["is_public"] is True  # 强制公开
 
     @pytest.mark.asyncio
     async def test_upload_dataset_description_allows_newlines_and_tabs(
@@ -330,7 +330,7 @@ class TestDatasetPublic:
 
         assert response.status_code == 200
         # 无论传什么，都应该是公开的
-        assert response.json()["is_public"] == True
+        assert response.json()["is_public"] is True
 
     @pytest.mark.asyncio
     async def test_access_public_dataset_by_normal_user(

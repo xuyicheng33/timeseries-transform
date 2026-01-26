@@ -49,7 +49,7 @@ class QualityAnalyzer:
                         pd.to_datetime(sample, infer_datetime_format=True)
                         self.datetime_columns.append(col)
                         continue
-                except:
+                except Exception:
                     pass
 
             if pd.api.types.is_datetime64_any_dtype(dtype):
@@ -117,7 +117,7 @@ class QualityAnalyzer:
             # 转换为数值类型
             try:
                 series = pd.to_numeric(series, errors="coerce").dropna()
-            except:
+            except Exception:
                 continue
 
             if len(series) == 0:
@@ -308,7 +308,7 @@ class QualityAnalyzer:
                         self.df[candidate] = pd.to_datetime(self.df[candidate])
                         self.datetime_columns.append(candidate)
                         break
-                    except:
+                    except Exception:
                         continue
 
         if not self.datetime_columns:

@@ -98,6 +98,7 @@ class Settings(BaseSettings):
                 "生产环境请设置 JWT_SECRET_KEY 环境变量！\n"
                 "=" * 60,
                 UserWarning,
+                stacklevel=2,
             )
             return self._cached_jwt_secret
         else:
