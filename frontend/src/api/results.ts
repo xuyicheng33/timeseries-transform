@@ -75,7 +75,7 @@ export async function getResults(
 ): Promise<PaginatedResponse<Result>> {
   const params: Record<string, number | string> = { page, page_size: pageSize }
   if (datasetId !== undefined) params.dataset_id = datasetId
-  if (modelName !== undefined) params.algo_name = modelName
+  if (modelName !== undefined) params.model_name = modelName
   if (configurationId !== undefined) params.configuration_id = configurationId
 
   return api.get('/results', { params })
@@ -87,7 +87,7 @@ export async function getResults(
 export async function getAllResults(datasetId?: number, modelName?: string): Promise<Result[]> {
   const params: Record<string, number | string> = {}
   if (datasetId !== undefined) params.dataset_id = datasetId
-  if (modelName !== undefined) params.algo_name = modelName
+  if (modelName !== undefined) params.model_name = modelName
 
   return api.get('/results/all', { params })
 }
