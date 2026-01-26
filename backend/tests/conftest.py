@@ -3,18 +3,19 @@
 
 提供测试所需的数据库、客户端、认证等基础设施
 """
-import os
-import sys
+
 import asyncio
-import tempfile
+import os
 import shutil
-from typing import AsyncGenerator, Generator
+import sys
+import tempfile
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # 确保可以导入 app 模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -29,12 +30,11 @@ TEST_UPLOAD_DIR = Path(__file__).parent.parent / "uploads_test"
 os.environ["UPLOAD_DIR"] = str(TEST_UPLOAD_DIR)
 
 # 现在才导入 app 模块（此时 settings 会使用测试目录）
+from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-from app.models import User, Dataset, Configuration, Result
+from app.models import Configuration, Dataset, Result, User
 from app.services.auth import get_password_hash
-from app.config import settings
-
 
 # ============ 测试数据库配置 ============
 
@@ -52,15 +52,15 @@ def setup_test_upload_dir():
     settings.DATASETS_DIR = TEST_UPLOAD_DIR / "datasets"
     settings.RESULTS_DIR = TEST_UPLOAD_DIR / "results"
     settings.CACHE_DIR = TEST_UPLOAD_DIR / "cache"
-    
+
     # 创建测试目录
     TEST_UPLOAD_DIR.mkdir(exist_ok=True)
     settings.DATASETS_DIR.mkdir(exist_ok=True)
     settings.RESULTS_DIR.mkdir(exist_ok=True)
     settings.CACHE_DIR.mkdir(exist_ok=True)
-    
+
     yield
-    
+
     # 清理测试目录
     if TEST_UPLOAD_DIR.exists():
         shutil.rmtree(TEST_UPLOAD_DIR, ignore_errors=True)
@@ -92,34 +92,26 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
     """创建测试数据库引擎（每个测试函数独立）"""
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        future=True
-    )
-    
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True)
+
     # 创建所有表
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # 清理
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    
+
     await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
 async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     """创建测试数据库会话"""
-    async_session_maker = async_sessionmaker(
-        test_engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
-    
+    async_session_maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+
     async with async_session_maker() as session:
         yield session
 
@@ -127,12 +119,8 @@ async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 @pytest_asyncio.fixture(scope="function")
 async def client(test_engine) -> AsyncGenerator[AsyncClient, None]:
     """创建测试 HTTP 客户端"""
-    async_session_maker = async_sessionmaker(
-        test_engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
-    
+    async_session_maker = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+
     # 覆盖数据库依赖
     async def override_get_db():
         async with async_session_maker() as session:
@@ -141,18 +129,19 @@ async def client(test_engine) -> AsyncGenerator[AsyncClient, None]:
             except Exception:
                 await session.rollback()
                 raise
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
-    
+
     # 清理依赖覆盖
     app.dependency_overrides.clear()
 
 
 # ============ 测试数据 Fixtures ============
+
 
 @pytest_asyncio.fixture
 async def test_user(test_session: AsyncSession) -> User:
@@ -163,7 +152,7 @@ async def test_user(test_session: AsyncSession) -> User:
         hashed_password=get_password_hash("testpassword123"),
         full_name="Test User",
         is_active=True,
-        is_admin=False
+        is_admin=False,
     )
     test_session.add(user)
     await test_session.commit()
@@ -180,7 +169,7 @@ async def admin_user(test_session: AsyncSession) -> User:
         hashed_password=get_password_hash("adminpassword123"),
         full_name="Admin User",
         is_active=True,
-        is_admin=True
+        is_admin=True,
     )
     test_session.add(user)
     await test_session.commit()
@@ -191,10 +180,7 @@ async def admin_user(test_session: AsyncSession) -> User:
 @pytest_asyncio.fixture
 async def auth_headers(client: AsyncClient, test_user: User) -> dict:
     """获取认证头（普通用户）"""
-    response = await client.post("/api/auth/login", data={
-        "username": "testuser",
-        "password": "testpassword123"
-    })
+    response = await client.post("/api/auth/login", data={"username": "testuser", "password": "testpassword123"})
     assert response.status_code == 200
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -203,10 +189,7 @@ async def auth_headers(client: AsyncClient, test_user: User) -> dict:
 @pytest_asyncio.fixture
 async def admin_auth_headers(client: AsyncClient, admin_user: User) -> dict:
     """获取认证头（管理员）"""
-    response = await client.post("/api/auth/login", data={
-        "username": "admin",
-        "password": "adminpassword123"
-    })
+    response = await client.post("/api/auth/login", data={"username": "admin", "password": "adminpassword123"})
     assert response.status_code == 200
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -225,7 +208,7 @@ async def test_dataset(test_session: AsyncSession, test_user: User) -> Dataset:
         columns=["col1", "col2", "col3", "col4", "col5"],
         description="Test dataset for unit tests",
         user_id=test_user.id,
-        is_public=True  # 数据集强制公开
+        is_public=True,  # 数据集强制公开
     )
     test_session.add(dataset)
     await test_session.commit()
@@ -246,7 +229,7 @@ async def admin_dataset(test_session: AsyncSession, admin_user: User) -> Dataset
         columns=["col1", "col2", "col3", "col4", "col5"],
         description="Admin dataset for unit tests",
         user_id=admin_user.id,
-        is_public=True  # 数据集强制公开
+        is_public=True,  # 数据集强制公开
     )
     test_session.add(dataset)
     await test_session.commit()
@@ -267,7 +250,7 @@ async def test_configuration(test_session: AsyncSession, test_dataset: Dataset) 
         stride=10,
         target_type="next",
         target_k=1,
-        generated_filename="test_config.npz"
+        generated_filename="test_config.npz",
     )
     test_session.add(config)
     await test_session.commit()
@@ -276,7 +259,9 @@ async def test_configuration(test_session: AsyncSession, test_dataset: Dataset) 
 
 
 @pytest_asyncio.fixture
-async def test_result(test_session: AsyncSession, test_dataset: Dataset, test_configuration: Configuration, test_user: User) -> Result:
+async def test_result(
+    test_session: AsyncSession, test_dataset: Dataset, test_configuration: Configuration, test_user: User
+) -> Result:
     """创建测试结果"""
     result = Result(
         name="Test Result",
@@ -289,13 +274,7 @@ async def test_result(test_session: AsyncSession, test_dataset: Dataset, test_co
         algo_version="1.0.0",
         description="Test result for unit tests",
         row_count=100,
-        metrics={
-            "mse": 0.001,
-            "rmse": 0.0316,
-            "mae": 0.025,
-            "r2": 0.95,
-            "mape": 2.5
-        }
+        metrics={"mse": 0.001, "rmse": 0.0316, "mae": 0.025, "r2": 0.95, "mape": 2.5},
     )
     test_session.add(result)
     await test_session.commit()
@@ -305,20 +284,19 @@ async def test_result(test_session: AsyncSession, test_dataset: Dataset, test_co
 
 # ============ 临时文件 Fixtures ============
 
+
 @pytest.fixture
 def temp_csv_file() -> Generator[str, None, None]:
     """创建临时 CSV 文件"""
     import pandas as pd
-    
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-        df = pd.DataFrame({
-            'col1': range(100),
-            'col2': [i * 0.1 for i in range(100)],
-            'col3': ['a', 'b', 'c', 'd', 'e'] * 20
-        })
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        df = pd.DataFrame(
+            {"col1": range(100), "col2": [i * 0.1 for i in range(100)], "col3": ["a", "b", "c", "d", "e"] * 20}
+        )
         df.to_csv(f.name, index=False)
         yield f.name
-    
+
     # 清理
     if os.path.exists(f.name):
         os.unlink(f.name)
@@ -327,21 +305,17 @@ def temp_csv_file() -> Generator[str, None, None]:
 @pytest.fixture
 def temp_result_csv() -> Generator[str, None, None]:
     """创建临时结果 CSV 文件"""
-    import pandas as pd
     import numpy as np
-    
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+    import pandas as pd
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         true_values = np.sin(np.linspace(0, 10, 100))
         pred_values = true_values + np.random.normal(0, 0.1, 100)
-        
-        df = pd.DataFrame({
-            'true_value': true_values,
-            'predicted_value': pred_values
-        })
+
+        df = pd.DataFrame({"true_value": true_values, "predicted_value": pred_values})
         df.to_csv(f.name, index=False)
         yield f.name
-    
+
     # 清理
     if os.path.exists(f.name):
         os.unlink(f.name)
-

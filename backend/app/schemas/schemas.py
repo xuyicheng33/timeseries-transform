@@ -1,20 +1,25 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Generic, TypeVar
-from pydantic import BaseModel, Field, field_validator, ConfigDict, EmailStr
+from typing import Any, Generic, TypeVar
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.schemas.enums import (
-    NormalizationType, TargetType, AnomalyType, 
-    InjectionAlgorithm, SequenceLogic, DownsampleAlgorithm
+    AnomalyType,
+    DownsampleAlgorithm,
+    InjectionAlgorithm,
+    NormalizationType,
+    SequenceLogic,
+    TargetType,
 )
 
-
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 # ============ 分页响应 ============
 class PaginatedResponse(BaseModel, Generic[T]):
     """分页响应"""
-    items: List[T]
+
+    items: list[T]
     total: int
     page: int
     page_size: int
@@ -23,19 +28,19 @@ class PaginatedResponse(BaseModel, Generic[T]):
 # ============ Dataset Schemas ============
 class DatasetBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = ""
+    description: str | None = ""
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError('名称不能为空')
+            raise ValueError("名称不能为空")
         return v
 
-    @field_validator('description')
+    @field_validator("description")
     @classmethod
-    def validate_description(cls, v: Optional[str]) -> str:
+    def validate_description(cls, v: str | None) -> str:
         if v is None:
             return ""
         return v.strip()
@@ -46,18 +51,18 @@ class DatasetCreate(DatasetBase):
 
 
 class DatasetUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    is_public: Optional[bool] = None
-    folder_id: Optional[int] = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    is_public: bool | None = None
+    folder_id: int | None = None
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
-    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+    def validate_name(cls, v: str | None) -> str | None:
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError('名称不能为空')
+                raise ValueError("名称不能为空")
         return v
 
 
@@ -67,9 +72,9 @@ class DatasetResponse(DatasetBase):
     file_size: int
     row_count: int
     column_count: int
-    columns: List[str]
-    user_id: Optional[int] = None
-    folder_id: Optional[int] = None
+    columns: list[str]
+    user_id: int | None = None
+    folder_id: int | None = None
     is_public: bool = True
     sort_order: int = 0  # 排序权重
     created_at: datetime
@@ -81,33 +86,35 @@ class DatasetResponse(DatasetBase):
 # ============ Dataset Sort Order Schemas ============
 class DatasetSortOrderItem(BaseModel):
     """单个数据集排序项"""
+
     id: int
     sort_order: int
 
 
 class DatasetSortOrderUpdate(BaseModel):
     """批量更新数据集排序"""
-    orders: List[DatasetSortOrderItem]
 
-    @field_validator('orders')
+    orders: list[DatasetSortOrderItem]
+
+    @field_validator("orders")
     @classmethod
-    def validate_orders(cls, v: List[DatasetSortOrderItem]) -> List[DatasetSortOrderItem]:
+    def validate_orders(cls, v: list[DatasetSortOrderItem]) -> list[DatasetSortOrderItem]:
         if len(v) > 1000:
-            raise ValueError('排序列表过长，最多支持1000条')
+            raise ValueError("排序列表过长，最多支持1000条")
         # 检查 id 去重
         ids = [item.id for item in v]
         if len(ids) != len(set(ids)):
-            raise ValueError('存在重复的数据集ID')
+            raise ValueError("存在重复的数据集ID")
         return v
 
 
 class DatasetBatchMoveRequest(BaseModel):
-    dataset_ids: List[int]
-    folder_id: Optional[int] = None
+    dataset_ids: list[int]
+    folder_id: int | None = None
 
     @field_validator("dataset_ids")
     @classmethod
-    def validate_dataset_ids(cls, v: List[int]) -> List[int]:
+    def validate_dataset_ids(cls, v: list[int]) -> list[int]:
         if not v:
             raise ValueError("dataset_ids must not be empty")
         if len(v) > 1000:
@@ -118,8 +125,8 @@ class DatasetBatchMoveRequest(BaseModel):
 
 
 class DatasetPreview(BaseModel):
-    columns: List[str]
-    data: List[Dict[str, Any]]
+    columns: list[str]
+    data: list[dict[str, Any]]
     total_rows: int
 
 
@@ -127,7 +134,7 @@ class DatasetPreview(BaseModel):
 class FolderBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str = Field(default="", max_length=1000)
-    parent_id: Optional[int] = None
+    parent_id: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -148,12 +155,12 @@ class FolderCreate(FolderBase):
 
 
 class FolderUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    description: Optional[str] = Field(default=None, max_length=1000)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
 
     @field_validator("name")
     @classmethod
-    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+    def validate_name(cls, v: str | None) -> str | None:
         if v is None:
             return None
         v = v.strip()
@@ -163,7 +170,7 @@ class FolderUpdate(BaseModel):
 
     @field_validator("description")
     @classmethod
-    def validate_description(cls, v: Optional[str]) -> Optional[str]:
+    def validate_description(cls, v: str | None) -> str | None:
         if v is None:
             return None
         return v.strip()
@@ -173,7 +180,7 @@ class FolderResponse(BaseModel):
     id: int
     name: str
     description: str
-    parent_id: Optional[int] = None
+    parent_id: int | None = None
     sort_order: int = 0
     dataset_count: int = 0
     created_at: datetime
@@ -188,11 +195,11 @@ class FolderSortOrderItem(BaseModel):
 
 
 class FolderSortOrderUpdate(BaseModel):
-    orders: List[FolderSortOrderItem]
+    orders: list[FolderSortOrderItem]
 
     @field_validator("orders")
     @classmethod
-    def validate_orders(cls, v: List[FolderSortOrderItem]) -> List[FolderSortOrderItem]:
+    def validate_orders(cls, v: list[FolderSortOrderItem]) -> list[FolderSortOrderItem]:
         if len(v) > 1000:
             raise ValueError("Too many items")
         ids = [item.id for item in v]
@@ -202,7 +209,7 @@ class FolderSortOrderUpdate(BaseModel):
 
 
 class FolderListResponse(BaseModel):
-    items: List[FolderResponse]
+    items: list[FolderResponse]
     total: int
     root_dataset_count: int = 0
 
@@ -211,36 +218,36 @@ class FolderListResponse(BaseModel):
 class ConfigurationBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     dataset_id: int
-    channels: List[str] = Field(default_factory=list)
+    channels: list[str] = Field(default_factory=list)
     normalization: NormalizationType = NormalizationType.NONE
     anomaly_enabled: bool = False
-    anomaly_type: Optional[AnomalyType] = None
-    injection_algorithm: Optional[InjectionAlgorithm] = None
-    sequence_logic: Optional[SequenceLogic] = None
+    anomaly_type: AnomalyType | None = None
+    injection_algorithm: InjectionAlgorithm | None = None
+    sequence_logic: SequenceLogic | None = None
     window_size: int = Field(default=100, ge=1, le=10000)
     stride: int = Field(default=1, ge=1, le=1000)
     target_type: TargetType = TargetType.NEXT
     target_k: int = Field(default=1, ge=1, le=100)
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError('名称不能为空')
+            raise ValueError("名称不能为空")
         return v
 
-    @field_validator('channels')
+    @field_validator("channels")
     @classmethod
-    def validate_channels(cls, v: List[str]) -> List[str]:
+    def validate_channels(cls, v: list[str]) -> list[str]:
         # 去除空白通道名
         return [ch.strip() for ch in v if ch.strip()]
 
-    @field_validator('anomaly_type', 'injection_algorithm', 'sequence_logic', mode='before')
+    @field_validator("anomaly_type", "injection_algorithm", "sequence_logic", mode="before")
     @classmethod
     def convert_empty_string_to_none(cls, v):
         """将空字符串转换为 None，兼容前端提交的 '' 值"""
-        if v == '' or v is None:
+        if v == "" or v is None:
             return None
         return v
 
@@ -250,32 +257,32 @@ class ConfigurationCreate(ConfigurationBase):
 
 
 class ConfigurationUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    channels: Optional[List[str]] = None
-    normalization: Optional[NormalizationType] = None
-    anomaly_enabled: Optional[bool] = None
-    anomaly_type: Optional[AnomalyType] = None
-    injection_algorithm: Optional[InjectionAlgorithm] = None
-    sequence_logic: Optional[SequenceLogic] = None
-    window_size: Optional[int] = Field(default=None, ge=1, le=10000)
-    stride: Optional[int] = Field(default=None, ge=1, le=1000)
-    target_type: Optional[TargetType] = None
-    target_k: Optional[int] = Field(default=None, ge=1, le=100)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    channels: list[str] | None = None
+    normalization: NormalizationType | None = None
+    anomaly_enabled: bool | None = None
+    anomaly_type: AnomalyType | None = None
+    injection_algorithm: InjectionAlgorithm | None = None
+    sequence_logic: SequenceLogic | None = None
+    window_size: int | None = Field(default=None, ge=1, le=10000)
+    stride: int | None = Field(default=None, ge=1, le=1000)
+    target_type: TargetType | None = None
+    target_k: int | None = Field(default=None, ge=1, le=100)
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
-    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+    def validate_name(cls, v: str | None) -> str | None:
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError('名称不能为空')
+                raise ValueError("名称不能为空")
         return v
 
-    @field_validator('anomaly_type', 'injection_algorithm', 'sequence_logic', mode='before')
+    @field_validator("anomaly_type", "injection_algorithm", "sequence_logic", mode="before")
     @classmethod
     def convert_empty_string_to_none(cls, v):
         """将空字符串转换为 None，兼容前端提交的 '' 值"""
-        if v == '' or v is None:
+        if v == "" or v is None:
             return None
         return v
 
@@ -284,13 +291,13 @@ class ConfigurationResponse(BaseModel):
     id: int
     name: str
     dataset_id: int
-    user_id: Optional[int] = None  # 创建者ID，用于权限控制
-    channels: List[str]
+    user_id: int | None = None  # 创建者ID，用于权限控制
+    channels: list[str]
     normalization: str  # 返回字符串以兼容前端
     anomaly_enabled: bool
-    anomaly_type: Optional[str] = ""
-    injection_algorithm: Optional[str] = ""
-    sequence_logic: Optional[str] = ""
+    anomaly_type: str | None = ""
+    injection_algorithm: str | None = ""
+    sequence_logic: str | None = ""
     window_size: int
     stride: int
     target_type: str
@@ -301,7 +308,7 @@ class ConfigurationResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator('anomaly_type', 'injection_algorithm', 'sequence_logic', mode='before')
+    @field_validator("anomaly_type", "injection_algorithm", "sequence_logic", mode="before")
     @classmethod
     def convert_none_to_empty(cls, v):
         return v if v is not None else ""
@@ -309,12 +316,12 @@ class ConfigurationResponse(BaseModel):
 
 class GenerateFilenameRequest(BaseModel):
     dataset_name: str
-    channels: List[str] = Field(default_factory=list)
+    channels: list[str] = Field(default_factory=list)
     normalization: NormalizationType = NormalizationType.NONE
     anomaly_enabled: bool = False
-    anomaly_type: Optional[str] = ""
-    injection_algorithm: Optional[str] = ""
-    sequence_logic: Optional[str] = ""
+    anomaly_type: str | None = ""
+    injection_algorithm: str | None = ""
+    sequence_logic: str | None = ""
     window_size: int = Field(default=100, ge=1)
     stride: int = Field(default=1, ge=1)
     target_type: TargetType = TargetType.NEXT
@@ -325,24 +332,24 @@ class GenerateFilenameRequest(BaseModel):
 class ResultBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     dataset_id: int
-    configuration_id: Optional[int] = None
+    configuration_id: int | None = None
     algo_name: str = Field(..., min_length=1, max_length=100, alias="model_name")
-    algo_version: Optional[str] = Field(default="", max_length=50, alias="model_version")
-    description: Optional[str] = Field(default="", max_length=1000)
+    algo_version: str | None = Field(default="", max_length=50, alias="model_version")
+    description: str | None = Field(default="", max_length=1000)
 
     model_config = ConfigDict(populate_by_name=True)
 
-    @field_validator('name', 'algo_name')
+    @field_validator("name", "algo_name")
     @classmethod
     def validate_required_string(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError('字段不能为空')
+            raise ValueError("字段不能为空")
         return v
 
-    @field_validator('algo_version', 'description')
+    @field_validator("algo_version", "description")
     @classmethod
-    def validate_optional_string(cls, v: Optional[str]) -> str:
+    def validate_optional_string(cls, v: str | None) -> str:
         if v is None:
             return ""
         return v.strip()
@@ -353,20 +360,20 @@ class ResultCreate(ResultBase):
 
 
 class ResultUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    algo_name: Optional[str] = Field(default=None, min_length=1, max_length=100, alias="model_name")
-    algo_version: Optional[str] = Field(default=None, max_length=50, alias="model_version")
-    description: Optional[str] = Field(default=None, max_length=1000)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    algo_name: str | None = Field(default=None, min_length=1, max_length=100, alias="model_name")
+    algo_version: str | None = Field(default=None, max_length=50, alias="model_version")
+    description: str | None = Field(default=None, max_length=1000)
 
     model_config = ConfigDict(populate_by_name=True)
 
-    @field_validator('name', 'algo_name')
+    @field_validator("name", "algo_name")
     @classmethod
-    def validate_required_string(cls, v: Optional[str]) -> Optional[str]:
+    def validate_required_string(cls, v: str | None) -> str | None:
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError('字段不能为空')
+                raise ValueError("字段不能为空")
         return v
 
 
@@ -374,14 +381,14 @@ class ResultResponse(BaseModel):
     id: int
     name: str
     dataset_id: int
-    configuration_id: Optional[int] = None
-    user_id: Optional[int] = None
+    configuration_id: int | None = None
+    user_id: int | None = None
     filename: str
     row_count: int
     algo_name: str = Field(..., serialization_alias="model_name")
     algo_version: str = Field(default="", serialization_alias="model_version")
     description: str = ""
-    metrics: Dict[str, float] = Field(default_factory=dict)
+    metrics: dict[str, float] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
@@ -398,33 +405,34 @@ class MetricsResponse(BaseModel):
 
 
 class CompareRequest(BaseModel):
-    result_ids: List[int] = Field(default_factory=list)
+    result_ids: list[int] = Field(default_factory=list)
     max_points: int = Field(default=2000, ge=10, le=50000)
     algorithm: DownsampleAlgorithm = DownsampleAlgorithm.LTTB
 
-    @field_validator('result_ids')
+    @field_validator("result_ids")
     @classmethod
     def validate_result_ids(cls, v):
         if not v:
-            raise ValueError('result_ids 不能为空')
+            raise ValueError("result_ids 不能为空")
         if len(v) > 10:
-            raise ValueError('最多同时对比 10 个结果')
+            raise ValueError("最多同时对比 10 个结果")
         return v
 
 
 class ChartDataSeries(BaseModel):
     name: str
-    data: List[List[float]]
+    data: list[list[float]]
 
 
 class ChartDataResponse(BaseModel):
-    series: List[ChartDataSeries]
+    series: list[ChartDataSeries]
     total_points: int
     downsampled: bool
 
 
 class SkippedResult(BaseModel):
     """跳过的结果信息"""
+
     id: int
     name: str
     reason: str
@@ -432,6 +440,7 @@ class SkippedResult(BaseModel):
 
 class WarningInfo(BaseModel):
     """警告信息（结果已处理但有潜在问题）"""
+
     id: int
     name: str
     message: str
@@ -439,30 +448,32 @@ class WarningInfo(BaseModel):
 
 class CompareResponse(BaseModel):
     chart_data: ChartDataResponse
-    metrics: Dict[int, MetricsResponse]
-    skipped: List[SkippedResult] = Field(default_factory=list)
-    warnings: List[WarningInfo] = Field(default_factory=list)
+    metrics: dict[int, MetricsResponse]
+    skipped: list[SkippedResult] = Field(default_factory=list)
+    warnings: list[WarningInfo] = Field(default_factory=list)
 
 
 # ============ 增强可视化 Schemas ============
 class ErrorAnalysisRequest(BaseModel):
     """误差分析请求"""
-    result_ids: List[int] = Field(default_factory=list)
-    start_index: Optional[int] = Field(default=None, ge=0, description="起始索引")
-    end_index: Optional[int] = Field(default=None, ge=0, description="结束索引")
 
-    @field_validator('result_ids')
+    result_ids: list[int] = Field(default_factory=list)
+    start_index: int | None = Field(default=None, ge=0, description="起始索引")
+    end_index: int | None = Field(default=None, ge=0, description="结束索引")
+
+    @field_validator("result_ids")
     @classmethod
     def validate_result_ids(cls, v):
         if not v:
-            raise ValueError('result_ids 不能为空')
+            raise ValueError("result_ids 不能为空")
         if len(v) > 10:
-            raise ValueError('最多同时分析 10 个结果')
+            raise ValueError("最多同时分析 10 个结果")
         return v
 
 
 class HistogramBin(BaseModel):
     """直方图单个 bin"""
+
     bin_start: float
     bin_end: float
     count: int
@@ -471,6 +482,7 @@ class HistogramBin(BaseModel):
 
 class ErrorDistribution(BaseModel):
     """误差分布统计"""
+
     min: float
     max: float
     mean: float
@@ -478,19 +490,21 @@ class ErrorDistribution(BaseModel):
     median: float
     q1: float  # 25% 分位数
     q3: float  # 75% 分位数
-    histogram: List[HistogramBin]
+    histogram: list[HistogramBin]
 
 
 class ResidualData(BaseModel):
     """残差数据"""
-    indices: List[int]
-    residuals: List[float]  # 预测值 - 真实值
-    abs_residuals: List[float]  # 绝对误差
-    percentage_errors: List[float]  # 百分比误差
+
+    indices: list[int]
+    residuals: list[float]  # 预测值 - 真实值
+    abs_residuals: list[float]  # 绝对误差
+    percentage_errors: list[float]  # 百分比误差
 
 
 class SingleErrorAnalysis(BaseModel):
     """单个结果的误差分析"""
+
     result_id: int
     result_name: str
     model_name: str
@@ -501,22 +515,25 @@ class SingleErrorAnalysis(BaseModel):
 
 class RangeInfo(BaseModel):
     """区间信息"""
-    start_index: Optional[int] = None
-    end_index: Optional[int] = None
+
+    start_index: int | None = None
+    end_index: int | None = None
     is_full_range: bool = True
 
 
 class ErrorAnalysisResponse(BaseModel):
     """误差分析响应"""
-    analyses: List[SingleErrorAnalysis]
-    skipped: List[SkippedResult] = Field(default_factory=list)
+
+    analyses: list[SingleErrorAnalysis]
+    skipped: list[SkippedResult] = Field(default_factory=list)
     range_info: RangeInfo = Field(default_factory=RangeInfo)
     # 统一的 bin edges，用于前端对齐直方图
-    unified_bin_edges: List[float] = Field(default_factory=list)
+    unified_bin_edges: list[float] = Field(default_factory=list)
 
 
 class RadarMetrics(BaseModel):
     """雷达图指标（归一化后）"""
+
     result_id: int
     result_name: str
     model_name: str
@@ -532,6 +549,7 @@ class RadarMetrics(BaseModel):
 
 class MetricRanking(BaseModel):
     """单个指标的排名项"""
+
     result_id: int
     rank: int
     value: float
@@ -539,6 +557,7 @@ class MetricRanking(BaseModel):
 
 class OverallScore(BaseModel):
     """综合得分"""
+
     result_id: int
     result_name: str
     model_name: str
@@ -548,70 +567,78 @@ class OverallScore(BaseModel):
 
 class RadarChartResponse(BaseModel):
     """雷达图响应"""
-    results: List[RadarMetrics]
+
+    results: list[RadarMetrics]
     # 排名信息
-    rankings: Dict[str, List[MetricRanking]]  # {metric_name: [排名列表]}
+    rankings: dict[str, list[MetricRanking]]  # {metric_name: [排名列表]}
     # 综合得分
-    overall_scores: List[OverallScore]
+    overall_scores: list[OverallScore]
 
 
 class RangeMetricsRequest(BaseModel):
     """区间指标计算请求"""
-    result_ids: List[int]
+
+    result_ids: list[int]
     start_index: int = Field(..., ge=0)
     end_index: int = Field(..., ge=0)
 
-    @field_validator('result_ids')
+    @field_validator("result_ids")
     @classmethod
     def validate_result_ids(cls, v):
         if not v:
-            raise ValueError('result_ids 不能为空')
+            raise ValueError("result_ids 不能为空")
         return v
 
 
 class RangeMetricsResponse(BaseModel):
     """区间指标响应"""
+
     range_start: int
     range_end: int
     total_points: int
-    metrics: Dict[int, MetricsResponse]  # result_id -> metrics
-    skipped: List[SkippedResult] = Field(default_factory=list)
+    metrics: dict[int, MetricsResponse]  # result_id -> metrics
+    skipped: list[SkippedResult] = Field(default_factory=list)
 
 
 # ============ User & Auth Schemas ============
 class UserBase(BaseModel):
     """用户基础信息"""
-    username: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-zA-Z0-9_]+$')
+
+    username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
     email: EmailStr = Field(..., max_length=255)  # 使用 EmailStr 进行邮箱格式校验
-    full_name: Optional[str] = Field(default="", max_length=100)
+    full_name: str | None = Field(default="", max_length=100)
 
 
 class UserCreate(UserBase):
     """用户注册"""
+
     password: str = Field(..., min_length=6, max_length=100)
 
-    @field_validator('password')
+    @field_validator("password")
     @classmethod
     def validate_password(cls, v):
         if len(v) < 6:
-            raise ValueError('密码长度至少 6 位')
+            raise ValueError("密码长度至少 6 位")
         return v
 
 
 class UserUpdate(BaseModel):
     """用户信息更新"""
-    full_name: Optional[str] = Field(default=None, max_length=100)
-    email: Optional[EmailStr] = Field(default=None, max_length=255)  # 使用 EmailStr
+
+    full_name: str | None = Field(default=None, max_length=100)
+    email: EmailStr | None = Field(default=None, max_length=255)  # 使用 EmailStr
 
 
 class UserPasswordUpdate(BaseModel):
     """密码更新"""
+
     old_password: str
     new_password: str = Field(..., min_length=6, max_length=100)
 
 
 class UserResponse(BaseModel):
     """用户响应（不包含密码）"""
+
     id: int
     username: str
     email: str
@@ -619,19 +646,21 @@ class UserResponse(BaseModel):
     is_active: bool = True
     is_admin: bool = False
     created_at: datetime
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserLogin(BaseModel):
     """用户登录"""
+
     username: str = Field(..., min_length=1)
     password: str = Field(..., min_length=1)
 
 
 class Token(BaseModel):
     """Token 响应"""
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
@@ -639,18 +668,22 @@ class Token(BaseModel):
 
 class TokenRefresh(BaseModel):
     """Token 刷新请求"""
+
     refresh_token: str
 
 
 class TokenData(BaseModel):
     """Token 数据"""
-    user_id: Optional[int] = None
+
+    user_id: int | None = None
 
 
 # ============ 数据质量检测 Schemas ============
 
+
 class ColumnMissingStats(BaseModel):
     """单列缺失值统计"""
+
     column: str
     missing_count: int
     missing_ratio: float  # 0-1
@@ -659,12 +692,13 @@ class ColumnMissingStats(BaseModel):
 
 class ColumnOutlierStats(BaseModel):
     """单列异常值统计"""
+
     column: str
     outlier_count: int
     outlier_ratio: float  # 0-1
-    outlier_indices: List[int] = Field(default_factory=list, description="异常值索引（最多返回100个）")
-    lower_bound: Optional[float] = None
-    upper_bound: Optional[float] = None
+    outlier_indices: list[int] = Field(default_factory=list, description="异常值索引（最多返回100个）")
+    lower_bound: float | None = None
+    upper_bound: float | None = None
     min_value: float
     max_value: float
     mean_value: float
@@ -673,50 +707,54 @@ class ColumnOutlierStats(BaseModel):
 
 class ColumnTypeInfo(BaseModel):
     """列类型信息"""
+
     column: str
     inferred_type: str  # numeric / datetime / categorical / text / boolean
     original_dtype: str  # pandas dtype
     unique_count: int
     unique_ratio: float  # 唯一值比例
-    sample_values: List[Any] = Field(default_factory=list, description="示例值（最多5个）")
+    sample_values: list[Any] = Field(default_factory=list, description="示例值（最多5个）")
 
 
 class ColumnBasicStats(BaseModel):
     """列基础统计信息"""
+
     column: str
     dtype: str
     count: int
     missing_count: int
     missing_ratio: float
     # 数值型统计
-    mean: Optional[float] = None
-    std: Optional[float] = None
-    min: Optional[float] = None
-    q1: Optional[float] = None  # 25%
-    median: Optional[float] = None  # 50%
-    q3: Optional[float] = None  # 75%
-    max: Optional[float] = None
+    mean: float | None = None
+    std: float | None = None
+    min: float | None = None
+    q1: float | None = None  # 25%
+    median: float | None = None  # 50%
+    q3: float | None = None  # 75%
+    max: float | None = None
     # 分类型统计
-    unique_count: Optional[int] = None
-    top_value: Optional[str] = None
-    top_freq: Optional[int] = None
+    unique_count: int | None = None
+    top_value: str | None = None
+    top_freq: int | None = None
 
 
 class TimeSeriesAnalysis(BaseModel):
     """时序特征分析"""
-    time_column: Optional[str] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    frequency: Optional[str] = None  # 推断的频率 (如 "1H", "1D")
-    total_duration: Optional[str] = None
+
+    time_column: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    frequency: str | None = None  # 推断的频率 (如 "1H", "1D")
+    total_duration: str | None = None
     gaps_count: int = 0  # 时间间隔不规则的数量
     is_regular: bool = True  # 是否规则时序
 
 
 class QualitySuggestion(BaseModel):
     """质量改进建议"""
+
     level: str  # "warning" / "error" / "info"
-    column: Optional[str] = None
+    column: str | None = None
     issue: str
     suggestion: str
     auto_fixable: bool = False  # 是否可自动修复
@@ -724,101 +762,108 @@ class QualitySuggestion(BaseModel):
 
 class DataQualityReport(BaseModel):
     """数据质量报告"""
+
     # 基础信息
     dataset_id: int
     dataset_name: str
     total_rows: int
     total_columns: int
-    
+
     # 缺失值分析
-    missing_stats: List[ColumnMissingStats] = Field(default_factory=list)
+    missing_stats: list[ColumnMissingStats] = Field(default_factory=list)
     total_missing_cells: int = 0
     total_missing_ratio: float = 0.0
-    
+
     # 异常值分析
     outlier_method: str = "iqr"
-    outlier_stats: List[ColumnOutlierStats] = Field(default_factory=list)
+    outlier_stats: list[ColumnOutlierStats] = Field(default_factory=list)
     total_outlier_cells: int = 0
     total_outlier_ratio: float = 0.0
-    
+
     # 列类型信息
-    column_types: List[ColumnTypeInfo] = Field(default_factory=list)
-    numeric_columns: List[str] = Field(default_factory=list)
-    categorical_columns: List[str] = Field(default_factory=list)
-    datetime_columns: List[str] = Field(default_factory=list)
-    
+    column_types: list[ColumnTypeInfo] = Field(default_factory=list)
+    numeric_columns: list[str] = Field(default_factory=list)
+    categorical_columns: list[str] = Field(default_factory=list)
+    datetime_columns: list[str] = Field(default_factory=list)
+
     # 列统计信息
-    column_stats: List[ColumnBasicStats] = Field(default_factory=list)
-    
+    column_stats: list[ColumnBasicStats] = Field(default_factory=list)
+
     # 时序分析（如果检测到时间列）
-    time_analysis: Optional[TimeSeriesAnalysis] = None
-    
+    time_analysis: TimeSeriesAnalysis | None = None
+
     # 重复值
     duplicate_rows: int = 0
     duplicate_ratio: float = 0.0
-    
+
     # 质量评分
     quality_score: int = Field(ge=0, le=100)
     quality_level: str  # excellent / good / fair / poor
-    
+
     # 建议
-    suggestions: List[QualitySuggestion] = Field(default_factory=list)
-    
+    suggestions: list[QualitySuggestion] = Field(default_factory=list)
+
     # 生成时间
     generated_at: datetime = Field(default_factory=lambda: datetime.now())
 
 
 class QualityCheckRequest(BaseModel):
     """质量检测请求"""
+
     outlier_method: str = "iqr"  # iqr / zscore / mad / percentile
-    outlier_params: Dict[str, Any] = Field(default_factory=dict)
+    outlier_params: dict[str, Any] = Field(default_factory=dict)
     # IQR: {"multiplier": 1.5}
     # Z-Score: {"threshold": 3.0}
     # MAD: {"threshold": 3.5}
     # Percentile: {"lower": 1, "upper": 99}
-    
-    check_columns: Optional[List[str]] = None  # None 表示检测所有列
+
+    check_columns: list[str] | None = None  # None 表示检测所有列
     include_suggestions: bool = True
 
 
 # ============ 数据清洗 Schemas ============
 
+
 class ColumnCleaningConfig(BaseModel):
     """单列清洗配置"""
+
     column: str
-    
+
     # 缺失值处理
-    missing_strategy: Optional[str] = None  # 使用枚举值
-    missing_fill_value: Optional[float] = None
-    
+    missing_strategy: str | None = None  # 使用枚举值
+    missing_fill_value: float | None = None
+
     # 异常值处理
-    outlier_action: Optional[str] = None  # 使用枚举值
-    outlier_clip_lower: Optional[float] = None
-    outlier_clip_upper: Optional[float] = None
+    outlier_action: str | None = None  # 使用枚举值
+    outlier_clip_lower: float | None = None
+    outlier_clip_upper: float | None = None
 
 
 class CleaningConfig(BaseModel):
     """数据清洗配置"""
+
     # 全局缺失值处理
-    missing_strategy: str = "keep"  # keep / drop_row / fill_mean / fill_median / fill_forward / fill_backward / fill_value
-    missing_fill_value: Optional[float] = None
+    missing_strategy: str = (
+        "keep"  # keep / drop_row / fill_mean / fill_median / fill_forward / fill_backward / fill_value
+    )
+    missing_fill_value: float | None = None
     missing_drop_threshold: float = Field(default=0.5, ge=0, le=1, description="缺失率超过此值的列将被删除")
-    
+
     # 全局异常值处理
     outlier_method: str = "iqr"  # iqr / zscore / mad / percentile / threshold
     outlier_action: str = "keep"  # keep / remove / clip / replace_mean / replace_median
-    outlier_params: Dict[str, Any] = Field(default_factory=lambda: {"multiplier": 1.5})
-    
+    outlier_params: dict[str, Any] = Field(default_factory=lambda: {"multiplier": 1.5})
+
     # 重复值处理
     drop_duplicates: bool = False
     duplicate_keep: str = "first"  # first / last / none
-    
+
     # 列特定配置（覆盖全局配置）
-    column_configs: List[ColumnCleaningConfig] = Field(default_factory=list)
-    
+    column_configs: list[ColumnCleaningConfig] = Field(default_factory=list)
+
     # 要处理的列（None 表示所有数值列）
-    target_columns: Optional[List[str]] = None
-    
+    target_columns: list[str] | None = None
+
     # 输出选项
     create_new_dataset: bool = True  # True: 创建新数据集, False: 覆盖原数据集
     new_dataset_suffix: str = "_cleaned"
@@ -826,15 +871,17 @@ class CleaningConfig(BaseModel):
 
 class CleaningPreviewRow(BaseModel):
     """清洗预览行"""
+
     index: int
     column: str
-    original_value: Optional[Any] = None
-    new_value: Optional[Any] = None
+    original_value: Any | None = None
+    new_value: Any | None = None
     action: str  # "removed" / "filled" / "clipped" / "replaced"
 
 
 class CleaningPreviewStats(BaseModel):
     """清洗预览统计"""
+
     column: str
     original_missing: int
     after_missing: int
@@ -845,19 +892,20 @@ class CleaningPreviewStats(BaseModel):
 
 class CleaningPreviewResponse(BaseModel):
     """清洗预览响应"""
+
     # 预览变更
-    preview_changes: List[CleaningPreviewRow] = Field(default_factory=list, description="变更预览（最多100条）")
-    
+    preview_changes: list[CleaningPreviewRow] = Field(default_factory=list, description="变更预览（最多100条）")
+
     # 统计信息
-    stats: List[CleaningPreviewStats] = Field(default_factory=list)
-    
+    stats: list[CleaningPreviewStats] = Field(default_factory=list)
+
     # 汇总
     total_rows_before: int
     total_rows_after: int
     rows_removed: int
     cells_modified: int
-    columns_removed: List[str] = Field(default_factory=list)
-    
+    columns_removed: list[str] = Field(default_factory=list)
+
     # 预估质量提升
     quality_score_before: int
     quality_score_after: int
@@ -865,52 +913,55 @@ class CleaningPreviewResponse(BaseModel):
 
 class CleaningResult(BaseModel):
     """清洗执行结果"""
+
     success: bool
     message: str
-    
+
     # 新数据集信息（如果创建了新数据集）
-    new_dataset_id: Optional[int] = None
-    new_dataset_name: Optional[str] = None
-    
+    new_dataset_id: int | None = None
+    new_dataset_name: str | None = None
+
     # 清洗统计
     rows_before: int
     rows_after: int
     rows_removed: int
     cells_modified: int
-    columns_removed: List[str] = Field(default_factory=list)
-    
+    columns_removed: list[str] = Field(default_factory=list)
+
     # 清洗后的质量评分
     quality_score_after: int
 
 
 # ============ 实验组 Schemas ============
 
+
 class ExperimentBase(BaseModel):
     """实验组基础信息"""
-    name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(default="", max_length=2000)
-    objective: Optional[str] = Field(default="", max_length=2000, description="实验目标/假设")
-    tags: List[str] = Field(default_factory=list, description="标签列表")
-    dataset_id: Optional[int] = Field(default=None, description="关联的数据集ID")
 
-    @field_validator('name')
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(default="", max_length=2000)
+    objective: str | None = Field(default="", max_length=2000, description="实验目标/假设")
+    tags: list[str] = Field(default_factory=list, description="标签列表")
+    dataset_id: int | None = Field(default=None, description="关联的数据集ID")
+
+    @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError('名称不能为空')
+            raise ValueError("名称不能为空")
         return v
 
-    @field_validator('description', 'objective')
+    @field_validator("description", "objective")
     @classmethod
-    def validate_optional_text(cls, v: Optional[str]) -> str:
+    def validate_optional_text(cls, v: str | None) -> str:
         if v is None:
             return ""
         return v.strip()
 
-    @field_validator('tags')
+    @field_validator("tags")
     @classmethod
-    def validate_tags(cls, v: List[str]) -> List[str]:
+    def validate_tags(cls, v: list[str]) -> list[str]:
         # 去除空白标签，去重
         cleaned = list(set(tag.strip() for tag in v if tag.strip()))
         return cleaned
@@ -918,31 +969,33 @@ class ExperimentBase(BaseModel):
 
 class ExperimentCreate(ExperimentBase):
     """创建实验组"""
-    result_ids: List[int] = Field(default_factory=list, description="初始关联的结果ID列表")
+
+    result_ids: list[int] = Field(default_factory=list, description="初始关联的结果ID列表")
 
 
 class ExperimentUpdate(BaseModel):
     """更新实验组"""
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    objective: Optional[str] = Field(default=None, max_length=2000)
-    status: Optional[str] = Field(default=None, pattern=r'^(draft|running|completed|archived)$')
-    tags: Optional[List[str]] = None
-    conclusion: Optional[str] = Field(default=None, max_length=5000, description="实验结论")
-    dataset_id: Optional[int] = None
 
-    @field_validator('name')
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    objective: str | None = Field(default=None, max_length=2000)
+    status: str | None = Field(default=None, pattern=r"^(draft|running|completed|archived)$")
+    tags: list[str] | None = None
+    conclusion: str | None = Field(default=None, max_length=5000, description="实验结论")
+    dataset_id: int | None = None
+
+    @field_validator("name")
     @classmethod
-    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+    def validate_name(cls, v: str | None) -> str | None:
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError('名称不能为空')
+                raise ValueError("名称不能为空")
         return v
 
-    @field_validator('tags')
+    @field_validator("tags")
     @classmethod
-    def validate_tags(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_tags(cls, v: list[str] | None) -> list[str] | None:
         if v is not None:
             return list(set(tag.strip() for tag in v if tag.strip()))
         return v
@@ -950,14 +1003,15 @@ class ExperimentUpdate(BaseModel):
 
 class ExperimentResultBrief(BaseModel):
     """实验组中的结果简要信息"""
+
     id: int
     name: str
     algo_name: str = Field(..., serialization_alias="model_name")
     algo_version: str = Field(default="", serialization_alias="model_version")
-    metrics: Dict[str, float] = Field(default_factory=dict)
-    configuration_id: Optional[int] = None
-    configuration_name: Optional[str] = None
-    dataset_id: Optional[int] = None
+    metrics: dict[str, float] = Field(default_factory=dict)
+    configuration_id: int | None = None
+    configuration_name: str | None = None
+    dataset_id: int | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -965,16 +1019,17 @@ class ExperimentResultBrief(BaseModel):
 
 class ExperimentResponse(BaseModel):
     """实验组响应"""
+
     id: int
     name: str
     description: str = ""
     objective: str = ""
     status: str = "draft"
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     conclusion: str = ""
-    user_id: Optional[int] = None
-    dataset_id: Optional[int] = None
-    dataset_name: Optional[str] = None  # 关联数据集名称
+    user_id: int | None = None
+    dataset_id: int | None = None
+    dataset_name: str | None = None  # 关联数据集名称
     result_count: int = 0  # 关联结果数量
     created_at: datetime
     updated_at: datetime
@@ -984,123 +1039,137 @@ class ExperimentResponse(BaseModel):
 
 class ExperimentDetailResponse(ExperimentResponse):
     """实验组详情响应（包含关联结果）"""
-    results: List[ExperimentResultBrief] = Field(default_factory=list)
-    skipped_result_ids: List[int] = Field(default_factory=list, description="跳过的结果ID（无权限或已存在）")
+
+    results: list[ExperimentResultBrief] = Field(default_factory=list)
+    skipped_result_ids: list[int] = Field(default_factory=list, description="跳过的结果ID（无权限或已存在）")
 
 
 class ExperimentAddResults(BaseModel):
     """添加结果到实验组"""
-    result_ids: List[int] = Field(..., min_length=1, description="要添加的结果ID列表")
 
-    @field_validator('result_ids')
+    result_ids: list[int] = Field(..., min_length=1, description="要添加的结果ID列表")
+
+    @field_validator("result_ids")
     @classmethod
-    def validate_result_ids(cls, v: List[int]) -> List[int]:
+    def validate_result_ids(cls, v: list[int]) -> list[int]:
         if not v:
-            raise ValueError('result_ids 不能为空')
+            raise ValueError("result_ids 不能为空")
         return list(set(v))  # 去重
 
 
 class ExperimentRemoveResults(BaseModel):
     """从实验组移除结果"""
-    result_ids: List[int] = Field(..., min_length=1, description="要移除的结果ID列表")
+
+    result_ids: list[int] = Field(..., min_length=1, description="要移除的结果ID列表")
 
 
 class ExperimentCompareRequest(BaseModel):
     """实验组内结果对比请求"""
+
     max_points: int = Field(default=2000, ge=10, le=50000)
     algorithm: DownsampleAlgorithm = DownsampleAlgorithm.LTTB
 
 
 class ExperimentSummary(BaseModel):
     """实验组汇总统计"""
+
     experiment_id: int
     experiment_name: str
     result_count: int
-    model_names: List[str] = Field(default_factory=list)
+    model_names: list[str] = Field(default_factory=list)
     # 最佳指标
-    best_mse: Optional[Dict[str, Any]] = None  # {"result_id": x, "value": y, "model_name": z}
-    best_rmse: Optional[Dict[str, Any]] = None
-    best_mae: Optional[Dict[str, Any]] = None
-    best_r2: Optional[Dict[str, Any]] = None
-    best_mape: Optional[Dict[str, Any]] = None
+    best_mse: dict[str, Any] | None = None  # {"result_id": x, "value": y, "model_name": z}
+    best_rmse: dict[str, Any] | None = None
+    best_mae: dict[str, Any] | None = None
+    best_r2: dict[str, Any] | None = None
+    best_mape: dict[str, Any] | None = None
     # 平均指标
-    avg_metrics: Optional[MetricsResponse] = None
+    avg_metrics: MetricsResponse | None = None
 
 
 # ============ 模型模板 Schemas ============
 
+
 class ModelTemplateBase(BaseModel):
     """模型模板基础信息"""
+
     name: str = Field(..., min_length=1, max_length=100, description="模型名称")
     version: str = Field(default="1.0", max_length=50, description="版本号")
-    category: str = Field(default="deep_learning", max_length=50, description="类别: deep_learning, traditional, ensemble")
-    description: Optional[str] = Field(default="", max_length=2000, description="模型描述")
-    
-    # 超参数配置
-    hyperparameters: Dict[str, Any] = Field(default_factory=dict, description="模型超参数")
-    training_config: Dict[str, Any] = Field(default_factory=dict, description="训练配置")
-    
-    # 适用场景
-    task_types: List[str] = Field(default_factory=list, description="适用任务类型: prediction, reconstruction, anomaly_detection")
-    recommended_features: Optional[str] = Field(default="", max_length=1000, description="推荐的数据特征")
+    category: str = Field(
+        default="deep_learning", max_length=50, description="类别: deep_learning, traditional, ensemble"
+    )
+    description: str | None = Field(default="", max_length=2000, description="模型描述")
 
-    @field_validator('name')
+    # 超参数配置
+    hyperparameters: dict[str, Any] = Field(default_factory=dict, description="模型超参数")
+    training_config: dict[str, Any] = Field(default_factory=dict, description="训练配置")
+
+    # 适用场景
+    task_types: list[str] = Field(
+        default_factory=list, description="适用任务类型: prediction, reconstruction, anomaly_detection"
+    )
+    recommended_features: str | None = Field(default="", max_length=1000, description="推荐的数据特征")
+
+    @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError('模型名称不能为空')
+            raise ValueError("模型名称不能为空")
         return v
 
-    @field_validator('category')
+    @field_validator("category")
     @classmethod
     def validate_category(cls, v: str) -> str:
-        valid_categories = ['deep_learning', 'traditional', 'ensemble', 'hybrid', 'other']
+        valid_categories = ["deep_learning", "traditional", "ensemble", "hybrid", "other"]
         if v not in valid_categories:
             # 允许自定义类别，但给出警告
             pass
         return v
 
-    @field_validator('task_types')
+    @field_validator("task_types")
     @classmethod
-    def validate_task_types(cls, v: List[str]) -> List[str]:
-        valid_types = ['prediction', 'reconstruction', 'anomaly_detection', 'classification', 'regression']
+    def validate_task_types(cls, v: list[str]) -> list[str]:
+        valid_types = ["prediction", "reconstruction", "anomaly_detection", "classification", "regression"]
         return [t for t in v if t in valid_types] if v else []
 
 
 class ModelTemplateCreate(ModelTemplateBase):
     """创建模型模板"""
+
     is_public: bool = Field(default=False, description="是否公开")
 
 
 class ModelTemplateUpdate(BaseModel):
     """更新模型模板"""
-    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    version: Optional[str] = Field(default=None, max_length=50)
-    category: Optional[str] = Field(default=None, max_length=50)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    hyperparameters: Optional[Dict[str, Any]] = None
-    training_config: Optional[Dict[str, Any]] = None
-    task_types: Optional[List[str]] = None
-    recommended_features: Optional[str] = Field(default=None, max_length=1000)
-    is_public: Optional[bool] = None
 
-    @field_validator('name')
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    version: str | None = Field(default=None, max_length=50)
+    category: str | None = Field(default=None, max_length=50)
+    description: str | None = Field(default=None, max_length=2000)
+    hyperparameters: dict[str, Any] | None = None
+    training_config: dict[str, Any] | None = None
+    task_types: list[str] | None = None
+    recommended_features: str | None = Field(default=None, max_length=1000)
+    is_public: bool | None = None
+
+    @field_validator("name")
     @classmethod
-    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+    def validate_name(cls, v: str | None) -> str | None:
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError('模型名称不能为空')
+                raise ValueError("模型名称不能为空")
         return v
 
 
 class ModelTemplateResponse(ModelTemplateBase):
     """模型模板响应"""
+
     id: int
     is_system: bool = False
     is_public: bool = False
-    user_id: Optional[int] = None
+    user_id: int | None = None
     usage_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -1110,6 +1179,7 @@ class ModelTemplateResponse(ModelTemplateBase):
 
 class ModelTemplateBrief(BaseModel):
     """模型模板简要信息（用于下拉选择）"""
+
     id: int
     name: str
     version: str
@@ -1128,12 +1198,7 @@ PRESET_MODEL_TEMPLATES = [
         "version": "1.0",
         "category": "deep_learning",
         "description": "长短期记忆网络，适合捕捉时序数据中的长期依赖关系",
-        "hyperparameters": {
-            "hidden_size": 64,
-            "num_layers": 2,
-            "dropout": 0.2,
-            "bidirectional": False
-        },
+        "hyperparameters": {"hidden_size": 64, "num_layers": 2, "dropout": 0.2, "bidirectional": False},
         "training_config": {
             "optimizer": "adam",
             "learning_rate": 0.001,
@@ -1141,23 +1206,18 @@ PRESET_MODEL_TEMPLATES = [
             "epochs": 100,
             "loss_function": "mse",
             "early_stopping": True,
-            "patience": 10
+            "patience": 10,
         },
         "task_types": ["prediction", "reconstruction"],
         "recommended_features": "适合单变量或少量变量的时序预测，对长序列效果好",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "GRU",
         "version": "1.0",
         "category": "deep_learning",
         "description": "门控循环单元，LSTM的简化版本，训练更快",
-        "hyperparameters": {
-            "hidden_size": 64,
-            "num_layers": 2,
-            "dropout": 0.2,
-            "bidirectional": False
-        },
+        "hyperparameters": {"hidden_size": 64, "num_layers": 2, "dropout": 0.2, "bidirectional": False},
         "training_config": {
             "optimizer": "adam",
             "learning_rate": 0.001,
@@ -1165,11 +1225,11 @@ PRESET_MODEL_TEMPLATES = [
             "epochs": 100,
             "loss_function": "mse",
             "early_stopping": True,
-            "patience": 10
+            "patience": 10,
         },
         "task_types": ["prediction", "reconstruction"],
         "recommended_features": "比LSTM参数更少，训练更快，适合中等长度序列",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "Transformer",
@@ -1182,7 +1242,7 @@ PRESET_MODEL_TEMPLATES = [
             "num_encoder_layers": 2,
             "num_decoder_layers": 2,
             "dim_feedforward": 256,
-            "dropout": 0.1
+            "dropout": 0.1,
         },
         "training_config": {
             "optimizer": "adam",
@@ -1192,23 +1252,18 @@ PRESET_MODEL_TEMPLATES = [
             "loss_function": "mse",
             "early_stopping": True,
             "patience": 15,
-            "warmup_steps": 1000
+            "warmup_steps": 1000,
         },
         "task_types": ["prediction", "reconstruction"],
         "recommended_features": "适合多变量时序，能捕捉复杂的时间模式，需要较多数据",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "TCN",
         "version": "1.0",
         "category": "deep_learning",
         "description": "时序卷积网络，使用因果卷积和膨胀卷积",
-        "hyperparameters": {
-            "num_channels": [64, 64, 64],
-            "kernel_size": 3,
-            "dropout": 0.2,
-            "dilation_base": 2
-        },
+        "hyperparameters": {"num_channels": [64, 64, 64], "kernel_size": 3, "dropout": 0.2, "dilation_base": 2},
         "training_config": {
             "optimizer": "adam",
             "learning_rate": 0.001,
@@ -1216,11 +1271,11 @@ PRESET_MODEL_TEMPLATES = [
             "epochs": 100,
             "loss_function": "mse",
             "early_stopping": True,
-            "patience": 10
+            "patience": 10,
         },
         "task_types": ["prediction", "reconstruction"],
         "recommended_features": "并行计算效率高，适合长序列，感受野可控",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "Informer",
@@ -1234,7 +1289,7 @@ PRESET_MODEL_TEMPLATES = [
             "d_layers": 1,
             "d_ff": 256,
             "factor": 5,
-            "dropout": 0.1
+            "dropout": 0.1,
         },
         "training_config": {
             "optimizer": "adam",
@@ -1243,11 +1298,11 @@ PRESET_MODEL_TEMPLATES = [
             "epochs": 100,
             "loss_function": "mse",
             "early_stopping": True,
-            "patience": 10
+            "patience": 10,
         },
         "task_types": ["prediction"],
         "recommended_features": "专为长序列预测设计，计算复杂度低于标准Transformer",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "Autoformer",
@@ -1262,7 +1317,7 @@ PRESET_MODEL_TEMPLATES = [
             "d_ff": 256,
             "factor": 3,
             "dropout": 0.1,
-            "moving_avg": 25
+            "moving_avg": 25,
         },
         "training_config": {
             "optimizer": "adam",
@@ -1271,36 +1326,22 @@ PRESET_MODEL_TEMPLATES = [
             "epochs": 100,
             "loss_function": "mse",
             "early_stopping": True,
-            "patience": 10
+            "patience": 10,
         },
         "task_types": ["prediction"],
         "recommended_features": "适合具有明显周期性的时序数据",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "ARIMA",
         "version": "1.0",
         "category": "traditional",
         "description": "自回归积分滑动平均模型，经典统计方法",
-        "hyperparameters": {
-            "p": 5,
-            "d": 1,
-            "q": 0,
-            "seasonal": False,
-            "P": 0,
-            "D": 0,
-            "Q": 0,
-            "m": 1
-        },
-        "training_config": {
-            "auto_order": True,
-            "max_p": 5,
-            "max_q": 5,
-            "information_criterion": "aic"
-        },
+        "hyperparameters": {"p": 5, "d": 1, "q": 0, "seasonal": False, "P": 0, "D": 0, "Q": 0, "m": 1},
+        "training_config": {"auto_order": True, "max_p": 5, "max_q": 5, "information_criterion": "aic"},
         "task_types": ["prediction"],
         "recommended_features": "适合平稳或可差分平稳的单变量时序，可解释性强",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "Prophet",
@@ -1313,15 +1354,12 @@ PRESET_MODEL_TEMPLATES = [
             "yearly_seasonality": True,
             "weekly_seasonality": True,
             "daily_seasonality": False,
-            "changepoint_prior_scale": 0.05
+            "changepoint_prior_scale": 0.05,
         },
-        "training_config": {
-            "interval_width": 0.95,
-            "mcmc_samples": 0
-        },
+        "training_config": {"interval_width": 0.95, "mcmc_samples": 0},
         "task_types": ["prediction"],
         "recommended_features": "适合有明显趋势和季节性的业务数据，如销量、流量",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "XGBoost",
@@ -1335,17 +1373,17 @@ PRESET_MODEL_TEMPLATES = [
             "subsample": 0.8,
             "colsample_bytree": 0.8,
             "reg_alpha": 0,
-            "reg_lambda": 1
+            "reg_lambda": 1,
         },
         "training_config": {
             "early_stopping_rounds": 10,
             "eval_metric": "rmse",
             "lag_features": [1, 2, 3, 7, 14],
-            "rolling_features": [7, 14, 30]
+            "rolling_features": [7, 14, 30],
         },
         "task_types": ["prediction", "classification"],
         "recommended_features": "需要特征工程，适合有丰富外部特征的预测任务",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "LightGBM",
@@ -1360,17 +1398,17 @@ PRESET_MODEL_TEMPLATES = [
             "subsample": 0.8,
             "colsample_bytree": 0.8,
             "reg_alpha": 0,
-            "reg_lambda": 0
+            "reg_lambda": 0,
         },
         "training_config": {
             "early_stopping_rounds": 10,
             "eval_metric": "rmse",
             "lag_features": [1, 2, 3, 7, 14],
-            "rolling_features": [7, 14, 30]
+            "rolling_features": [7, 14, 30],
         },
         "task_types": ["prediction", "classification"],
         "recommended_features": "比XGBoost更快，适合大规模数据",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "VAE",
@@ -1382,7 +1420,7 @@ PRESET_MODEL_TEMPLATES = [
             "encoder_hidden": [64, 32],
             "decoder_hidden": [32, 64],
             "dropout": 0.2,
-            "beta": 1.0
+            "beta": 1.0,
         },
         "training_config": {
             "optimizer": "adam",
@@ -1391,11 +1429,11 @@ PRESET_MODEL_TEMPLATES = [
             "epochs": 100,
             "loss_function": "reconstruction + kl_divergence",
             "early_stopping": True,
-            "patience": 10
+            "patience": 10,
         },
         "task_types": ["reconstruction", "anomaly_detection"],
         "recommended_features": "适合时序重构和异常检测，能学习数据的潜在表示",
-        "is_system": True
+        "is_system": True,
     },
     {
         "name": "Autoencoder",
@@ -1407,7 +1445,7 @@ PRESET_MODEL_TEMPLATES = [
             "decoder_hidden": [16, 32, 64],
             "latent_dim": 16,
             "dropout": 0.2,
-            "activation": "relu"
+            "activation": "relu",
         },
         "training_config": {
             "optimizer": "adam",
@@ -1416,10 +1454,10 @@ PRESET_MODEL_TEMPLATES = [
             "epochs": 100,
             "loss_function": "mse",
             "early_stopping": True,
-            "patience": 10
+            "patience": 10,
         },
         "task_types": ["reconstruction", "anomaly_detection"],
         "recommended_features": "适合时序重构、降维和异常检测",
-        "is_system": True
-    }
+        "is_system": True,
+    },
 ]

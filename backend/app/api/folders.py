@@ -51,20 +51,17 @@ async def list_folders(
 
     conditions, _ = get_isolation_conditions(current_user, Dataset)
 
-    dataset_count_query = select(
-        Dataset.folder_id, func.count(Dataset.id).label("dataset_count")
-    ).group_by(Dataset.folder_id)
+    dataset_count_query = select(Dataset.folder_id, func.count(Dataset.id).label("dataset_count")).group_by(
+        Dataset.folder_id
+    )
     if conditions:
         dataset_count_query = dataset_count_query.where(*conditions)
     dataset_count_subq = dataset_count_query.subquery()
 
-    query = (
-        select(
-            Folder,
-            func.coalesce(dataset_count_subq.c.dataset_count, 0).label("dataset_count"),
-        )
-        .outerjoin(dataset_count_subq, Folder.id == dataset_count_subq.c.folder_id)
-    )
+    query = select(
+        Folder,
+        func.coalesce(dataset_count_subq.c.dataset_count, 0).label("dataset_count"),
+    ).outerjoin(dataset_count_subq, Folder.id == dataset_count_subq.c.folder_id)
 
     level_sort = case((Folder.parent_id.is_(None), 0), else_=1)
     if sort_by == "name":
@@ -111,9 +108,7 @@ async def list_folders(
         for folder, dataset_count in rows
     ]
 
-    return FolderListResponse(
-        items=items, total=len(items), root_dataset_count=root_dataset_count
-    )
+    return FolderListResponse(items=items, total=len(items), root_dataset_count=root_dataset_count)
 
 
 @router.post("", response_model=FolderResponse)
@@ -129,16 +124,12 @@ async def create_folder(
     name = validate_form_field(data.name, "Folder name", max_length=255, min_length=1)
     description = validate_description(data.description, max_length=1000)
 
-    parent_condition = (
-        Folder.parent_id.is_(None) if parent_id is None else Folder.parent_id == parent_id
-    )
+    parent_condition = Folder.parent_id.is_(None) if parent_id is None else Folder.parent_id == parent_id
     existing = await db.execute(select(Folder.id).where(parent_condition, Folder.name == name))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Folder name already exists")
 
-    max_sort_result = await db.execute(
-        select(func.max(Folder.sort_order)).where(parent_condition)
-    )
+    max_sort_result = await db.execute(select(func.max(Folder.sort_order)).where(parent_condition))
     max_sort_order = max_sort_result.scalar()
     sort_order = (max_sort_order if max_sort_order is not None else -1) + 1
 
@@ -179,9 +170,7 @@ async def update_folder(
     if data.name is not None:
         name = validate_form_field(data.name, "Folder name", max_length=255, min_length=1)
         parent_condition = (
-            Folder.parent_id.is_(None)
-            if folder.parent_id is None
-            else Folder.parent_id == folder.parent_id
+            Folder.parent_id.is_(None) if folder.parent_id is None else Folder.parent_id == folder.parent_id
         )
         existing = await db.execute(
             select(Folder.id).where(
@@ -233,16 +222,12 @@ async def delete_folder(
         children_result = await db.execute(select(Folder.id).where(Folder.parent_id == folder.id))
         folder_ids.extend(children_result.scalars().all())
 
-    dataset_ids_result = await db.execute(
-        select(Dataset.id).where(Dataset.folder_id.in_(folder_ids))
-    )
+    dataset_ids_result = await db.execute(select(Dataset.id).where(Dataset.folder_id.in_(folder_ids)))
     dataset_ids = dataset_ids_result.scalars().all()
 
     if action == "move_to_root":
         if dataset_ids:
-            await db.execute(
-                update(Dataset).where(Dataset.id.in_(dataset_ids)).values(folder_id=None)
-            )
+            await db.execute(update(Dataset).where(Dataset.id.in_(dataset_ids)).values(folder_id=None))
         await db.delete(folder)
         await db.commit()
         return {"message": "Folder deleted", "moved_datasets": len(dataset_ids)}

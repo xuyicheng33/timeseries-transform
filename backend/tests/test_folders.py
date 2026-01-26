@@ -6,9 +6,7 @@ from app.models import Dataset
 
 class TestFolderAPI:
     @pytest.mark.asyncio
-    async def test_create_folder_forbidden_for_normal_user(
-        self, client: AsyncClient, auth_headers: dict
-    ):
+    async def test_create_folder_forbidden_for_normal_user(self, client: AsyncClient, auth_headers: dict):
         response = await client.post(
             "/api/folders",
             json={"name": "Root", "description": "", "parent_id": None},
@@ -30,9 +28,7 @@ class TestFolderAPI:
         assert data["description"] == "Root folder"
 
     @pytest.mark.asyncio
-    async def test_folder_description_allows_newlines_and_tabs(
-        self, client: AsyncClient, admin_auth_headers: dict
-    ):
+    async def test_folder_description_allows_newlines_and_tabs(self, client: AsyncClient, admin_auth_headers: dict):
         description = "Line1\n\tLine2"
         response = await client.post(
             "/api/folders",
@@ -147,18 +143,14 @@ class TestFolderAPI:
         assert folder_counts[child_id] == 1
         assert list_folders_resp.json()["root_dataset_count"] == 0
 
-        list_datasets_resp = await client.get(
-            f"/api/datasets?folder_id={child_id}", headers=admin_auth_headers
-        )
+        list_datasets_resp = await client.get(f"/api/datasets?folder_id={child_id}", headers=admin_auth_headers)
         assert list_datasets_resp.status_code == 200
         dataset_items = list_datasets_resp.json()["items"]
         assert len(dataset_items) == 1
         assert dataset_items[0]["id"] == admin_dataset.id
 
     @pytest.mark.asyncio
-    async def test_reorder_folders_route_and_sort_order_persisted(
-        self, client: AsyncClient, admin_auth_headers: dict
-    ):
+    async def test_reorder_folders_route_and_sort_order_persisted(self, client: AsyncClient, admin_auth_headers: dict):
         first_resp = await client.post(
             "/api/folders",
             json={"name": "First", "description": "", "parent_id": None},
@@ -187,9 +179,7 @@ class TestFolderAPI:
         )
         assert reorder_resp.status_code == 200
 
-        list_resp = await client.get(
-            "/api/folders?sort_by=manual&order=asc", headers=admin_auth_headers
-        )
+        list_resp = await client.get("/api/folders?sort_by=manual&order=asc", headers=admin_auth_headers)
         assert list_resp.status_code == 200
         items = list_resp.json()["items"]
         root_ids = [item["id"] for item in items if item["parent_id"] is None]

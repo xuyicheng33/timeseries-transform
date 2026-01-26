@@ -2,11 +2,13 @@
 统一的线程池执行器管理
 解决各模块分散创建 ThreadPoolExecutor 的问题
 """
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from typing import TypeVar, Callable, Any
 
-T = TypeVar('T')
+import asyncio
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, TypeVar
+
+T = TypeVar("T")
 
 # 共享线程池执行器
 _executor: ThreadPoolExecutor | None = None
@@ -32,4 +34,3 @@ async def run_in_executor(func: Callable[..., T], *args: Any) -> T:
     """在线程池中运行同步函数"""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(get_executor(), func, *args)
-

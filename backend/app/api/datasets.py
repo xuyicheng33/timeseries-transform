@@ -7,37 +7,41 @@
 - 查看/预览/下载：全员
 - 数据集强制公开（is_public=True）
 """
-import os
-import aiofiles
-import pandas as pd
-import chardet
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
 
+import os
+
+import aiofiles
+import chardet
+import pandas as pd
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.auth import get_admin_user, get_current_user
+from app.config import settings
 from app.database import get_db
-from app.models import Dataset, Folder, Configuration, Result, User
+from app.models import Dataset, Folder, User
 from app.schemas import (
     DatasetBatchMoveRequest,
-    DatasetCreate,
     DatasetPreview,
     DatasetResponse,
     DatasetSortOrderUpdate,
     DatasetUpdate,
     PaginatedResponse,
 )
-from app.config import settings
-from app.services.utils import count_csv_rows, sanitize_filename, sanitize_filename_for_header, safe_rmtree, validate_form_field, validate_description
-from app.services.executor import run_in_executor
 from app.services.dataset_service import cleanup_paths, plan_dataset_delete
+from app.services.executor import run_in_executor
+from app.services.permissions import ResourceType, build_dataset_query, check_read_access, get_isolation_conditions
 from app.services.security import validate_filepath
-from app.services.permissions import (
-    check_read_access, 
-    build_dataset_query, get_isolation_conditions,
-    ResourceType
+from app.services.utils import (
+    count_csv_rows,
+    safe_rmtree,
+    sanitize_filename,
+    sanitize_filename_for_header,
+    validate_description,
+    validate_form_field,
 )
-from app.api.auth import get_current_user, get_admin_user
 
 router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 
@@ -51,7 +55,7 @@ def _parse_csv_sync(filepath: str, encoding: str):
 
 def _detect_encoding_sync(filepath: str) -> str:
     """同步检测文件编码（只读取前10KB）"""
-    with open(filepath, 'rb') as f:
+    with open(filepath, "rb") as f:
         raw = f.read(10240)
     try:
         detected = chardet.detect(raw)
@@ -79,11 +83,11 @@ async def upload_dataset(
     folder_id: int | None = Form(None),
     is_public: bool = Form(True),  # 忽略前端传值，强制公开
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_admin_user)  # 仅管理员可上传
+    current_user: User = Depends(get_admin_user),  # 仅管理员可上传
 ):
     """
     上传数据集（仅管理员）
-    
+
     数据集统一由管理员管理，上传后强制公开，全员可见。
     """
     # 表单字段校验
@@ -92,40 +96,40 @@ async def upload_dataset(
 
     if folder_id is not None:
         await _get_valid_folder(db, folder_id)
-    
+
     # 大小写不敏感的扩展名校验
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="仅支持 CSV 文件")
-    
+
     # 清理文件名
     safe_filename = sanitize_filename(file.filename)
-    
+
     # 获取当前最大 sort_order
     max_sort_result = await db.execute(select(func.max(Dataset.sort_order)))
     max_sort_order = max_sort_result.scalar() or 0
-    
+
     # 创建数据库记录，关联当前用户，强制公开
     dataset = Dataset(
-        name=name, 
-        filename=safe_filename, 
-        filepath="", 
+        name=name,
+        filename=safe_filename,
+        filepath="",
         description=description,
         user_id=current_user.id,
         folder_id=folder_id,
         is_public=True,  # 强制公开，忽略前端传值
-        sort_order=max_sort_order + 1  # 新数据集排在最后
+        sort_order=max_sort_order + 1,  # 新数据集排在最后
     )
     db.add(dataset)
     await db.flush()
-    
+
     dataset_dir = settings.DATASETS_DIR / str(dataset.id)
     dataset_dir.mkdir(parents=True, exist_ok=True)
     filepath = dataset_dir / "data.csv"
-    
+
     # 流式写入文件，边读边写边检查大小
     total_size = 0
     try:
-        async with aiofiles.open(filepath, 'wb') as f:
+        async with aiofiles.open(filepath, "wb") as f:
             while chunk := await file.read(1024 * 1024):  # 每次读取1MB
                 total_size += len(chunk)
                 if total_size > settings.MAX_UPLOAD_SIZE:
@@ -134,8 +138,7 @@ async def upload_dataset(
                     await run_in_executor(safe_rmtree, str(dataset_dir))
                     await db.rollback()
                     raise HTTPException(
-                        status_code=400, 
-                        detail=f"文件过大，最大允许 {settings.MAX_UPLOAD_SIZE // 1024 // 1024}MB"
+                        status_code=400, detail=f"文件过大，最大允许 {settings.MAX_UPLOAD_SIZE // 1024 // 1024}MB"
                     )
                 await f.write(chunk)
     except HTTPException:
@@ -144,10 +147,10 @@ async def upload_dataset(
         await run_in_executor(safe_rmtree, str(dataset_dir))
         await db.rollback()
         raise HTTPException(status_code=500, detail="文件上传失败")
-    
+
     # 检测编码
     encoding = await run_in_executor(_detect_encoding_sync, str(filepath))
-    
+
     # 解析CSV
     try:
         df, row_count = await run_in_executor(_parse_csv_sync, str(filepath), encoding)
@@ -155,29 +158,26 @@ async def upload_dataset(
         await run_in_executor(safe_rmtree, str(dataset_dir))
         await db.rollback()
         raise HTTPException(status_code=400, detail="CSV 文件解析失败，请检查文件格式")
-    
+
     dataset.filepath = str(filepath)
     dataset.file_size = total_size
     dataset.row_count = row_count
     dataset.column_count = len(df.columns)
     dataset.columns = df.columns.tolist()
     dataset.encoding = encoding
-    
+
     await db.commit()
     await db.refresh(dataset)
     return dataset
 
 
 @router.get("/all", response_model=list[DatasetResponse])
-async def list_all_datasets(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+async def list_all_datasets(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """获取所有数据集（不分页，用于下拉选择等场景，限制最多1000条）"""
     query = build_dataset_query(current_user)
     # 按 sort_order 升序、id 升序排列，保证稳定排序
     query = query.order_by(Dataset.sort_order.asc(), Dataset.id.asc()).limit(1000)
-    
+
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -189,7 +189,7 @@ async def list_datasets(
     root_only: bool = False,
     folder_id: int | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """获取数据集列表（分页）"""
     # 参数校验
@@ -202,10 +202,10 @@ async def list_datasets(
 
     if folder_id is not None:
         await _get_valid_folder(db, folder_id)
-    
+
     # 获取数据隔离条件
     conditions, _ = get_isolation_conditions(current_user, Dataset)
-    
+
     # 查询总数
     count_query = select(func.count(Dataset.id))
     for cond in conditions:
@@ -218,7 +218,7 @@ async def list_datasets(
 
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
-    
+
     # 查询分页数据，按 sort_order 升序、id 升序排列
     query = select(Dataset).order_by(Dataset.sort_order.asc(), Dataset.id.asc())
     for cond in conditions:
@@ -230,72 +230,63 @@ async def list_datasets(
         query = query.where(Dataset.folder_id == folder_id)
 
     query = query.offset(offset).limit(page_size)
-    
+
     result = await db.execute(query)
     items = result.scalars().all()
-    
-    return PaginatedResponse(
-        items=items,
-        total=total,
-        page=page,
-        page_size=page_size
-    )
+
+    return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{dataset_id}", response_model=DatasetResponse)
 async def get_dataset(
-    dataset_id: int, 
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    dataset_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """获取数据集详情"""
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
-    
+
     check_read_access(dataset, current_user, ResourceType.DATASET)
     return dataset
 
 
 @router.get("/{dataset_id}/preview", response_model=DatasetPreview)
 async def preview_dataset(
-    dataset_id: int, 
-    rows: int = 100, 
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    dataset_id: int, rows: int = 100, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """预览数据集"""
     # 防止 0/负数
     rows = max(1, min(rows, settings.PREVIEW_ROWS))
-    
+
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
-    
+
     check_read_access(dataset, current_user, ResourceType.DATASET)
-    
+
     # 检查文件是否存在
     if not os.path.exists(dataset.filepath):
         raise HTTPException(status_code=404, detail="数据集文件不存在，可能已被删除")
-    
+
     # 验证文件路径安全
     if not validate_filepath(dataset.filepath):
         raise HTTPException(status_code=403, detail="文件路径不安全")
-    
+
     try:
         df = await run_in_executor(
-            lambda: pd.read_csv(dataset.filepath, encoding=dataset.encoding or 'utf-8', nrows=rows)
+            lambda: pd.read_csv(dataset.filepath, encoding=dataset.encoding or "utf-8", nrows=rows)
         )
     except Exception:
         raise HTTPException(status_code=500, detail="读取数据集文件失败")
-    
+
     # 将 DataFrame 转换为 JSON 兼容格式
     # pandas 的 NaN/Infinity 无法被标准 JSON 序列化，需要转换为 None
     def make_json_safe(obj):
         """将 DataFrame 转换为 JSON 安全的字典列表"""
         import math
+
         records = []
         for _, row in df.iterrows():
             record = {}
@@ -310,38 +301,32 @@ async def preview_dataset(
                     record[col] = val
             records.append(record)
         return records
-    
+
     safe_data = await run_in_executor(make_json_safe, df)
-    
-    return DatasetPreview(
-        columns=df.columns.tolist(),
-        data=safe_data,
-        total_rows=dataset.row_count
-    )
+
+    return DatasetPreview(columns=df.columns.tolist(), data=safe_data, total_rows=dataset.row_count)
 
 
 @router.get("/{dataset_id}/download")
 async def download_dataset(
-    dataset_id: int, 
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    dataset_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """下载数据集"""
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
-    
+
     check_read_access(dataset, current_user, ResourceType.DATASET)
-    
+
     # 检查文件是否存在
     if not os.path.exists(dataset.filepath):
         raise HTTPException(status_code=404, detail="数据集文件不存在，可能已被删除")
-    
+
     # 验证文件路径安全
     if not validate_filepath(dataset.filepath):
         raise HTTPException(status_code=403, detail="文件路径不安全")
-    
+
     # 使用安全的文件名（防止 Header 注入）
     safe_download_name = sanitize_filename_for_header(dataset.filename)
     return FileResponse(dataset.filepath, filename=safe_download_name, media_type="text/csv")
@@ -349,35 +334,35 @@ async def download_dataset(
 
 @router.put("/{dataset_id}", response_model=DatasetResponse)
 async def update_dataset(
-    dataset_id: int, 
-    data: DatasetUpdate, 
+    dataset_id: int,
+    data: DatasetUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_admin_user)  # 仅管理员可编辑
+    current_user: User = Depends(get_admin_user),  # 仅管理员可编辑
 ):
     """
     更新数据集信息（仅管理员）
-    
+
     注意：is_public 字段被忽略，数据集始终保持公开状态。
     """
     result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
     dataset = result.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=404, detail="数据集不存在")
-    
+
     # 更新字段（排除 is_public，强制保持公开）
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="没有提供要更新的字段")
-    
+
     # 忽略 is_public 字段，数据集始终公开
-    update_data.pop('is_public', None)
+    update_data.pop("is_public", None)
 
     if "folder_id" in update_data and update_data["folder_id"] is not None:
         await _get_valid_folder(db, update_data["folder_id"])
-    
+
     for key, value in update_data.items():
         setattr(dataset, key, value)
-    
+
     await db.commit()
     await db.refresh(dataset)
     return dataset
@@ -385,9 +370,7 @@ async def update_dataset(
 
 @router.delete("/{dataset_id}")
 async def delete_dataset(
-    dataset_id: int, 
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_admin_user)  # 仅管理员可删除
+    dataset_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_admin_user)  # 仅管理员可删除
 ):
     try:
         plan = await plan_dataset_delete(dataset_id, db)
@@ -415,19 +398,13 @@ async def batch_move_datasets(
     if data.folder_id is not None:
         await _get_valid_folder(db, data.folder_id)
 
-    existing_result = await db.execute(
-        select(Dataset.id).where(Dataset.id.in_(data.dataset_ids))
-    )
+    existing_result = await db.execute(select(Dataset.id).where(Dataset.id.in_(data.dataset_ids)))
     existing_ids = set(existing_result.scalars().all())
     missing_ids = sorted(set(data.dataset_ids) - existing_ids)
     if missing_ids:
         raise HTTPException(status_code=404, detail=f"Missing datasets: {missing_ids}")
 
-    await db.execute(
-        update(Dataset)
-        .where(Dataset.id.in_(data.dataset_ids))
-        .values(folder_id=data.folder_id)
-    )
+    await db.execute(update(Dataset).where(Dataset.id.in_(data.dataset_ids)).values(folder_id=data.folder_id))
     await db.commit()
     return {"message": "Datasets moved", "moved_count": len(data.dataset_ids)}
 
@@ -436,38 +413,29 @@ async def batch_move_datasets(
 async def update_sort_order_batch(
     data: DatasetSortOrderUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_admin_user)  # 仅管理员可排序
+    current_user: User = Depends(get_admin_user),  # 仅管理员可排序
 ):
     """
     批量更新数据集排序（仅管理员）
-    
+
     接收 {orders: [{id, sort_order}, ...]} 格式的数据。
     用于前端拖拽排序后一次性提交所有变更。
     """
     if not data.orders:
         raise HTTPException(status_code=400, detail="没有提供要更新的排序数据")
-    
+
     # 验证所有数据集存在
     dataset_ids = [item.id for item in data.orders]
-    result = await db.execute(
-        select(Dataset.id).where(Dataset.id.in_(dataset_ids))
-    )
+    result = await db.execute(select(Dataset.id).where(Dataset.id.in_(dataset_ids)))
     existing_ids = set(row[0] for row in result.fetchall())
-    
+
     missing_ids = set(dataset_ids) - existing_ids
     if missing_ids:
-        raise HTTPException(
-            status_code=404, 
-            detail=f"以下数据集不存在: {list(missing_ids)}"
-        )
-    
+        raise HTTPException(status_code=404, detail=f"以下数据集不存在: {list(missing_ids)}")
+
     # 批量更新排序
     for item in data.orders:
-        await db.execute(
-            update(Dataset)
-            .where(Dataset.id == item.id)
-            .values(sort_order=item.sort_order)
-        )
-    
+        await db.execute(update(Dataset).where(Dataset.id == item.id).values(sort_order=item.sort_order))
+
     await db.commit()
     return {"message": f"已更新 {len(data.orders)} 个数据集的排序"}

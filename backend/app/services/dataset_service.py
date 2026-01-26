@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,9 +27,7 @@ async def plan_dataset_delete(dataset_id: int, db: AsyncSession) -> DatasetDelet
     if dataset is None:
         raise ValueError(f"Dataset {dataset_id} not found")
 
-    configs_result = await db.execute(
-        select(Configuration).where(Configuration.dataset_id == dataset_id)
-    )
+    configs_result = await db.execute(select(Configuration).where(Configuration.dataset_id == dataset_id))
     configs = configs_result.scalars().all()
 
     results_result = await db.execute(select(Result).where(Result.dataset_id == dataset_id))
@@ -37,9 +35,7 @@ async def plan_dataset_delete(dataset_id: int, db: AsyncSession) -> DatasetDelet
     result_ids = [r.id for r in results]
 
     if result_ids:
-        await db.execute(
-            experiment_results.delete().where(experiment_results.c.result_id.in_(result_ids))
-        )
+        await db.execute(experiment_results.delete().where(experiment_results.c.result_id.in_(result_ids)))
 
     for config in configs:
         await db.delete(config)
@@ -56,8 +52,8 @@ async def plan_dataset_delete(dataset_id: int, db: AsyncSession) -> DatasetDelet
     )
 
 
-async def cleanup_paths(paths: Iterable[Path]) -> List[str]:
-    warnings: List[str] = []
+async def cleanup_paths(paths: Iterable[Path]) -> list[str]:
+    warnings: list[str] = []
     for path in paths:
         if not path.exists():
             continue
@@ -65,4 +61,3 @@ async def cleanup_paths(paths: Iterable[Path]) -> List[str]:
         if not ok:
             warnings.append(f"Failed to remove path: {path}")
     return warnings
-

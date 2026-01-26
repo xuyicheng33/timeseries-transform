@@ -7,7 +7,7 @@ on:
     branches: [ main, master, develop ]
 
 jobs:
-  backend-check:
+  backend-quality:
     name: Backend Quality Check
     runs-on: ubuntu-latest
     
@@ -24,39 +24,24 @@ jobs:
         cd backend
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install ruff black mypy pytest pytest-asyncio pytest-cov
     
-    - name: Check Python syntax
-      run: |
-        python -m compileall -q backend/app backend/migrations
-    
-    - name: Check imports
+    - name: Ruff check
       run: |
         cd backend
-        python - <<'PY'
-import sys
-sys.path.insert(0, '.')
-modules = [
-    'app.main',
-    'app.config', 
-    'app.database',
-    'app.models',
-    'app.schemas',
-    'app.services.auth',
-    'app.services.utils',
-    'app.services.permissions',
-    'app.services.quality',
-    'app.services.cleaning',
-    'app.api.quality',
-    'app.api.exploration',
-    'app.api.batch',
-    'app.api.comparison',
-    'app.api.experiments',
-]
-for m in modules:
-    __import__(m)
-    print(f'✓ {m}')
-PY
-
+        ruff check app tests
+    
+    - name: Black format check
+      run: |
+        cd backend
+        black --check app tests
+    
+    - name: MyPy type check (optional)
+      run: |
+        cd backend
+        mypy app --ignore-missing-imports || true
+      continue-on-error: true
+    
     - name: Run tests
       run: |
         cd backend
@@ -67,7 +52,7 @@ PY
         DEBUG: "false"
         ENABLE_DATA_ISOLATION: "true"
 
-  frontend-check:
+  frontend-quality:
     name: Frontend Quality Check
     runs-on: ubuntu-latest
     
@@ -86,14 +71,18 @@ PY
         cd frontend
         npm ci
     
-    - name: Run ESLint
+    - name: ESLint check
       run: |
         cd frontend
         npm run lint
-      continue-on-error: true  # ESLint 警告不阻塞
+      continue-on-error: true
     
-    - name: Build
+    - name: Prettier format check
+      run: |
+        cd frontend
+        npm run format:check
+    
+    - name: TypeScript build check
       run: |
         cd frontend
         npm run build
-
