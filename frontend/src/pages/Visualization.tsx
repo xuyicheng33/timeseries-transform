@@ -40,11 +40,11 @@ import {
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 
-import type { 
-  Result, 
+import type {
+  Result,
   Dataset,
-  Metrics, 
-  CompareResponse, 
+  Metrics,
+  CompareResponse,
   DownsampleAlgorithm,
   ErrorAnalysisResponse,
   RadarChartResponse,
@@ -52,24 +52,36 @@ import type {
 } from '@/types'
 import { getAllResults } from '@/api/results'
 import { getAllDatasets } from '@/api/datasets'
-import { 
-  compareResults, 
-  analyzeErrors, 
+import {
+  compareResults,
+  analyzeErrors,
   getRadarChart,
   calculateRangeMetrics,
   exportCompareCSV,
 } from '@/api/visualization'
 import { formatMetric } from '@/utils/format'
 import { APP_CONFIG } from '@/config/app'
-import { DOWNSAMPLE_ALGORITHM_OPTIONS, DOWNSAMPLE_ALGORITHM_DESCRIPTIONS, METRIC_NAMES } from '@/constants'
+import {
+  DOWNSAMPLE_ALGORITHM_OPTIONS,
+  DOWNSAMPLE_ALGORITHM_DESCRIPTIONS,
+  METRIC_NAMES,
+} from '@/constants'
 import ConfigComparison from '@/components/ConfigComparison'
 
 const { Title, Text } = Typography
 
 // 颜色配置
 const CHART_COLORS = [
-  '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
-  '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#48b8d0',
+  '#5470c6',
+  '#91cc75',
+  '#fac858',
+  '#ee6666',
+  '#73c0de',
+  '#3ba272',
+  '#fc8452',
+  '#9a60b4',
+  '#ea7ccc',
+  '#48b8d0',
 ]
 
 // 雷达图指标配置
@@ -84,7 +96,7 @@ const RADAR_INDICATORS = [
 export default function Visualization() {
   // ============ URL 参数 ============
   const [searchParams, setSearchParams] = useSearchParams()
-  
+
   // ============ 状态定义 ============
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [results, setResults] = useState<Result[]>([])
@@ -93,10 +105,10 @@ export default function Visualization() {
 
   // 筛选条件
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | undefined>(undefined)
-  
+
   // 选中的结果
   const [selectedResultIds, setSelectedResultIds] = useState<number[]>([])
-  
+
   // 是否已处理 URL 参数（避免重复触发）
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false)
 
@@ -188,8 +200,8 @@ export default function Visualization() {
     // 解析 ids 参数（格式：ids=1,2,3）
     const ids = idsParam
       .split(',')
-      .map(id => parseInt(id.trim(), 10))
-      .filter(id => !isNaN(id) && id > 0)
+      .map((id) => parseInt(id.trim(), 10))
+      .filter((id) => !isNaN(id) && id > 0)
 
     if (ids.length === 0) {
       setUrlParamsProcessed(true)
@@ -197,8 +209,8 @@ export default function Visualization() {
     }
 
     // 验证 ids 是否存在于结果列表中
-    const validIds = ids.filter(id => results.some(r => r.id === id))
-    
+    const validIds = ids.filter((id) => results.some((r) => r.id === id))
+
     if (validIds.length === 0) {
       message.warning('URL 中指定的结果 ID 不存在或无权访问')
       setUrlParamsProcessed(true)
@@ -214,7 +226,9 @@ export default function Visualization() {
     // 限制最大数量
     const limitedIds = validIds.slice(0, APP_CONFIG.VISUALIZATION.MAX_RESULTS)
     if (validIds.length > APP_CONFIG.VISUALIZATION.MAX_RESULTS) {
-      message.warning(`最多支持 ${APP_CONFIG.VISUALIZATION.MAX_RESULTS} 个结果对比，已截取前 ${APP_CONFIG.VISUALIZATION.MAX_RESULTS} 个`)
+      message.warning(
+        `最多支持 ${APP_CONFIG.VISUALIZATION.MAX_RESULTS} 个结果对比，已截取前 ${APP_CONFIG.VISUALIZATION.MAX_RESULTS} 个`
+      )
     }
 
     // 设置选中的结果
@@ -223,7 +237,7 @@ export default function Visualization() {
 
     // 自动触发对比
     message.info('正在加载对比数据...')
-    
+
     // 使用 setTimeout 确保状态更新后再触发对比
     setTimeout(() => {
       triggerCompare(limitedIds)
@@ -275,7 +289,7 @@ export default function Visualization() {
   // 筛选后的结果列表
   const filteredResults = useMemo(() => {
     if (!selectedDatasetId) return results
-    return results.filter(r => r.dataset_id === selectedDatasetId)
+    return results.filter((r) => r.dataset_id === selectedDatasetId)
   }, [results, selectedDatasetId])
 
   // ============ 对比功能 ============
@@ -331,14 +345,14 @@ export default function Visualization() {
         max_points: maxPoints,
         algorithm,
       })
-      
+
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = `comparison_export_${Date.now()}.csv`
       link.click()
       window.URL.revokeObjectURL(url)
-      
+
       message.success('数据已导出')
     } catch {
       message.error('导出失败')
@@ -375,7 +389,7 @@ export default function Visualization() {
     const series = compareData.chart_data.series.map((s, index) => {
       const isTrueLine = s.name.startsWith('True')
       const seriesColor = isTrueLine ? '#333' : CHART_COLORS[index % CHART_COLORS.length]
-      
+
       return {
         name: s.name,
         type: 'line' as const,
@@ -489,7 +503,7 @@ export default function Visualization() {
     }))
 
     // 添加零线
-    const allIndices = errorData.analyses.flatMap(a => a.residual_data.indices)
+    const allIndices = errorData.analyses.flatMap((a) => a.residual_data.indices)
     const minIdx = Math.min(...allIndices)
     const maxIdx = Math.max(...allIndices)
 
@@ -565,7 +579,10 @@ export default function Visualization() {
         {
           name: '零线',
           type: 'line',
-          data: [[minIdx, 0], [maxIdx, 0]],
+          data: [
+            [minIdx, 0],
+            [maxIdx, 0],
+          ],
           lineStyle: { type: 'dashed', color: '#999', width: 1 },
           symbol: 'none',
           silent: true,
@@ -583,7 +600,7 @@ export default function Visualization() {
     const series = errorData.analyses.map((analysis, index) => ({
       name: analysis.model_name,
       type: 'bar' as const,
-      data: analysis.distribution.histogram.map(h => h.count),
+      data: analysis.distribution.histogram.map((h) => h.count),
       itemStyle: {
         color: CHART_COLORS[index % CHART_COLORS.length],
         opacity: 0.7,
@@ -604,7 +621,7 @@ export default function Visualization() {
     } else {
       // 兼容旧版本：使用第一个模型的 histogram bins
       bins = errorData.analyses[0].distribution.histogram.map(
-        h => `${h.bin_start.toFixed(2)}~${h.bin_end.toFixed(2)}`
+        (h) => `${h.bin_start.toFixed(2)}~${h.bin_end.toFixed(2)}`
       )
     }
 
@@ -679,7 +696,7 @@ export default function Visualization() {
         type: 'scroll',
       },
       radar: {
-        indicator: RADAR_INDICATORS.map(ind => ({ name: ind.name, max: ind.max })),
+        indicator: RADAR_INDICATORS.map((ind) => ({ name: ind.name, max: ind.max })),
         center: ['50%', '60%'],
         radius: '60%',
       },
@@ -771,10 +788,7 @@ export default function Visualization() {
       render: (value: number) => {
         const isBest = isBestValue(key, value)
         return (
-          <Text
-            strong={isBest}
-            style={{ color: isBest ? '#52c41a' : undefined }}
-          >
+          <Text strong={isBest} style={{ color: isBest ? '#52c41a' : undefined }}>
             {formatMetric(value, key)}
           </Text>
         )
@@ -834,11 +848,7 @@ export default function Visualization() {
                   </Select.Option>
                 ))}
               </Select>
-              {selectedDatasetId && (
-                <Tag color="blue">
-                  已筛选: {filteredResults.length} 个结果
-                </Tag>
-              )}
+              {selectedDatasetId && <Tag color="blue">已筛选: {filteredResults.length} 个结果</Tag>}
             </Space>
           </Col>
         </Row>
@@ -886,11 +896,21 @@ export default function Visualization() {
                     <div style={{ fontWeight: 'bold', marginBottom: 8 }}>降采样算法说明</div>
                     {algorithm && DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm] && (
                       <>
-                        <div><strong>{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].name}</strong></div>
-                        <div style={{ margin: '4px 0' }}>{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].description}</div>
-                        <div style={{ color: '#52c41a' }}>✓ 优点：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].pros}</div>
-                        <div style={{ color: '#faad14' }}>✗ 缺点：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].cons}</div>
-                        <div style={{ marginTop: 4, color: '#1890ff' }}>适用场景：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].useCase}</div>
+                        <div>
+                          <strong>{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].name}</strong>
+                        </div>
+                        <div style={{ margin: '4px 0' }}>
+                          {DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].description}
+                        </div>
+                        <div style={{ color: '#52c41a' }}>
+                          ✓ 优点：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].pros}
+                        </div>
+                        <div style={{ color: '#faad14' }}>
+                          ✗ 缺点：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].cons}
+                        </div>
+                        <div style={{ marginTop: 4, color: '#1890ff' }}>
+                          适用场景：{DOWNSAMPLE_ALGORITHM_DESCRIPTIONS[algorithm].useCase}
+                        </div>
                       </>
                     )}
                   </div>
@@ -900,11 +920,7 @@ export default function Visualization() {
               >
                 <Text style={{ cursor: 'help' }}>降采样算法：</Text>
               </Tooltip>
-              <Select
-                value={algorithm}
-                onChange={setAlgorithm}
-                style={{ width: 150 }}
-              >
+              <Select value={algorithm} onChange={setAlgorithm} style={{ width: 150 }}>
                 {DOWNSAMPLE_ALGORITHM_OPTIONS.map((opt) => (
                   <Select.Option key={opt.value} value={opt.value}>
                     <Tooltip
@@ -1015,18 +1031,28 @@ export default function Visualization() {
                       )}
                       {compareData.chart_data.downsampled && (
                         <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                          数据已降采样（原始 {compareData.chart_data.total_points.toLocaleString()} 点 → {maxPoints} 点）
+                          数据已降采样（原始 {compareData.chart_data.total_points.toLocaleString()}{' '}
+                          点 → {maxPoints} 点）
                         </Text>
                       )}
                       <Space style={{ marginBottom: 16 }}>
-                        <Button icon={<DownloadOutlined />} onClick={() => handleExportChart('png')}>
+                        <Button
+                          icon={<DownloadOutlined />}
+                          onClick={() => handleExportChart('png')}
+                        >
                           导出 PNG
                         </Button>
-                        <Button icon={<DownloadOutlined />} onClick={() => handleExportChart('jpg')}>
+                        <Button
+                          icon={<DownloadOutlined />}
+                          onClick={() => handleExportChart('jpg')}
+                        >
                           导出 JPG
                         </Button>
                       </Space>
-                      <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 12 }}>
+                      <Text
+                        type="secondary"
+                        style={{ display: 'block', marginBottom: 8, fontSize: 12 }}
+                      >
                         提示：双击图表可恢复初始视图，使用鼠标滚轮或底部滑块可缩放
                       </Text>
                       <ReactECharts
@@ -1047,7 +1073,7 @@ export default function Visualization() {
                             if (chart) {
                               chart.dispatchAction({ type: 'restore' })
                             }
-                          }
+                          },
                         }}
                       />
                     </div>
@@ -1097,16 +1123,36 @@ export default function Visualization() {
                               }
                             >
                               <Row gutter={[8, 4]}>
-                                <Col span={12}><Text type="secondary">均值:</Text></Col>
-                                <Col span={12}><Text>{analysis.distribution.mean.toFixed(4)}</Text></Col>
-                                <Col span={12}><Text type="secondary">标准差:</Text></Col>
-                                <Col span={12}><Text>{analysis.distribution.std.toFixed(4)}</Text></Col>
-                                <Col span={12}><Text type="secondary">中位数:</Text></Col>
-                                <Col span={12}><Text>{analysis.distribution.median.toFixed(4)}</Text></Col>
-                                <Col span={12}><Text type="secondary">最小值:</Text></Col>
-                                <Col span={12}><Text>{analysis.distribution.min.toFixed(4)}</Text></Col>
-                                <Col span={12}><Text type="secondary">最大值:</Text></Col>
-                                <Col span={12}><Text>{analysis.distribution.max.toFixed(4)}</Text></Col>
+                                <Col span={12}>
+                                  <Text type="secondary">均值:</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text>{analysis.distribution.mean.toFixed(4)}</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text type="secondary">标准差:</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text>{analysis.distribution.std.toFixed(4)}</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text type="secondary">中位数:</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text>{analysis.distribution.median.toFixed(4)}</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text type="secondary">最小值:</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text>{analysis.distribution.min.toFixed(4)}</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text type="secondary">最大值:</Text>
+                                </Col>
+                                <Col span={12}>
+                                  <Text>{analysis.distribution.max.toFixed(4)}</Text>
+                                </Col>
                               </Row>
                             </Card>
                           </Col>
@@ -1115,7 +1161,10 @@ export default function Visualization() {
 
                       {/* 残差时序图 */}
                       <Card title="残差时序图" size="small" style={{ marginBottom: 16 }}>
-                        <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 12 }}>
+                        <Text
+                          type="secondary"
+                          style={{ display: 'block', marginBottom: 8, fontSize: 12 }}
+                        >
                           提示：双击图表可恢复初始视图
                         </Text>
                         <ReactECharts
@@ -1136,7 +1185,7 @@ export default function Visualization() {
                               if (chart) {
                                 chart.dispatchAction({ type: 'restore' })
                               }
-                            }
+                            },
                           }}
                         />
                       </Card>
@@ -1152,10 +1201,7 @@ export default function Visualization() {
                       </Card>
                     </div>
                   ) : (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="请先进行对比分析"
-                    />
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请先进行对比分析" />
                   )}
                 </>
               ),
@@ -1210,7 +1256,17 @@ export default function Visualization() {
                                 key: 'rank',
                                 width: 60,
                                 render: (rank: number) => (
-                                  <Tag color={rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : 'default'}>
+                                  <Tag
+                                    color={
+                                      rank === 1
+                                        ? 'gold'
+                                        : rank === 2
+                                          ? 'silver'
+                                          : rank === 3
+                                            ? 'bronze'
+                                            : 'default'
+                                    }
+                                  >
                                     #{rank}
                                   </Tag>
                                 ),
@@ -1225,7 +1281,17 @@ export default function Visualization() {
                                 dataIndex: 'score',
                                 key: 'score',
                                 render: (score: number) => (
-                                  <Text strong style={{ color: score > 0.7 ? '#52c41a' : score > 0.4 ? '#faad14' : '#ff4d4f' }}>
+                                  <Text
+                                    strong
+                                    style={{
+                                      color:
+                                        score > 0.7
+                                          ? '#52c41a'
+                                          : score > 0.4
+                                            ? '#faad14'
+                                            : '#ff4d4f',
+                                    }}
+                                  >
                                     {(score * 100).toFixed(1)}%
                                   </Text>
                                 ),
@@ -1250,11 +1316,36 @@ export default function Visualization() {
                             }))}
                             columns={[
                               { title: '模型', dataIndex: 'model', key: 'model', width: 100 },
-                              { title: 'MSE', dataIndex: 'mse', key: 'mse', render: (v: number) => v.toFixed(4) },
-                              { title: 'RMSE', dataIndex: 'rmse', key: 'rmse', render: (v: number) => v.toFixed(4) },
-                              { title: 'MAE', dataIndex: 'mae', key: 'mae', render: (v: number) => v.toFixed(4) },
-                              { title: 'R²', dataIndex: 'r2', key: 'r2', render: (v: number) => v.toFixed(4) },
-                              { title: 'MAPE', dataIndex: 'mape', key: 'mape', render: (v: number) => `${v.toFixed(2)}%` },
+                              {
+                                title: 'MSE',
+                                dataIndex: 'mse',
+                                key: 'mse',
+                                render: (v: number) => v.toFixed(4),
+                              },
+                              {
+                                title: 'RMSE',
+                                dataIndex: 'rmse',
+                                key: 'rmse',
+                                render: (v: number) => v.toFixed(4),
+                              },
+                              {
+                                title: 'MAE',
+                                dataIndex: 'mae',
+                                key: 'mae',
+                                render: (v: number) => v.toFixed(4),
+                              },
+                              {
+                                title: 'R²',
+                                dataIndex: 'r2',
+                                key: 'r2',
+                                render: (v: number) => v.toFixed(4),
+                              },
+                              {
+                                title: 'MAPE',
+                                dataIndex: 'mape',
+                                key: 'mape',
+                                render: (v: number) => `${v.toFixed(2)}%`,
+                              },
                             ]}
                             pagination={false}
                             size="small"
@@ -1264,10 +1355,7 @@ export default function Visualization() {
                       </Col>
                     </Row>
                   ) : (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="请先进行对比分析"
-                    />
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请先进行对比分析" />
                   )}
                 </>
               ),
@@ -1369,9 +1457,7 @@ export default function Visualization() {
                   配置对比
                 </span>
               ),
-              children: (
-                <ConfigComparison resultIds={selectedResultIds} />
-              ),
+              children: <ConfigComparison resultIds={selectedResultIds} />,
             },
           ]}
         />
@@ -1381,7 +1467,8 @@ export default function Visualization() {
       {compareData?.metrics && Object.keys(compareData.metrics).length > 0 && (
         <Card title="全量指标对比">
           <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-            <span style={{ color: '#52c41a', fontWeight: 'bold' }}>绿色加粗</span> 表示该指标的最优值
+            <span style={{ color: '#52c41a', fontWeight: 'bold' }}>绿色加粗</span>{' '}
+            表示该指标的最优值
           </Text>
           <Table<MetricsTableRow>
             columns={metricsColumns}
@@ -1395,4 +1482,3 @@ export default function Visualization() {
     </div>
   )
 }
-

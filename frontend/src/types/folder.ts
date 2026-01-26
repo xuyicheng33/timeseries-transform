@@ -34,4 +34,3 @@ export interface FolderSortOrderItem {
 export interface FolderSortOrderUpdate {
   orders: FolderSortOrderItem[]
 }
-

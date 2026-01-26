@@ -3,7 +3,15 @@
  */
 import request from './request'
 import { tokenManager } from './token'
-import type { User, UserRegister, UserLogin, UserUpdate, PasswordUpdate, TokenResponse, TokenRefresh } from '@/types'
+import type {
+  User,
+  UserRegister,
+  UserLogin,
+  UserUpdate,
+  PasswordUpdate,
+  TokenResponse,
+  TokenRefresh,
+} from '@/types'
 
 // 重新导出 tokenManager，保持向后兼容
 export { tokenManager } from './token'
@@ -20,7 +28,7 @@ export async function register(data: UserRegister): Promise<User> {
  */
 export async function login(data: UserLogin): Promise<TokenResponse> {
   // request 拦截器已经解包了 response.data，所以这里直接就是 TokenResponse
-  const response = await request.post('/auth/login/json', data) as TokenResponse
+  const response = (await request.post('/auth/login/json', data)) as TokenResponse
   // 保存 Token
   tokenManager.setTokens(response.access_token, response.refresh_token)
   return response
@@ -34,10 +42,10 @@ export async function refreshToken(): Promise<TokenResponse> {
   if (!refresh_token) {
     throw new Error('No refresh token')
   }
-  
+
   const data: TokenRefresh = { refresh_token }
   // request 拦截器已经解包了 response.data，所以这里直接就是 TokenResponse
-  const response = await request.post('/auth/refresh', data) as TokenResponse
+  const response = (await request.post('/auth/refresh', data)) as TokenResponse
   // 更新 Token
   tokenManager.setTokens(response.access_token, response.refresh_token)
   return response

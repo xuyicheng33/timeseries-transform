@@ -44,9 +44,9 @@ export interface WarningInfo {
 // 对比响应
 export interface CompareResponse {
   chart_data: ChartData
-  metrics: Record<number, Metrics>  // 使用 number 作为索引类型（result_id）
-  skipped: SkippedResult[]  // 跳过的结果列表
-  warnings: WarningInfo[]   // 警告列表（已处理但有问题）
+  metrics: Record<number, Metrics> // 使用 number 作为索引类型（result_id）
+  skipped: SkippedResult[] // 跳过的结果列表
+  warnings: WarningInfo[] // 警告列表（已处理但有问题）
 }
 
 // ============ 误差分析相关 ============
@@ -161,4 +161,3 @@ export interface RangeMetricsResponse {
   metrics: Record<number, Metrics>
   skipped: SkippedResult[]
 }
-

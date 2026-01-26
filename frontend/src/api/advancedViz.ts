@@ -1,7 +1,7 @@
 /**
  * 高级可视化 API
  */
-import request from './request';
+import request from './request'
 import type {
   FeatureImportanceRequest,
   FeatureImportanceResponse,
@@ -11,9 +11,9 @@ import type {
   ErrorHeatmapResponse,
   PredictionDecompositionRequest,
   PredictionDecompositionResponse,
-} from '@/types/advancedViz';
+} from '@/types/advancedViz'
 
-const BASE_URL = '/advanced-viz';
+const BASE_URL = '/advanced-viz'
 
 /**
  * 特征重要性分析
@@ -21,7 +21,7 @@ const BASE_URL = '/advanced-viz';
 export async function analyzeFeatureImportance(
   data: FeatureImportanceRequest
 ): Promise<FeatureImportanceResponse> {
-  return request.post(`${BASE_URL}/feature-importance`, data);
+  return request.post(`${BASE_URL}/feature-importance`, data)
 }
 
 /**
@@ -30,7 +30,7 @@ export async function analyzeFeatureImportance(
 export async function calculateConfidenceInterval(
   data: ConfidenceIntervalRequest
 ): Promise<ConfidenceIntervalResponse> {
-  return request.post(`${BASE_URL}/confidence-interval`, data);
+  return request.post(`${BASE_URL}/confidence-interval`, data)
 }
 
 /**
@@ -39,7 +39,7 @@ export async function calculateConfidenceInterval(
 export async function generateErrorHeatmap(
   data: ErrorHeatmapRequest
 ): Promise<ErrorHeatmapResponse> {
-  return request.post(`${BASE_URL}/error-heatmap`, data);
+  return request.post(`${BASE_URL}/error-heatmap`, data)
 }
 
 /**
@@ -48,6 +48,5 @@ export async function generateErrorHeatmap(
 export async function decomposePrediction(
   data: PredictionDecompositionRequest
 ): Promise<PredictionDecompositionResponse> {
-  return request.post(`${BASE_URL}/prediction-decomposition`, data);
+  return request.post(`${BASE_URL}/prediction-decomposition`, data)
 }
-

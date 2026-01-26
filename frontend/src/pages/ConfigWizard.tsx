@@ -38,7 +38,13 @@ import {
   SettingOutlined,
 } from '@ant-design/icons'
 
-import type { Dataset, Configuration, ConfigurationCreate, ConfigurationUpdate, ModelTemplateBrief } from '@/types'
+import type {
+  Dataset,
+  Configuration,
+  ConfigurationCreate,
+  ConfigurationUpdate,
+  ModelTemplateBrief,
+} from '@/types'
 import { MODEL_CATEGORY_CONFIG, TASK_TYPE_CONFIG } from '@/types/modelTemplate'
 import type { TaskType } from '@/types/modelTemplate'
 import {
@@ -216,13 +222,16 @@ export default function ConfigWizard() {
         case 2: // 归一化
           await form.validateFields(['normalization'])
           return true
-        case 3: // 异常注入
+        case 3: {
+          // 异常注入
           const anomalyEnabled = form.getFieldValue('anomaly_enabled')
           if (anomalyEnabled) {
             await form.validateFields(['anomaly_type', 'injection_algorithm'])
           }
           return true
-        case 4: // 窗口参数
+        }
+        case 4: {
+          // 窗口参数
           const targetType = form.getFieldValue('target_type')
           const fieldsToValidate = ['window_size', 'stride', 'target_type']
           if (targetType === 'kstep') {
@@ -230,6 +239,7 @@ export default function ConfigWizard() {
           }
           await form.validateFields(fieldsToValidate)
           return true
+        }
         case 5: // 模型模板（可选，无需验证）
           return true
         default:
@@ -296,16 +306,16 @@ export default function ConfigWizard() {
       const values = form.getFieldsValue(true)
       const targetType = values.target_type || 'next'
       // 当 target_type 是 kstep 时，使用用户输入的 target_k，否则默认为 1
-      const targetK = targetType === 'kstep' ? (values.target_k || 1) : 1
-      
+      const targetK = targetType === 'kstep' ? values.target_k || 1 : 1
+
       const response = await generateFilename({
         dataset_name: selectedDataset.name,
         channels: targetKeys,
         // 确保必填字段有默认值，避免 undefined 被 axios 丢弃
         normalization: values.normalization || 'none',
         anomaly_enabled: values.anomaly_enabled ?? false,
-        anomaly_type: values.anomaly_enabled ? (values.anomaly_type || '') : '',
-        injection_algorithm: values.anomaly_enabled ? (values.injection_algorithm || '') : '',
+        anomaly_type: values.anomaly_enabled ? values.anomaly_type || '' : '',
+        injection_algorithm: values.anomaly_enabled ? values.injection_algorithm || '' : '',
         sequence_logic: '',
         window_size: values.window_size || 100,
         stride: values.stride || 1,
@@ -337,13 +347,13 @@ export default function ConfigWizard() {
         // 确保必填字段有默认值
         normalization: values.normalization || 'none',
         anomaly_enabled: values.anomaly_enabled ?? false,
-        anomaly_type: values.anomaly_enabled ? (values.anomaly_type || '') : '',
-        injection_algorithm: values.anomaly_enabled ? (values.injection_algorithm || '') : '',
+        anomaly_type: values.anomaly_enabled ? values.anomaly_type || '' : '',
+        injection_algorithm: values.anomaly_enabled ? values.injection_algorithm || '' : '',
         sequence_logic: '',
         window_size: values.window_size || 100,
         stride: values.stride || 1,
         target_type: values.target_type || 'next',
-        target_k: values.target_type === 'kstep' ? (values.target_k || 1) : 1,
+        target_k: values.target_type === 'kstep' ? values.target_k || 1 : 1,
       }
 
       await createConfiguration(configData)
@@ -443,7 +453,8 @@ export default function ConfigWizard() {
             >
               {datasets.map((dataset) => (
                 <Select.Option key={dataset.id} value={dataset.id}>
-                  {dataset.name} ({dataset.column_count} 列, {dataset.row_count.toLocaleString()} 行)
+                  {dataset.name} ({dataset.column_count} 列, {dataset.row_count.toLocaleString()}{' '}
+                  行)
                 </Select.Option>
               ))}
             </Select>
@@ -498,7 +509,7 @@ export default function ConfigWizard() {
                 {NORMALIZATION_GROUPS.map((group) => (
                   <Select.OptGroup key={group.label} label={group.label}>
                     {group.options.map((opt) => {
-                      const fullOpt = NORMALIZATION_OPTIONS.find(o => o.value === opt.value)
+                      const fullOpt = NORMALIZATION_OPTIONS.find((o) => o.value === opt.value)
                       return (
                         <Select.Option key={opt.value} value={opt.value} label={opt.label}>
                           <div>
@@ -516,15 +527,23 @@ export default function ConfigWizard() {
                 ))}
               </Select>
             </Form.Item>
-            
+
             <Alert
               message="归一化方法说明"
               description={
                 <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
-                  <li><Text strong>基础方法：</Text>MinMax、Z-Score 适用于大多数场景</li>
-                  <li><Text strong>鲁棒方法：</Text>Robust、MaxAbs 对异常值不敏感</li>
-                  <li><Text strong>变换方法：</Text>Log、Box-Cox 适合长尾分布或偏态数据</li>
-                  <li><Text strong>分布变换：</Text>Quantile、Rank 将数据映射到特定分布</li>
+                  <li>
+                    <Text strong>基础方法：</Text>MinMax、Z-Score 适用于大多数场景
+                  </li>
+                  <li>
+                    <Text strong>鲁棒方法：</Text>Robust、MaxAbs 对异常值不敏感
+                  </li>
+                  <li>
+                    <Text strong>变换方法：</Text>Log、Box-Cox 适合长尾分布或偏态数据
+                  </li>
+                  <li>
+                    <Text strong>分布变换：</Text>Quantile、Rank 将数据映射到特定分布
+                  </li>
                 </ul>
               }
               type="info"
@@ -541,7 +560,10 @@ export default function ConfigWizard() {
               <Switch />
             </Form.Item>
 
-            <Form.Item noStyle shouldUpdate={(prev, curr) => prev.anomaly_enabled !== curr.anomaly_enabled}>
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, curr) => prev.anomaly_enabled !== curr.anomaly_enabled}
+            >
               {({ getFieldValue }) =>
                 getFieldValue('anomaly_enabled') && (
                   <>
@@ -572,7 +594,6 @@ export default function ConfigWizard() {
                         ))}
                       </Select>
                     </Form.Item>
-
                   </>
                 )
               }
@@ -660,7 +681,10 @@ export default function ConfigWizard() {
                 style={{ width: '100%' }}
               >
                 {modelTemplates.map((template) => {
-                  const categoryConfig = MODEL_CATEGORY_CONFIG[template.category as keyof typeof MODEL_CATEGORY_CONFIG] || MODEL_CATEGORY_CONFIG.other
+                  const categoryConfig =
+                    MODEL_CATEGORY_CONFIG[
+                      template.category as keyof typeof MODEL_CATEGORY_CONFIG
+                    ] || MODEL_CATEGORY_CONFIG.other
                   return (
                     <Select.Option key={template.id} value={template.id}>
                       <Space>
@@ -676,8 +700,8 @@ export default function ConfigWizard() {
             </Form.Item>
 
             {selectedTemplateDetail && (
-              <Card 
-                size="small" 
+              <Card
+                size="small"
                 title={
                   <Space>
                     <SettingOutlined />
@@ -689,7 +713,7 @@ export default function ConfigWizard() {
                 <Paragraph>
                   <Text type="secondary">{selectedTemplateDetail.description || '暂无描述'}</Text>
                 </Paragraph>
-                
+
                 {selectedTemplateDetail.task_types?.length > 0 && (
                   <Paragraph>
                     <Text strong>适用任务：</Text>
@@ -697,7 +721,9 @@ export default function ConfigWizard() {
                       {selectedTemplateDetail.task_types.map((type: TaskType) => {
                         const config = TASK_TYPE_CONFIG[type]
                         return config ? (
-                          <Tag key={type} color={config.color}>{config.label}</Tag>
+                          <Tag key={type} color={config.color}>
+                            {config.label}
+                          </Tag>
                         ) : null
                       })}
                     </Space>
@@ -720,15 +746,17 @@ export default function ConfigWizard() {
                       key: 'hyperparameters',
                       label: '超参数配置',
                       children: (
-                        <pre style={{ 
-                          background: '#f5f5f5', 
-                          padding: 8, 
-                          borderRadius: 4, 
-                          fontSize: 12,
-                          maxHeight: 150,
-                          overflow: 'auto',
-                          margin: 0
-                        }}>
+                        <pre
+                          style={{
+                            background: '#f5f5f5',
+                            padding: 8,
+                            borderRadius: 4,
+                            fontSize: 12,
+                            maxHeight: 150,
+                            overflow: 'auto',
+                            margin: 0,
+                          }}
+                        >
                           {JSON.stringify(selectedTemplateDetail.hyperparameters, null, 2)}
                         </pre>
                       ),
@@ -737,15 +765,17 @@ export default function ConfigWizard() {
                       key: 'training_config',
                       label: '训练配置',
                       children: (
-                        <pre style={{ 
-                          background: '#f5f5f5', 
-                          padding: 8, 
-                          borderRadius: 4, 
-                          fontSize: 12,
-                          maxHeight: 150,
-                          overflow: 'auto',
-                          margin: 0
-                        }}>
+                        <pre
+                          style={{
+                            background: '#f5f5f5',
+                            padding: 8,
+                            borderRadius: 4,
+                            fontSize: 12,
+                            maxHeight: 150,
+                            overflow: 'auto',
+                            margin: 0,
+                          }}
+                        >
                           {JSON.stringify(selectedTemplateDetail.training_config, null, 2)}
                         </pre>
                       ),
@@ -757,14 +787,20 @@ export default function ConfigWizard() {
           </div>
         )
 
-      case 6:
+      case 6: {
         // 使用 getFieldsValue(true) 获取所有字段值，包括未渲染的
         const formValues = form.getFieldsValue(true)
         const normalizationValue = formValues.normalization
-        const normalizationLabel = NORMALIZATION_OPTIONS.find((o) => o.value === normalizationValue)?.label || normalizationValue || '未设置'
-        const targetTypeLabel = TARGET_TYPE_OPTIONS.find((o) => o.value === formValues.target_type)?.label || formValues.target_type || '未设置'
-        const selectedTemplateName = selectedTemplateId 
-          ? modelTemplates.find(t => t.id === selectedTemplateId)?.name 
+        const normalizationLabel =
+          NORMALIZATION_OPTIONS.find((o) => o.value === normalizationValue)?.label ||
+          normalizationValue ||
+          '未设置'
+        const targetTypeLabel =
+          TARGET_TYPE_OPTIONS.find((o) => o.value === formValues.target_type)?.label ||
+          formValues.target_type ||
+          '未设置'
+        const selectedTemplateName = selectedTemplateId
+          ? modelTemplates.find((t) => t.id === selectedTemplateId)?.name
           : null
         return (
           <div>
@@ -793,15 +829,21 @@ export default function ConfigWizard() {
                 <Text strong>异常注入：</Text>{' '}
                 {formValues.anomaly_enabled ? (
                   <>
-                    {ANOMALY_TYPE_OPTIONS.find((o) => o.value === formValues.anomaly_type)?.label || formValues.anomaly_type} /{' '}
-                    {INJECTION_ALGORITHM_OPTIONS.find((o) => o.value === formValues.injection_algorithm)?.label || formValues.injection_algorithm} /{' '}
+                    {ANOMALY_TYPE_OPTIONS.find((o) => o.value === formValues.anomaly_type)?.label ||
+                      formValues.anomaly_type}{' '}
+                    /{' '}
+                    {INJECTION_ALGORITHM_OPTIONS.find(
+                      (o) => o.value === formValues.injection_algorithm
+                    )?.label || formValues.injection_algorithm}{' '}
+                    /{' '}
                   </>
                 ) : (
                   '未启用'
                 )}
               </Paragraph>
               <Paragraph>
-                <Text strong>窗口参数：</Text> 窗口大小 {formValues.window_size || 100}，步长 {formValues.stride || 1}
+                <Text strong>窗口参数：</Text> 窗口大小 {formValues.window_size || 100}，步长{' '}
+                {formValues.stride || 1}
               </Paragraph>
               <Paragraph>
                 <Text strong>目标类型：</Text> {targetTypeLabel}
@@ -810,7 +852,9 @@ export default function ConfigWizard() {
               <Paragraph>
                 <Text strong>模型模板：</Text>{' '}
                 {selectedTemplateName ? (
-                  <Tag color="blue" icon={<RocketOutlined />}>{selectedTemplateName}</Tag>
+                  <Tag color="blue" icon={<RocketOutlined />}>
+                    {selectedTemplateName}
+                  </Tag>
                 ) : (
                   <Text type="secondary">未选择</Text>
                 )}
@@ -828,7 +872,11 @@ export default function ConfigWizard() {
                   placeholder={filenameLoading ? '生成中...' : ''}
                 />
                 <Tooltip title="复制文件名">
-                  <Button icon={<CopyOutlined />} onClick={handleCopyFilename} disabled={!generatedFilename} />
+                  <Button
+                    icon={<CopyOutlined />}
+                    onClick={handleCopyFilename}
+                    disabled={!generatedFilename}
+                  />
                 </Tooltip>
               </Space.Compact>
             </Form.Item>
@@ -845,6 +893,7 @@ export default function ConfigWizard() {
             </Form.Item>
           </div>
         )
+      }
 
       default:
         return null
@@ -1030,7 +1079,12 @@ export default function ConfigWizard() {
               </Button>
             )}
             {currentStep < STEPS.length - 1 && (
-              <Button type="primary" onClick={handleNext} loading={stepLoading} disabled={stepLoading}>
+              <Button
+                type="primary"
+                onClick={handleNext}
+                loading={stepLoading}
+                disabled={stepLoading}
+              >
                 下一步
               </Button>
             )}

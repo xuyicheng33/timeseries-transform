@@ -77,7 +77,7 @@ export async function batchDeleteResults(ids: number[]): Promise<BatchDeleteResu
  */
 export function getExportUrl(params: BatchExportRequest): string {
   const searchParams = new URLSearchParams()
-  params.dataset_ids.forEach(id => searchParams.append('dataset_ids', String(id)))
+  params.dataset_ids.forEach((id) => searchParams.append('dataset_ids', String(id)))
   if (params.include_configs !== undefined) {
     searchParams.set('include_configs', String(params.include_configs))
   }
@@ -93,7 +93,7 @@ export function getExportUrl(params: BatchExportRequest): string {
 export async function exportData(params: BatchExportRequest): Promise<Blob> {
   const response = await request.post('/batch/export', params, {
     responseType: 'blob',
-    timeout: 600000  // 10分钟超时
+    timeout: 600000, // 10分钟超时
   })
   return response as unknown as Blob
 }
@@ -108,7 +108,7 @@ export async function previewImport(file: File): Promise<ImportPreviewResult> {
   formData.append('file', file)
   return request.post('/batch/import/preview', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 300000
+    timeout: 300000,
   })
 }
 
@@ -120,7 +120,6 @@ export async function importData(file: File): Promise<ImportResult> {
   formData.append('file', file)
   return request.post('/batch/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 600000  // 10分钟超时
+    timeout: 600000, // 10分钟超时
   })
 }
-

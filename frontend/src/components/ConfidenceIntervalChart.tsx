@@ -1,68 +1,68 @@
 /**
  * 置信区间图表组件
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { Card, Select, Spin, Statistic, Row, Col, Alert, Space } from 'antd';
-import * as echarts from 'echarts';
-import { calculateConfidenceInterval } from '@/api/advancedViz';
-import type { ConfidenceIntervalResponse } from '@/types/advancedViz';
-import { CONFIDENCE_LEVELS } from '@/types/advancedViz';
+import React, { useEffect, useRef, useState } from 'react'
+import { Card, Select, Spin, Statistic, Row, Col, Alert, Space } from 'antd'
+import * as echarts from 'echarts'
+import { calculateConfidenceInterval } from '@/api/advancedViz'
+import type { ConfidenceIntervalResponse } from '@/types/advancedViz'
+import { CONFIDENCE_LEVELS } from '@/types/advancedViz'
 
 interface ConfidenceIntervalChartProps {
-  resultId: number;
-  resultName?: string;
+  resultId: number
+  resultName?: string
 }
 
 const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
   resultId,
   resultName,
 }) => {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
-  
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<ConfidenceIntervalResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [confidenceLevel, setConfidenceLevel] = useState(0.95);
-  const [windowSize, setWindowSize] = useState(50);
+  const chartRef = useRef<HTMLDivElement>(null)
+  const chartInstance = useRef<echarts.ECharts | null>(null)
+
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState<ConfidenceIntervalResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [confidenceLevel, setConfidenceLevel] = useState(0.95)
+  const [windowSize, setWindowSize] = useState(50)
 
   const loadData = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
       const response = await calculateConfidenceInterval({
         result_id: resultId,
         confidence_level: confidenceLevel,
         window_size: windowSize,
         max_points: 2000,
-      });
-      setData(response);
+      })
+      setData(response)
     } catch (err: any) {
-      setError(err?.message || '加载失败');
+      setError(err?.message || '加载失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    loadData();
-  }, [resultId, confidenceLevel, windowSize]);
+    loadData()
+  }, [resultId, confidenceLevel, windowSize])
 
   useEffect(() => {
-    if (!chartRef.current || !data) return;
+    if (!chartRef.current || !data) return
 
     if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
+      chartInstance.current = echarts.init(chartRef.current)
     }
 
-    const indices = data.data.map(d => d.index);
-    const predicted = data.data.map(d => d.predicted);
-    const trueValues = data.data.map(d => d.true_value);
-    const lowerBounds = data.data.map(d => d.lower_bound);
+    const indices = data.data.map((d) => d.index)
+    const predicted = data.data.map((d) => d.predicted)
+    const trueValues = data.data.map((d) => d.true_value)
+    const lowerBounds = data.data.map((d) => d.lower_bound)
     // upperBounds 通过 bandData 计算使用
 
     // 置信区间带数据
-    const bandData = data.data.map(d => [d.lower_bound, d.upper_bound]);
+    const bandData = data.data.map((d) => [d.lower_bound, d.upper_bound])
 
     const option: echarts.EChartsOption = {
       title: {
@@ -74,9 +74,9 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
         trigger: 'axis',
         axisPointer: { type: 'cross' },
         formatter: (params: any) => {
-          const idx = params[0]?.dataIndex;
-          if (idx === undefined) return '';
-          const d = data.data[idx];
+          const idx = params[0]?.dataIndex
+          if (idx === undefined) return ''
+          const d = data.data[idx]
           return `
             <div style="padding: 8px;">
               <div><strong>索引: ${d.index}</strong></div>
@@ -85,7 +85,7 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
               <div>置信区间: [${d.lower_bound.toFixed(4)}, ${d.upper_bound.toFixed(4)}]</div>
               <div>区间宽度: ${(d.upper_bound - d.lower_bound).toFixed(4)}</div>
             </div>
-          `;
+          `
         },
       },
       legend: {
@@ -104,8 +104,8 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
         name: '索引',
         axisLabel: {
           formatter: (value: string) => {
-            const num = parseInt(value);
-            return num >= 1000 ? `${(num / 1000).toFixed(1)}k` : value;
+            const num = parseInt(value)
+            return num >= 1000 ? `${(num / 1000).toFixed(1)}k` : value
           },
         },
       },
@@ -141,7 +141,7 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
         {
           name: '置信区间',
           type: 'line',
-          data: bandData.map(d => d[1] - d[0]),
+          data: bandData.map((d) => d[1] - d[0]),
           lineStyle: { opacity: 0 },
           areaStyle: {
             color: 'rgba(24, 144, 255, 0.2)',
@@ -170,23 +170,23 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
           symbol: 'none',
         },
       ],
-    };
+    }
 
-    chartInstance.current.setOption(option);
+    chartInstance.current.setOption(option)
 
-    const handleResize = () => chartInstance.current?.resize();
-    window.addEventListener('resize', handleResize);
+    const handleResize = () => chartInstance.current?.resize()
+    window.addEventListener('resize', handleResize)
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [data]);
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [data])
 
   useEffect(() => {
     return () => {
-      chartInstance.current?.dispose();
-    };
-  }, []);
+      chartInstance.current?.dispose()
+    }
+  }, [])
 
   return (
     <Card
@@ -198,7 +198,7 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
             value={confidenceLevel}
             onChange={setConfidenceLevel}
             style={{ width: 100 }}
-            options={CONFIDENCE_LEVELS.map(l => ({ value: l.value, label: l.label }))}
+            options={CONFIDENCE_LEVELS.map((l) => ({ value: l.value, label: l.label }))}
           />
           <span>窗口大小:</span>
           <Select
@@ -216,7 +216,7 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
       }
     >
       {error && <Alert message={error} type="error" style={{ marginBottom: 16 }} />}
-      
+
       <Spin spinning={loading}>
         {data && (
           <Row gutter={16} style={{ marginBottom: 16 }}>
@@ -232,11 +232,7 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
               />
             </Col>
             <Col span={8}>
-              <Statistic
-                title="平均区间宽度"
-                value={data.avg_interval_width}
-                precision={4}
-              />
+              <Statistic title="平均区间宽度" value={data.avg_interval_width} precision={4} />
             </Col>
             <Col span={8}>
               <Statistic
@@ -250,8 +246,7 @@ const ConfidenceIntervalChart: React.FC<ConfidenceIntervalChartProps> = ({
         <div ref={chartRef} style={{ width: '100%', height: 400 }} />
       </Spin>
     </Card>
-  );
-};
+  )
+}
 
-export default ConfidenceIntervalChart;
-
+export default ConfidenceIntervalChart

@@ -4,14 +4,7 @@
 
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import {
-  Form,
-  Input,
-  Button,
-  Card,
-  Typography,
-  message,
-} from 'antd'
+import { Form, Input, Button, Card, Typography, message } from 'antd'
 import {
   UserOutlined,
   LockOutlined,
@@ -77,32 +70,30 @@ export default function Register() {
       >
         {/* Logo 和标题 */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ 
-            width: 56, 
-            height: 56, 
-            borderRadius: 12, 
-            background: BRAND.PRIMARY_COLOR,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 12,
+              background: BRAND.PRIMARY_COLOR,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}
+          >
             <LineChartOutlined style={{ fontSize: 28, color: '#fff' }} />
           </div>
           <Title level={3} style={{ margin: 0, color: '#1a1a2e', fontWeight: 600 }}>
             创建账号
           </Title>
-          <Text type="secondary" style={{ fontSize: 14 }}>注册以开始使用 {APP_NAME}</Text>
+          <Text type="secondary" style={{ fontSize: 14 }}>
+            注册以开始使用 {APP_NAME}
+          </Text>
         </div>
 
         {/* 注册表单 */}
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          autoComplete="off"
-          size="large"
-        >
+        <Form form={form} layout="vertical" onFinish={handleSubmit} autoComplete="off" size="large">
           <Form.Item
             name="username"
             rules={[
@@ -133,10 +124,7 @@ export default function Register() {
             />
           </Form.Item>
 
-          <Form.Item
-            name="full_name"
-            rules={[{ max: 100, message: '姓名最多 100 个字符' }]}
-          >
+          <Form.Item name="full_name" rules={[{ max: 100, message: '姓名最多 100 个字符' }]}>
             <Input
               prefix={<IdcardOutlined style={{ color: '#bfbfbf' }} />}
               placeholder="姓名（可选）"
@@ -203,7 +191,10 @@ export default function Register() {
         <div style={{ textAlign: 'center', marginTop: 20 }}>
           <Text type="secondary" style={{ fontSize: 13 }}>
             已有账号？
-            <Link to="/login" style={{ marginLeft: 4, fontWeight: 500, color: BRAND.PRIMARY_COLOR }}>
+            <Link
+              to="/login"
+              style={{ marginLeft: 4, fontWeight: 500, color: BRAND.PRIMARY_COLOR }}
+            >
               立即登录
             </Link>
           </Text>
@@ -212,4 +203,3 @@ export default function Register() {
     </div>
   )
 }
-

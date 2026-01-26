@@ -17,13 +17,13 @@ export interface Result {
   name: string
   dataset_id: number
   configuration_id: number | null
-  user_id: number | null  // 所有者ID
+  user_id: number | null // 所有者ID
   filename: string
   model_name: string
   model_version: string
   description: string
   row_count: number
-  metrics: Partial<Metrics> | Record<string, never>  // 可能为空对象或部分指标
+  metrics: Partial<Metrics> | Record<string, never> // 可能为空对象或部分指标
   created_at: string
   updated_at: string
 }
@@ -46,4 +46,3 @@ export interface ResultUpdate {
   model_version?: string
   description?: string
 }
-

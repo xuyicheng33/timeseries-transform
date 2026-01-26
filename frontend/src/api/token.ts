@@ -32,4 +32,3 @@ export const tokenManager = {
     return !!localStorage.getItem(TOKEN_KEY)
   },
 }
-

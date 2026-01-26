@@ -2,7 +2,7 @@
  * 报告生成组件
  * 用于生成实验报告（Markdown/HTML/LaTeX）
  */
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
   Modal,
   Form,
@@ -15,7 +15,7 @@ import {
   Divider,
   Typography,
   Tooltip,
-} from 'antd';
+} from 'antd'
 import {
   FileTextOutlined,
   DownloadOutlined,
@@ -23,33 +23,33 @@ import {
   FileMarkdownOutlined,
   Html5Outlined,
   CodeOutlined,
-} from '@ant-design/icons';
+} from '@ant-design/icons'
 import {
   generateExperimentReport,
   generateResultsReport,
   getLatexTable,
   downloadReport,
   getReportExtension,
-} from '@/api/reports';
+} from '@/api/reports'
 import type {
   ReportConfig,
   ReportFormat,
   ExperimentReportRequest,
   MultiResultReportRequest,
-} from '@/types/report';
-import { DEFAULT_REPORT_CONFIG, REPORT_FORMAT_OPTIONS } from '@/types/report';
+} from '@/types/report'
+import { DEFAULT_REPORT_CONFIG, REPORT_FORMAT_OPTIONS } from '@/types/report'
 
-const { Text } = Typography;
-const { Option } = Select;
+const { Text } = Typography
+const { Option } = Select
 
 interface ReportGeneratorProps {
-  visible: boolean;
-  onClose: () => void;
+  visible: boolean
+  onClose: () => void
   // 二选一：实验组 ID 或 结果 ID 列表
-  experimentId?: number;
-  experimentName?: string;
-  resultIds?: number[];
-  defaultTitle?: string;
+  experimentId?: number
+  experimentName?: string
+  resultIds?: number[]
+  defaultTitle?: string
 }
 
 const ReportGenerator: React.FC<ReportGeneratorProps> = ({
@@ -60,17 +60,17 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
   resultIds,
   defaultTitle,
 }) => {
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-  const [latexCode, setLatexCode] = useState<string | null>(null);
-  const [latexLoading, setLatexLoading] = useState(false);
+  const [form] = Form.useForm()
+  const [loading, setLoading] = useState(false)
+  const [latexCode, setLatexCode] = useState<string | null>(null)
+  const [latexLoading, setLatexLoading] = useState(false)
 
-  const isExperimentMode = !!experimentId;
+  const isExperimentMode = !!experimentId
 
   const handleGenerate = async () => {
     try {
-      const values = await form.validateFields();
-      setLoading(true);
+      const values = await form.validateFields()
+      setLoading(true)
 
       const config: ReportConfig = {
         include_summary: values.include_summary,
@@ -80,80 +80,80 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
         include_conclusion: values.include_conclusion,
         custom_title: values.custom_title || undefined,
         custom_author: values.custom_author || undefined,
-      };
+      }
 
-      const format: ReportFormat = values.format;
-      let blob: Blob;
-      let filename: string;
+      const format: ReportFormat = values.format
+      let blob: Blob
+      let filename: string
 
       if (isExperimentMode && experimentId) {
         const request: ExperimentReportRequest = {
           experiment_id: experimentId,
           config,
           format,
-        };
-        blob = await generateExperimentReport(request);
-        filename = `report_${experimentName || experimentId}.${getReportExtension(format)}`;
+        }
+        blob = await generateExperimentReport(request)
+        filename = `report_${experimentName || experimentId}.${getReportExtension(format)}`
       } else if (resultIds && resultIds.length > 0) {
         const request: MultiResultReportRequest = {
           result_ids: resultIds,
           title: values.custom_title || defaultTitle || '时序预测实验报告',
           config,
           format,
-        };
-        blob = await generateResultsReport(request);
-        filename = `comparison_report.${getReportExtension(format)}`;
+        }
+        blob = await generateResultsReport(request)
+        filename = `comparison_report.${getReportExtension(format)}`
       } else {
-        message.error('请提供实验组或结果列表');
-        return;
+        message.error('请提供实验组或结果列表')
+        return
       }
 
-      downloadReport(blob, filename);
-      message.success('报告生成成功');
-      onClose();
+      downloadReport(blob, filename)
+      message.success('报告生成成功')
+      onClose()
     } catch (error: any) {
-      message.error(error?.message || '报告生成失败');
+      message.error(error?.message || '报告生成失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleGetLatex = async () => {
-    if (!experimentId) return;
-    
-    setLatexLoading(true);
+    if (!experimentId) return
+
+    setLatexLoading(true)
     try {
-      const result = await getLatexTable(experimentId);
-      setLatexCode(result.latex);
+      const result = await getLatexTable(experimentId)
+      setLatexCode(result.latex)
     } catch (error) {
-      message.error('获取 LaTeX 代码失败');
+      message.error('获取 LaTeX 代码失败')
     } finally {
-      setLatexLoading(false);
+      setLatexLoading(false)
     }
-  };
+  }
 
   const handleCopyLatex = async () => {
-    if (!latexCode) return;
+    if (!latexCode) return
     try {
-      await navigator.clipboard.writeText(latexCode);
-      message.success('LaTeX 代码已复制到剪贴板');
+      await navigator.clipboard.writeText(latexCode)
+      message.success('LaTeX 代码已复制到剪贴板')
     } catch {
-      message.error('复制失败');
+      message.error('复制失败')
     }
-  };
+  }
 
   const getFormatIcon = (format: string) => {
     switch (format) {
       case 'markdown':
-        return <FileMarkdownOutlined />;
+        return <FileMarkdownOutlined />
       case 'html':
-        return <Html5Outlined />;
+        return <Html5Outlined />
       case 'latex':
-        return <CodeOutlined />;
+        return <CodeOutlined />
       default:
-        return <FileTextOutlined />;
+        return <FileTextOutlined />
     }
-  };
+  }
 
   return (
     <Modal
@@ -197,11 +197,7 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
 
         {/* 内容选项 */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <Form.Item
-            name="include_summary"
-            valuePropName="checked"
-            style={{ marginBottom: 8 }}
-          >
+          <Form.Item name="include_summary" valuePropName="checked" style={{ marginBottom: 8 }}>
             <Switch checkedChildren="汇总统计" unCheckedChildren="汇总统计" defaultChecked />
           </Form.Item>
 
@@ -213,12 +209,12 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
             <Switch checkedChildren="指标对比表" unCheckedChildren="指标对比表" defaultChecked />
           </Form.Item>
 
-          <Form.Item
-            name="include_best_model"
-            valuePropName="checked"
-            style={{ marginBottom: 8 }}
-          >
-            <Switch checkedChildren="最佳模型分析" unCheckedChildren="最佳模型分析" defaultChecked />
+          <Form.Item name="include_best_model" valuePropName="checked" style={{ marginBottom: 8 }}>
+            <Switch
+              checkedChildren="最佳模型分析"
+              unCheckedChildren="最佳模型分析"
+              defaultChecked
+            />
           </Form.Item>
 
           <Form.Item
@@ -259,15 +255,9 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
               LaTeX 快捷工具
             </Divider>
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Text type="secondary">
-                快速获取可直接复制到论文的 LaTeX 表格代码
-              </Text>
+              <Text type="secondary">快速获取可直接复制到论文的 LaTeX 表格代码</Text>
               <Space>
-                <Button
-                  icon={<CodeOutlined />}
-                  onClick={handleGetLatex}
-                  loading={latexLoading}
-                >
+                <Button icon={<CodeOutlined />} onClick={handleGetLatex} loading={latexLoading}>
                   获取 LaTeX 表格
                 </Button>
                 {latexCode && (
@@ -313,8 +303,7 @@ const ReportGenerator: React.FC<ReportGeneratorProps> = ({
         </div>
       </Form>
     </Modal>
-  );
-};
+  )
+}
 
-export default ReportGenerator;
-
+export default ReportGenerator

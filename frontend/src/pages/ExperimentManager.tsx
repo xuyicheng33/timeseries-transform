@@ -1,7 +1,7 @@
 /**
  * 实验管理页面
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Card,
   Table,
@@ -22,7 +22,7 @@ import {
   Statistic,
   Descriptions,
   Tabs,
-} from 'antd';
+} from 'antd'
 import {
   PlusOutlined,
   SearchOutlined,
@@ -36,8 +36,8 @@ import {
   BarChartOutlined,
   FileTextOutlined,
   ExportOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
 import {
   getExperiments,
   createExperiment,
@@ -50,9 +50,9 @@ import {
   getAllTags,
   exportExperiment,
   downloadExperimentExport,
-} from '@/api/experiments';
-import { getResults } from '@/api/results';
-import { getDatasets } from '@/api/datasets';
+} from '@/api/experiments'
+import { getResults } from '@/api/results'
+import { getDatasets } from '@/api/datasets'
 import type {
   Experiment,
   ExperimentDetail,
@@ -60,12 +60,12 @@ import type {
   ExperimentSummary,
   ExperimentCreateRequest,
   ExperimentUpdateRequest,
-} from '@/types/experiment';
-import type { Result, Dataset } from '@/types';
-import ReportGenerator from '@/components/ReportGenerator';
+} from '@/types/experiment'
+import type { Result, Dataset } from '@/types'
+import ReportGenerator from '@/components/ReportGenerator'
 
-const { TextArea } = Input;
-const { Option } = Select;
+const { TextArea } = Input
+const { Option } = Select
 
 // 状态配置
 const STATUS_CONFIG: Record<ExperimentStatus, { color: string; text: string }> = {
@@ -73,46 +73,46 @@ const STATUS_CONFIG: Record<ExperimentStatus, { color: string; text: string }> =
   running: { color: 'processing', text: '进行中' },
   completed: { color: 'success', text: '已完成' },
   archived: { color: 'warning', text: '已归档' },
-};
+}
 
 const ExperimentManager: React.FC = () => {
   // 列表状态
-  const [experiments, setExperiments] = useState<Experiment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [experiments, setExperiments] = useState<Experiment[]>([])
+  const [loading, setLoading] = useState(false)
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // 筛选状态
-  const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ExperimentStatus | undefined>();
-  const [tagFilter, setTagFilter] = useState<string | undefined>();
-  const [allTags, setAllTags] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ExperimentStatus | undefined>()
+  const [tagFilter, setTagFilter] = useState<string | undefined>()
+  const [allTags, setAllTags] = useState<string[]>([])
 
   // 弹窗状态
-  const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [addResultsModalVisible, setAddResultsModalVisible] = useState(false);
-  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false)
+  const [detailModalVisible, setDetailModalVisible] = useState(false)
+  const [editModalVisible, setEditModalVisible] = useState(false)
+  const [addResultsModalVisible, setAddResultsModalVisible] = useState(false)
+  const [reportModalVisible, setReportModalVisible] = useState(false)
 
   // 当前操作的实验组
-  const [currentExperiment, setCurrentExperiment] = useState<ExperimentDetail | null>(null);
-  const [currentSummary, setCurrentSummary] = useState<ExperimentSummary | null>(null);
+  const [currentExperiment, setCurrentExperiment] = useState<ExperimentDetail | null>(null)
+  const [currentSummary, setCurrentSummary] = useState<ExperimentSummary | null>(null)
 
   // 表单
-  const [createForm] = Form.useForm();
-  const [editForm] = Form.useForm();
+  const [createForm] = Form.useForm()
+  const [editForm] = Form.useForm()
 
   // 可选数据
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [availableResults, setAvailableResults] = useState<Result[]>([]);
-  const [selectedResultIds, setSelectedResultIds] = useState<number[]>([]);
-  const [exporting, setExporting] = useState<number | null>(null); // 正在导出的实验 ID
+  const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [availableResults, setAvailableResults] = useState<Result[]>([])
+  const [selectedResultIds, setSelectedResultIds] = useState<number[]>([])
+  const [exporting, setExporting] = useState<number | null>(null) // 正在导出的实验 ID
 
   // 加载实验组列表
   const loadExperiments = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const response = await getExperiments({
         page,
@@ -120,87 +120,84 @@ const ExperimentManager: React.FC = () => {
         search: searchText || undefined,
         status: statusFilter,
         tag: tagFilter,
-      });
-      setExperiments(response.items);
-      setTotal(response.total);
+      })
+      setExperiments(response.items)
+      setTotal(response.total)
     } catch (error) {
-      message.error('加载实验组列表失败');
+      message.error('加载实验组列表失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [page, pageSize, searchText, statusFilter, tagFilter]);
+  }, [page, pageSize, searchText, statusFilter, tagFilter])
 
   // 加载标签列表
   const loadTags = async () => {
     try {
-      const response = await getAllTags();
-      setAllTags(response.tags);
+      const response = await getAllTags()
+      setAllTags(response.tags)
     } catch (error) {
-      console.error('加载标签失败', error);
+      console.error('加载标签失败', error)
     }
-  };
+  }
 
   // 加载数据集列表
   const loadDatasets = async () => {
     try {
-      const response = await getDatasets(1, 100);
-      setDatasets(response.items);
+      const response = await getDatasets(1, 100)
+      setDatasets(response.items)
     } catch (error) {
-      console.error('加载数据集失败', error);
+      console.error('加载数据集失败', error)
     }
-  };
+  }
 
   // 加载可用结果列表
   const loadAvailableResults = async () => {
     try {
-      const response = await getResults(undefined, undefined, 1, 100);
-      setAvailableResults(response.items);
+      const response = await getResults(undefined, undefined, 1, 100)
+      setAvailableResults(response.items)
     } catch (error) {
-      console.error('加载结果列表失败', error);
+      console.error('加载结果列表失败', error)
     }
-  };
+  }
 
   useEffect(() => {
-    loadExperiments();
-  }, [loadExperiments]);
+    loadExperiments()
+  }, [loadExperiments])
 
   useEffect(() => {
-    loadTags();
-    loadDatasets();
-  }, []);
+    loadTags()
+    loadDatasets()
+  }, [])
 
   // 创建实验组
   const handleCreate = async (values: ExperimentCreateRequest) => {
     try {
-      await createExperiment(values);
-      message.success('创建成功');
-      setCreateModalVisible(false);
-      createForm.resetFields();
-      loadExperiments();
-      loadTags();
+      await createExperiment(values)
+      message.success('创建成功')
+      setCreateModalVisible(false)
+      createForm.resetFields()
+      loadExperiments()
+      loadTags()
     } catch (error) {
-      message.error('创建失败');
+      message.error('创建失败')
     }
-  };
+  }
 
   // 查看详情
   const handleViewDetail = async (id: number) => {
     try {
-      const [detail, summary] = await Promise.all([
-        getExperiment(id),
-        getExperimentSummary(id),
-      ]);
-      setCurrentExperiment(detail);
-      setCurrentSummary(summary);
-      setDetailModalVisible(true);
+      const [detail, summary] = await Promise.all([getExperiment(id), getExperimentSummary(id)])
+      setCurrentExperiment(detail)
+      setCurrentSummary(summary)
+      setDetailModalVisible(true)
     } catch (error) {
-      message.error('加载详情失败');
+      message.error('加载详情失败')
     }
-  };
+  }
 
   // 编辑实验组
   const handleEdit = async (experiment: Experiment) => {
-    setCurrentExperiment(experiment as ExperimentDetail);
+    setCurrentExperiment(experiment as ExperimentDetail)
     editForm.setFieldsValue({
       name: experiment.name,
       description: experiment.description,
@@ -209,85 +206,85 @@ const ExperimentManager: React.FC = () => {
       tags: experiment.tags,
       conclusion: experiment.conclusion,
       dataset_id: experiment.dataset_id,
-    });
-    setEditModalVisible(true);
-  };
+    })
+    setEditModalVisible(true)
+  }
 
   const handleEditSubmit = async (values: ExperimentUpdateRequest) => {
-    if (!currentExperiment) return;
+    if (!currentExperiment) return
     try {
-      await updateExperiment(currentExperiment.id, values);
-      message.success('更新成功');
-      setEditModalVisible(false);
-      loadExperiments();
-      loadTags();
+      await updateExperiment(currentExperiment.id, values)
+      message.success('更新成功')
+      setEditModalVisible(false)
+      loadExperiments()
+      loadTags()
     } catch (error) {
-      message.error('更新失败');
+      message.error('更新失败')
     }
-  };
+  }
 
   // 删除实验组
   const handleDelete = async (id: number) => {
     try {
-      await deleteExperiment(id);
-      message.success('删除成功');
-      loadExperiments();
+      await deleteExperiment(id)
+      message.success('删除成功')
+      loadExperiments()
     } catch (error) {
-      message.error('删除失败');
+      message.error('删除失败')
     }
-  };
+  }
 
   // 添加结果
   const handleOpenAddResults = async (experiment: Experiment) => {
-    setCurrentExperiment(experiment as ExperimentDetail);
-    await loadAvailableResults();
-    setSelectedResultIds([]);
-    setAddResultsModalVisible(true);
-  };
+    setCurrentExperiment(experiment as ExperimentDetail)
+    await loadAvailableResults()
+    setSelectedResultIds([])
+    setAddResultsModalVisible(true)
+  }
 
   const handleAddResults = async () => {
-    if (!currentExperiment || selectedResultIds.length === 0) return;
+    if (!currentExperiment || selectedResultIds.length === 0) return
     try {
       await addResultsToExperiment(currentExperiment.id, {
         result_ids: selectedResultIds,
-      });
-      message.success('添加成功');
-      setAddResultsModalVisible(false);
-      loadExperiments();
+      })
+      message.success('添加成功')
+      setAddResultsModalVisible(false)
+      loadExperiments()
     } catch (error) {
-      message.error('添加失败');
+      message.error('添加失败')
     }
-  };
+  }
 
   // 移除结果
   const handleRemoveResult = async (resultId: number) => {
-    if (!currentExperiment) return;
+    if (!currentExperiment) return
     try {
       await removeResultsFromExperiment(currentExperiment.id, {
         result_ids: [resultId],
-      });
-      message.success('移除成功');
+      })
+      message.success('移除成功')
       // 刷新详情
-      const detail = await getExperiment(currentExperiment.id);
-      setCurrentExperiment(detail);
+      const detail = await getExperiment(currentExperiment.id)
+      setCurrentExperiment(detail)
     } catch (error) {
-      message.error('移除失败');
+      message.error('移除失败')
     }
-  };
+  }
 
   // 导出实验组
   const handleExport = async (experiment: Experiment) => {
-    setExporting(experiment.id);
+    setExporting(experiment.id)
     try {
-      const blob = await exportExperiment(experiment.id, true);
-      downloadExperimentExport(blob, experiment.name);
-      message.success('导出成功');
+      const blob = await exportExperiment(experiment.id, true)
+      downloadExperimentExport(blob, experiment.name)
+      message.success('导出成功')
     } catch (error) {
-      message.error('导出失败');
+      message.error('导出失败')
     } finally {
-      setExporting(null);
+      setExporting(null)
     }
-  };
+  }
 
   // 表格列定义
   const columns: ColumnsType<Experiment> = [
@@ -309,10 +306,7 @@ const ExperimentManager: React.FC = () => {
       key: 'status',
       width: 100,
       render: (status: ExperimentStatus) => (
-        <Badge
-          status={STATUS_CONFIG[status].color as any}
-          text={STATUS_CONFIG[status].text}
-        />
+        <Badge status={STATUS_CONFIG[status].color as any} text={STATUS_CONFIG[status].text} />
       ),
     },
     {
@@ -328,9 +322,7 @@ const ExperimentManager: React.FC = () => {
       key: 'result_count',
       width: 100,
       align: 'center',
-      render: (count) => (
-        <Tag color={count > 0 ? 'blue' : 'default'}>{count}</Tag>
-      ),
+      render: (count) => <Tag color={count > 0 ? 'blue' : 'default'}>{count}</Tag>,
     },
     {
       title: '标签',
@@ -386,8 +378,8 @@ const ExperimentManager: React.FC = () => {
               size="small"
               icon={<FileTextOutlined />}
               onClick={() => {
-                setCurrentExperiment(record as ExperimentDetail);
-                setReportModalVisible(true);
+                setCurrentExperiment(record as ExperimentDetail)
+                setReportModalVisible(true)
               }}
               disabled={record.result_count === 0}
             />
@@ -422,7 +414,7 @@ const ExperimentManager: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ]
 
   // 渲染最佳指标
   const renderBestMetric = (
@@ -430,7 +422,7 @@ const ExperimentManager: React.FC = () => {
     info: { result_id: number; value: number; model_name: string } | null,
     _isHigherBetter: boolean = false
   ) => {
-    if (!info) return null;
+    if (!info) return null
     return (
       <Statistic
         title={
@@ -449,8 +441,8 @@ const ExperimentManager: React.FC = () => {
           </Tooltip>
         }
       />
-    );
-  };
+    )
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -466,8 +458,8 @@ const ExperimentManager: React.FC = () => {
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => {
-              createForm.resetFields();
-              setCreateModalVisible(true);
+              createForm.resetFields()
+              setCreateModalVisible(true)
             }}
           >
             新建实验组
@@ -482,8 +474,8 @@ const ExperimentManager: React.FC = () => {
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             onPressEnter={() => {
-              setPage(1);
-              loadExperiments();
+              setPage(1)
+              loadExperiments()
             }}
             style={{ width: 200 }}
             allowClear
@@ -492,8 +484,8 @@ const ExperimentManager: React.FC = () => {
             placeholder="状态筛选"
             value={statusFilter}
             onChange={(v) => {
-              setStatusFilter(v);
-              setPage(1);
+              setStatusFilter(v)
+              setPage(1)
             }}
             style={{ width: 120 }}
             allowClear
@@ -508,8 +500,8 @@ const ExperimentManager: React.FC = () => {
             placeholder="标签筛选"
             value={tagFilter}
             onChange={(v) => {
-              setTagFilter(v);
-              setPage(1);
+              setTagFilter(v)
+              setPage(1)
             }}
             style={{ width: 150 }}
             allowClear
@@ -539,8 +531,8 @@ const ExperimentManager: React.FC = () => {
             showQuickJumper: true,
             showTotal: (t) => `共 ${t} 条`,
             onChange: (p, ps) => {
-              setPage(p);
-              setPageSize(ps);
+              setPage(p)
+              setPageSize(ps)
             },
           }}
         />
@@ -731,8 +723,8 @@ const ExperimentManager: React.FC = () => {
                           type="primary"
                           icon={<BarChartOutlined />}
                           onClick={() => {
-                            const ids = currentExperiment.results.map(r => r.id).join(',');
-                            window.open(`/visualization?ids=${ids}`, '_blank');
+                            const ids = currentExperiment.results.map((r) => r.id).join(',')
+                            window.open(`/visualization?ids=${ids}`, '_blank')
                           }}
                         >
                           可视化对比
@@ -740,7 +732,7 @@ const ExperimentManager: React.FC = () => {
                         <Button
                           icon={<FileTextOutlined />}
                           onClick={() => {
-                            setReportModalVisible(true);
+                            setReportModalVisible(true)
                           }}
                         >
                           生成报告
@@ -772,11 +764,7 @@ const ExperimentManager: React.FC = () => {
 
                     {currentSummary.result_count > 0 && (
                       <>
-                        <Card
-                          size="small"
-                          title="最佳指标"
-                          style={{ marginTop: 16 }}
-                        >
+                        <Card size="small" title="最佳指标" style={{ marginTop: 16 }}>
                           <Row gutter={16}>
                             <Col span={8}>
                               {renderBestMetric('最佳 MSE', currentSummary.best_mse)}
@@ -799,11 +787,7 @@ const ExperimentManager: React.FC = () => {
                         </Card>
 
                         {currentSummary.avg_metrics && (
-                          <Card
-                            size="small"
-                            title="平均指标"
-                            style={{ marginTop: 16 }}
-                          >
+                          <Card size="small" title="平均指标" style={{ marginTop: 16 }}>
                             <Row gutter={16}>
                               <Col span={4}>
                                 <Statistic
@@ -884,9 +868,7 @@ const ExperimentManager: React.FC = () => {
                               <span>
                                 {text}
                                 {record.model_version && (
-                                  <Tag style={{ marginLeft: 4 }}>
-                                    v{record.model_version}
-                                  </Tag>
+                                  <Tag style={{ marginLeft: 4 }}>v{record.model_version}</Tag>
                                 )}
                               </span>
                             ),
@@ -900,14 +882,12 @@ const ExperimentManager: React.FC = () => {
                           {
                             title: 'MSE',
                             key: 'mse',
-                            render: (_, record) =>
-                              record.metrics?.mse?.toFixed(6) || '-',
+                            render: (_, record) => record.metrics?.mse?.toFixed(6) || '-',
                           },
                           {
                             title: 'R²',
                             key: 'r2',
-                            render: (_, record) =>
-                              record.metrics?.r2?.toFixed(4) || '-',
+                            render: (_, record) => record.metrics?.r2?.toFixed(4) || '-',
                           },
                           {
                             title: '操作',
@@ -919,7 +899,9 @@ const ExperimentManager: React.FC = () => {
                                     type="text"
                                     size="small"
                                     icon={<EyeOutlined />}
-                                    onClick={() => window.open(`/results?id=${record.id}`, '_blank')}
+                                    onClick={() =>
+                                      window.open(`/results?id=${record.id}`, '_blank')
+                                    }
                                   />
                                 </Tooltip>
                                 <Tooltip title="可视化">
@@ -927,7 +909,9 @@ const ExperimentManager: React.FC = () => {
                                     type="text"
                                     size="small"
                                     icon={<BarChartOutlined />}
-                                    onClick={() => window.open(`/visualization?ids=${record.id}`, '_blank')}
+                                    onClick={() =>
+                                      window.open(`/visualization?ids=${record.id}`, '_blank')
+                                    }
                                   />
                                 </Tooltip>
                                 <Popconfirm
@@ -935,7 +919,12 @@ const ExperimentManager: React.FC = () => {
                                   onConfirm={() => handleRemoveResult(record.id)}
                                 >
                                   <Tooltip title="移除">
-                                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                                    <Button
+                                      type="text"
+                                      size="small"
+                                      danger
+                                      icon={<DeleteOutlined />}
+                                    />
                                   </Tooltip>
                                 </Popconfirm>
                               </Space>
@@ -999,8 +988,7 @@ const ExperimentManager: React.FC = () => {
         experimentName={currentExperiment?.name}
       />
     </div>
-  );
-};
+  )
+}
 
-export default ExperimentManager;
-
+export default ExperimentManager

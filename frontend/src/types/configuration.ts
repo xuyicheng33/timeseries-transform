@@ -3,22 +3,22 @@
  */
 
 // 归一化类型
-export type NormalizationType = 
-  | 'none' 
-  | 'minmax' 
-  | 'zscore' 
-  | 'head' 
+export type NormalizationType =
+  | 'none'
+  | 'minmax'
+  | 'zscore'
+  | 'head'
   | 'decimal'
   // 扩展归一化方法
-  | 'robust'      // 鲁棒归一化
-  | 'maxabs'      // 最大绝对值归一化
-  | 'log'         // 对数变换
-  | 'log1p'       // log(1+x) 变换
-  | 'sqrt'        // 平方根变换
-  | 'boxcox'      // Box-Cox 变换
-  | 'yeojohnson'  // Yeo-Johnson 变换
-  | 'quantile'    // 分位数变换
-  | 'rank'        // 排名变换
+  | 'robust' // 鲁棒归一化
+  | 'maxabs' // 最大绝对值归一化
+  | 'log' // 对数变换
+  | 'log1p' // log(1+x) 变换
+  | 'sqrt' // 平方根变换
+  | 'boxcox' // Box-Cox 变换
+  | 'yeojohnson' // Yeo-Johnson 变换
+  | 'quantile' // 分位数变换
+  | 'rank' // 排名变换
 
 // 目标类型
 export type TargetType = 'next' | 'kstep' | 'reconstruct'
@@ -37,7 +37,7 @@ export interface Configuration {
   id: number
   name: string
   dataset_id: number
-  user_id: number | null  // 所有者ID
+  user_id: number | null // 所有者ID
   channels: string[]
   normalization: NormalizationType
   anomaly_enabled: boolean
@@ -103,4 +103,3 @@ export interface GenerateFilenameRequest {
 export interface GenerateFilenameResponse {
   filename: string
 }
-

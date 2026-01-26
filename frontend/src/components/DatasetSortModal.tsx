@@ -63,7 +63,7 @@ export default function DatasetSortModal({ open, onClose, onSuccess }: DatasetSo
     const draggedItem = newDatasets[draggedIndex]
     newDatasets.splice(draggedIndex, 1)
     newDatasets.splice(index, 0, draggedItem)
-    
+
     setDatasets(newDatasets)
     setDraggedIndex(index)
     setHasChanges(true)
@@ -82,7 +82,7 @@ export default function DatasetSortModal({ open, onClose, onSuccess }: DatasetSo
         id: dataset.id,
         sort_order: index,
       }))
-      
+
       await updateDatasetSortOrder({ orders })
       message.success('排序保存成功')
       onSuccess()
@@ -123,9 +123,7 @@ export default function DatasetSortModal({ open, onClose, onSuccess }: DatasetSo
       maskClosable={!saving && !hasChanges}
     >
       <div style={{ marginBottom: 16 }}>
-        <Text type="secondary">
-          拖拽数据集调整显示顺序，排在前面的数据集将优先显示。
-        </Text>
+        <Text type="secondary">拖拽数据集调整显示顺序，排在前面的数据集将优先显示。</Text>
       </div>
 
       {loading ? (
@@ -158,7 +156,9 @@ export default function DatasetSortModal({ open, onClose, onSuccess }: DatasetSo
                 <HolderOutlined style={{ color: '#999', cursor: 'grab' }} />
                 <Tag color="blue">{index + 1}</Tag>
                 <FileTextOutlined style={{ color: '#1890ff' }} />
-                <Text strong style={{ flex: 1 }}>{item.name}</Text>
+                <Text strong style={{ flex: 1 }}>
+                  {item.name}
+                </Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   {item.row_count.toLocaleString()} 行 · {item.column_count} 列
                 </Text>
@@ -180,4 +180,3 @@ export default function DatasetSortModal({ open, onClose, onSuccess }: DatasetSo
     </Modal>
   )
 }
-

@@ -29,9 +29,6 @@ export async function deleteFolder(
   return api.delete(`/folders/${id}`, { params })
 }
 
-export async function reorderFolders(
-  data: FolderSortOrderUpdate
-): Promise<{ message: string }> {
+export async function reorderFolders(data: FolderSortOrderUpdate): Promise<{ message: string }> {
   return api.put('/folders/reorder', data)
 }
-

@@ -99,10 +99,14 @@ export const DOWNSAMPLE_ALGORITHM_OPTIONS = [
 ]
 
 // 降采样算法详细说明
-export const DOWNSAMPLE_ALGORITHM_DESCRIPTIONS: Record<string, { name: string; description: string; pros: string; cons: string; useCase: string }> = {
+export const DOWNSAMPLE_ALGORITHM_DESCRIPTIONS: Record<
+  string,
+  { name: string; description: string; pros: string; cons: string; useCase: string }
+> = {
   lttb: {
     name: 'LTTB (Largest Triangle Three Buckets)',
-    description: '基于三角形面积的降采样算法，通过选择能形成最大三角形面积的点来保留数据的视觉特征。',
+    description:
+      '基于三角形面积的降采样算法，通过选择能形成最大三角形面积的点来保留数据的视觉特征。',
     pros: '保留数据的整体形状和趋势，视觉效果最佳',
     cons: '计算复杂度略高',
     useCase: '适合大多数时序数据可视化场景，特别是需要保持曲线形状的情况',
@@ -140,4 +144,3 @@ export const METRIC_DESCRIPTIONS = {
   r2: '决定系数',
   mape: '平均绝对百分比误差',
 }
-

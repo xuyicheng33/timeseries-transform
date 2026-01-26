@@ -4,19 +4,8 @@
 
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import {
-  Form,
-  Input,
-  Button,
-  Card,
-  Typography,
-  message,
-} from 'antd'
-import {
-  UserOutlined,
-  LockOutlined,
-  LineChartOutlined,
-} from '@ant-design/icons'
+import { Form, Input, Button, Card, Typography, message } from 'antd'
+import { UserOutlined, LockOutlined, LineChartOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { APP_CONFIG } from '@/config/app'
 import type { UserLogin } from '@/types'
@@ -70,36 +59,31 @@ export default function Login() {
       >
         {/* Logo 和标题 */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ 
-            width: 56, 
-            height: 56, 
-            borderRadius: 12, 
-            background: BRAND.PRIMARY_COLOR,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 12,
+              background: BRAND.PRIMARY_COLOR,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}
+          >
             <LineChartOutlined style={{ fontSize: 28, color: '#fff' }} />
           </div>
           <Title level={3} style={{ margin: 0, color: '#1a1a2e', fontWeight: 600 }}>
             {APP_NAME}
           </Title>
-          <Text type="secondary" style={{ fontSize: 14 }}>登录以继续</Text>
+          <Text type="secondary" style={{ fontSize: 14 }}>
+            登录以继续
+          </Text>
         </div>
 
         {/* 登录表单 */}
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          autoComplete="off"
-          size="large"
-        >
-          <Form.Item
-            name="username"
-            rules={[{ required: true, message: '请输入用户名或邮箱' }]}
-          >
+        <Form form={form} layout="vertical" onFinish={handleSubmit} autoComplete="off" size="large">
+          <Form.Item name="username" rules={[{ required: true, message: '请输入用户名或邮箱' }]}>
             <Input
               prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
               placeholder="用户名或邮箱"
@@ -107,10 +91,7 @@ export default function Login() {
             />
           </Form.Item>
 
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: '请输入密码' }]}
-          >
+          <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
             <Input.Password
               prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
               placeholder="密码"
@@ -141,7 +122,10 @@ export default function Login() {
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Text type="secondary" style={{ fontSize: 13 }}>
             还没有账号？
-            <Link to="/register" style={{ marginLeft: 4, fontWeight: 500, color: BRAND.PRIMARY_COLOR }}>
+            <Link
+              to="/register"
+              style={{ marginLeft: 4, fontWeight: 500, color: BRAND.PRIMARY_COLOR }}
+            >
               立即注册
             </Link>
           </Text>
@@ -150,4 +134,3 @@ export default function Login() {
     </div>
   )
 }
-

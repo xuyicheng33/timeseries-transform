@@ -73,8 +73,8 @@ export interface ControlledCompareResponse {
   parameter_name: string
   parameter_label: string
   baseline_config: Record<string, string | number | boolean>
-  config_consistent: boolean  // 其他参数是否完全一致
-  inconsistent_params: string[]  // 不一致的参数列表
+  config_consistent: boolean // 其他参数是否完全一致
+  inconsistent_params: string[] // 不一致的参数列表
   variations: ControlledVariation[]
   chart_data: ControlledChartData
 }
@@ -121,4 +121,3 @@ export interface ParametersResponse {
   parameters: AnalyzableParameter[]
   metrics: AnalyzableMetric[]
 }
-

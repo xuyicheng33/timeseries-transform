@@ -29,10 +29,7 @@ let lastRefreshFailTime = 0
 const REFRESH_COOLDOWN = 5000 // 5秒冷却
 
 // 添加请求到等待队列
-function subscribeTokenRefresh(
-  resolve: (token: string) => void,
-  reject: (error: unknown) => void
-) {
+function subscribeTokenRefresh(resolve: (token: string) => void, reject: (error: unknown) => void) {
   refreshSubscribers.push({ resolve, reject })
 }
 
@@ -158,7 +155,7 @@ request.interceptors.response.use(
     // 判断是否是认证相关接口（登录/注册/刷新）
     // 注意：前端使用 /auth/login/json 进行登录，需要同时排除
     const isAuthEndpoint =
-      originalRequest?.url?.includes('/auth/login') ||  // 包括 /auth/login 和 /auth/login/json
+      originalRequest?.url?.includes('/auth/login') || // 包括 /auth/login 和 /auth/login/json
       originalRequest?.url?.includes('/auth/register') ||
       originalRequest?.url?.includes('/auth/refresh')
 

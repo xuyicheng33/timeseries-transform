@@ -106,9 +106,7 @@ export default function MainLayout() {
                   icon={<UserOutlined />}
                   style={{ backgroundColor: '#fff', color: 'var(--brand-primary)' }}
                 />
-                <Text style={{ color: '#fff' }}>
-                  {user?.full_name || user?.username || '用户'}
-                </Text>
+                <Text style={{ color: '#fff' }}>{user?.full_name || user?.username || '用户'}</Text>
               </Space>
             </Dropdown>
           </div>

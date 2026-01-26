@@ -72,7 +72,12 @@ import {
   deleteDataset,
   getDatasetDownloadPath,
 } from '@/api/datasets'
-import { createFolder, deleteFolder, getFolders, updateFolder as updateFolderApi } from '@/api/folders'
+import {
+  createFolder,
+  deleteFolder,
+  getFolders,
+  updateFolder as updateFolderApi,
+} from '@/api/folders'
 import { getQualityReport } from '@/api/quality'
 import { batchDeleteDatasets, exportData, previewImport, importData } from '@/api/batch'
 import { download } from '@/utils/download'
@@ -95,9 +100,10 @@ const DESCRIPTION_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'pre-wrap', ta
 
 type FolderSortValue = 'manual' | 'name_asc' | 'name_desc' | 'time_desc' | 'time_asc'
 
-function resolveFolderSort(
-  value: FolderSortValue
-): { sortBy: 'manual' | 'name' | 'time'; order: 'asc' | 'desc' } {
+function resolveFolderSort(value: FolderSortValue): {
+  sortBy: 'manual' | 'name' | 'time'
+  order: 'asc' | 'desc'
+} {
   switch (value) {
     case 'name_asc':
       return { sortBy: 'name', order: 'asc' }
@@ -218,9 +224,7 @@ export default function DataHub() {
     setLoading(true)
     try {
       const options =
-        selectedFolderId === null
-          ? { rootOnly: true }
-          : { folderId: selectedFolderId }
+        selectedFolderId === null ? { rootOnly: true } : { folderId: selectedFolderId }
       const response = await getDatasets(currentPage, pageSize, options)
       setDatasets(response.items)
       setTotal(response.total)
@@ -239,7 +243,10 @@ export default function DataHub() {
     fetchDatasets()
   }, [fetchDatasets])
 
-  const foldersById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders])
+  const foldersById = useMemo(
+    () => new Map(folders.map((folder) => [folder.id, folder])),
+    [folders]
+  )
 
   useEffect(() => {
     if (selectedFolderId !== null && !foldersById.has(selectedFolderId)) {
@@ -271,7 +278,8 @@ export default function DataHub() {
     }
   }
 
-  const currentFolder = selectedFolderId === null ? null : (foldersById.get(selectedFolderId) ?? null)
+  const currentFolder =
+    selectedFolderId === null ? null : (foldersById.get(selectedFolderId) ?? null)
 
   const folderPath = useMemo(() => {
     if (!currentFolder) return []
@@ -376,31 +384,28 @@ export default function DataHub() {
     ]
   }, [folders, rootDatasetCount])
 
-  const folderSelectOptions = useMemo(
-    () => {
-      const buildFolderLabel = (folder: Folder): string => {
-        const parts: string[] = [folder.name]
-        const visited = new Set<number>([folder.id])
-        let cursor: Folder | undefined | null = folder
+  const folderSelectOptions = useMemo(() => {
+    const buildFolderLabel = (folder: Folder): string => {
+      const parts: string[] = [folder.name]
+      const visited = new Set<number>([folder.id])
+      let cursor: Folder | undefined | null = folder
 
-        while (cursor && cursor.parent_id !== null) {
-          const parent = foldersById.get(cursor.parent_id)
-          if (!parent || visited.has(parent.id)) break
-          parts.unshift(parent.name)
-          visited.add(parent.id)
-          cursor = parent
-        }
-
-        return parts.join(' / ')
+      while (cursor && cursor.parent_id !== null) {
+        const parent = foldersById.get(cursor.parent_id)
+        if (!parent || visited.has(parent.id)) break
+        parts.unshift(parent.name)
+        visited.add(parent.id)
+        cursor = parent
       }
 
-      return [
-        { label: '根目录', value: 'root' as const },
-        ...folders.map((folder) => ({ label: buildFolderLabel(folder), value: folder.id })),
-      ]
-    },
-    [folders, foldersById]
-  )
+      return parts.join(' / ')
+    }
+
+    return [
+      { label: '根目录', value: 'root' as const },
+      ...folders.map((folder) => ({ label: buildFolderLabel(folder), value: folder.id })),
+    ]
+  }, [folders, foldersById])
 
   useEffect(() => {
     const nextKeys = new Set<React.Key>(['root'])
@@ -934,9 +939,7 @@ export default function DataHub() {
   const handleBatchMove = async (target: 'root' | number) => {
     if (!isAdmin) return
 
-    const datasetIds = selectedRowKeys
-      .map((key) => Number(key))
-      .filter((id) => !Number.isNaN(id))
+    const datasetIds = selectedRowKeys.map((key) => Number(key)).filter((id) => !Number.isNaN(id))
 
     if (datasetIds.length === 0) {
       message.warning('请先选择要移动的数据集')
@@ -968,9 +971,9 @@ export default function DataHub() {
       const blob = await exportData({
         dataset_ids: selectedRowKeys as number[],
         include_configs: true,
-        include_results: true
+        include_results: true,
       })
-      
+
       // 创建下载链接
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -980,7 +983,7 @@ export default function DataHub() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-      
+
       message.success('导出成功')
     } catch {
       message.error('导出失败')
@@ -1008,7 +1011,7 @@ export default function DataHub() {
       setImportPreview({
         datasets_count: preview.datasets_count,
         configurations_count: preview.configurations_count,
-        results_count: preview.results_count
+        results_count: preview.results_count,
       })
     } catch {
       message.error('解析导入文件失败')
@@ -1434,7 +1437,9 @@ export default function DataHub() {
                         </Space>
                       </div>
                       {folder.description ? (
-                        <Tooltip title={<span style={DESCRIPTION_TEXT_STYLE}>{folder.description}</span>}>
+                        <Tooltip
+                          title={<span style={DESCRIPTION_TEXT_STYLE}>{folder.description}</span>}
+                        >
                           <Text type="secondary" ellipsis>
                             {folder.description.replace(/\s+/g, ' ').trim()}
                           </Text>
@@ -1612,8 +1617,7 @@ export default function DataHub() {
         okButtonProps={{
           danger: true,
           disabled:
-            deleteFolderAction === 'cascade' &&
-            deleteFolderConfirmName !== deletingFolder?.name,
+            deleteFolderAction === 'cascade' && deleteFolderConfirmName !== deletingFolder?.name,
         }}
         maskClosable={!folderDeleting}
         closable={!folderDeleting}
@@ -1698,9 +1702,7 @@ export default function DataHub() {
                     width: 300,
                     render: (_, record: UploadFile) => (
                       <Input
-                        value={
-                          uploadNameByUid[record.uid] ?? record.name.replace(/\.csv$/i, '')
-                        }
+                        value={uploadNameByUid[record.uid] ?? record.name.replace(/\.csv$/i, '')}
                         onChange={(e) =>
                           setUploadNameByUid((prev) => ({
                             ...prev,
@@ -1727,11 +1729,7 @@ export default function DataHub() {
             label="描述"
             rules={[{ max: 1000, message: '描述不能超过1000个字符' }]}
           >
-            <TextArea
-              placeholder="请输入数据集描述（可选）"
-              rows={3}
-              disabled={uploading}
-            />
+            <TextArea placeholder="请输入数据集描述（可选）" rows={3} disabled={uploading} />
           </Form.Item>
 
           <Form.Item name="folder_id" label="文件夹">
@@ -1777,12 +1775,7 @@ export default function DataHub() {
         width={1000}
       >
         {previewDataset && (
-          <Descriptions
-            bordered
-            size="small"
-            column={4}
-            style={{ marginBottom: 16 }}
-          >
+          <Descriptions bordered size="small" column={4} style={{ marginBottom: 16 }}>
             <Descriptions.Item label="文件名">{previewDataset.filename}</Descriptions.Item>
             <Descriptions.Item label="大小">
               {formatFileSize(previewDataset.file_size)}
@@ -1850,11 +1843,7 @@ export default function DataHub() {
             label="描述"
             rules={[{ max: 1000, message: '描述不能超过1000个字符' }]}
           >
-            <TextArea
-              placeholder="请输入数据集描述（可选）"
-              rows={3}
-              disabled={editLoading}
-            />
+            <TextArea placeholder="请输入数据集描述（可选）" rows={3} disabled={editLoading} />
           </Form.Item>
 
           <Form.Item name="folder_id" label="文件夹">
@@ -1966,9 +1955,7 @@ export default function DataHub() {
                 <ImportOutlined />
               </p>
               <p className="ant-upload-text">点击或拖拽 ZIP 文件到此区域</p>
-              <p className="ant-upload-hint">
-                支持导入之前导出的数据包
-              </p>
+              <p className="ant-upload-hint">支持导入之前导出的数据包</p>
             </Dragger>
           </Form.Item>
 

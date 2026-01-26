@@ -26,10 +26,7 @@ import {
   message,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import {
-  ArrowRightOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons'
+import { ArrowRightOutlined, DeleteOutlined } from '@ant-design/icons'
 
 import type {
   CleaningConfig,
@@ -228,9 +225,7 @@ export default function DataCleaningModal({
       key: 'after_missing',
       width: 100,
       render: (val, record) => (
-        <Text type={val < record.original_missing ? 'success' : undefined}>
-          {val}
-        </Text>
+        <Text type={val < record.original_missing ? 'success' : undefined}>{val}</Text>
       ),
     },
     {
@@ -245,9 +240,7 @@ export default function DataCleaningModal({
       key: 'after_outliers',
       width: 100,
       render: (val, record) => (
-        <Text type={val < record.original_outliers ? 'success' : undefined}>
-          {val}
-        </Text>
+        <Text type={val < record.original_outliers ? 'success' : undefined}>{val}</Text>
       ),
     },
     {
@@ -271,11 +264,7 @@ export default function DataCleaningModal({
         <Button key="cancel" onClick={onClose}>
           取消
         </Button>,
-        <Button
-          key="preview"
-          onClick={handlePreview}
-          loading={previewLoading}
-        >
+        <Button key="preview" onClick={handlePreview} loading={previewLoading}>
           预览效果
         </Button>,
         <Button
@@ -297,19 +286,12 @@ export default function DataCleaningModal({
             key: 'config',
             label: '清洗配置',
             children: (
-              <Form
-                form={form}
-                layout="vertical"
-                initialValues={DEFAULT_CLEANING_CONFIG}
-              >
+              <Form form={form} layout="vertical" initialValues={DEFAULT_CLEANING_CONFIG}>
                 {/* 缺失值处理 */}
                 <Card title="缺失值处理" size="small" style={{ marginBottom: 16 }}>
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Form.Item
-                        name="missing_strategy"
-                        label="处理策略"
-                      >
+                      <Form.Item name="missing_strategy" label="处理策略">
                         <Select options={MISSING_STRATEGY_OPTIONS} />
                       </Form.Item>
                     </Col>
@@ -336,10 +318,7 @@ export default function DataCleaningModal({
                   >
                     {({ getFieldValue }) =>
                       getFieldValue('missing_strategy') === 'fill_value' && (
-                        <Form.Item
-                          name="missing_fill_value"
-                          label="填充值"
-                        >
+                        <Form.Item name="missing_fill_value" label="填充值">
                           <InputNumber style={{ width: '100%' }} placeholder="输入填充值" />
                         </Form.Item>
                       )
@@ -351,27 +330,17 @@ export default function DataCleaningModal({
                 <Card title="异常值处理" size="small" style={{ marginBottom: 16 }}>
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Form.Item
-                        name="outlier_method"
-                        label="检测方法"
-                      >
+                      <Form.Item name="outlier_method" label="检测方法">
                         <Select
-                          options={OUTLIER_METHOD_OPTIONS.map(opt => ({
+                          options={OUTLIER_METHOD_OPTIONS.map((opt) => ({
                             value: opt.value,
-                            label: (
-                              <Tooltip title={opt.description}>
-                                {opt.label}
-                              </Tooltip>
-                            ),
+                            label: <Tooltip title={opt.description}>{opt.label}</Tooltip>,
                           }))}
                         />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
-                      <Form.Item
-                        name="outlier_action"
-                        label="处理方式"
-                      >
+                      <Form.Item name="outlier_action" label="处理方式">
                         <Select options={OUTLIER_ACTION_OPTIONS} />
                       </Form.Item>
                     </Col>
@@ -403,20 +372,12 @@ export default function DataCleaningModal({
                   {outlierMethod === 'percentile' && (
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item
-                          name="percentile_lower"
-                          label="下百分位"
-                          initialValue={1}
-                        >
+                        <Form.Item name="percentile_lower" label="下百分位" initialValue={1}>
                           <InputNumber min={0} max={50} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item
-                          name="percentile_upper"
-                          label="上百分位"
-                          initialValue={99}
-                        >
+                        <Form.Item name="percentile_upper" label="上百分位" initialValue={99}>
                           <InputNumber min={50} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -426,18 +387,12 @@ export default function DataCleaningModal({
                   {outlierMethod === 'threshold' && (
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item
-                          name="threshold_lower"
-                          label="下界"
-                        >
+                        <Form.Item name="threshold_lower" label="下界">
                           <InputNumber style={{ width: '100%' }} placeholder="不限" />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item
-                          name="threshold_upper"
-                          label="上界"
-                        >
+                        <Form.Item name="threshold_upper" label="上界">
                           <InputNumber style={{ width: '100%' }} placeholder="不限" />
                         </Form.Item>
                       </Col>
@@ -449,11 +404,7 @@ export default function DataCleaningModal({
                 <Card title="重复值处理" size="small" style={{ marginBottom: 16 }}>
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Form.Item
-                        name="drop_duplicates"
-                        label="删除重复行"
-                        valuePropName="checked"
-                      >
+                      <Form.Item name="drop_duplicates" label="删除重复行" valuePropName="checked">
                         <Switch />
                       </Form.Item>
                     </Col>
@@ -464,10 +415,7 @@ export default function DataCleaningModal({
                       >
                         {({ getFieldValue }) =>
                           getFieldValue('drop_duplicates') && (
-                            <Form.Item
-                              name="duplicate_keep"
-                              label="保留策略"
-                            >
+                            <Form.Item name="duplicate_keep" label="保留策略">
                               <Select
                                 options={[
                                   { value: 'first', label: '保留第一条' },
@@ -499,14 +447,13 @@ export default function DataCleaningModal({
                     <Col span={12}>
                       <Form.Item
                         noStyle
-                        shouldUpdate={(prev, curr) => prev.create_new_dataset !== curr.create_new_dataset}
+                        shouldUpdate={(prev, curr) =>
+                          prev.create_new_dataset !== curr.create_new_dataset
+                        }
                       >
                         {({ getFieldValue }) =>
                           getFieldValue('create_new_dataset') && (
-                            <Form.Item
-                              name="new_dataset_suffix"
-                              label="新数据集后缀"
-                            >
+                            <Form.Item name="new_dataset_suffix" label="新数据集后缀">
                               <Input placeholder="_cleaned" />
                             </Form.Item>
                           )
@@ -528,10 +475,7 @@ export default function DataCleaningModal({
                 <Card size="small" style={{ marginBottom: 16 }}>
                   <Row gutter={[16, 16]}>
                     <Col xs={12} sm={6}>
-                      <Statistic
-                        title="原始行数"
-                        value={previewResult.total_rows_before}
-                      />
+                      <Statistic title="原始行数" value={previewResult.total_rows_before} />
                     </Col>
                     <Col xs={12} sm={6}>
                       <Statistic
@@ -546,14 +490,13 @@ export default function DataCleaningModal({
                       <Statistic
                         title="删除行数"
                         value={previewResult.rows_removed}
-                        valueStyle={{ color: previewResult.rows_removed > 0 ? '#ff4d4f' : undefined }}
+                        valueStyle={{
+                          color: previewResult.rows_removed > 0 ? '#ff4d4f' : undefined,
+                        }}
                       />
                     </Col>
                     <Col xs={12} sm={6}>
-                      <Statistic
-                        title="修改单元格"
-                        value={previewResult.cells_modified}
-                      />
+                      <Statistic title="修改单元格" value={previewResult.cells_modified} />
                     </Col>
                   </Row>
 
@@ -568,7 +511,9 @@ export default function DataCleaningModal({
                           type="circle"
                           percent={previewResult.quality_score_before}
                           size={80}
-                          strokeColor={previewResult.quality_score_before >= 70 ? '#52c41a' : '#faad14'}
+                          strokeColor={
+                            previewResult.quality_score_before >= 70 ? '#52c41a' : '#faad14'
+                          }
                         />
                       </div>
                     </Col>
@@ -582,22 +527,32 @@ export default function DataCleaningModal({
                           type="circle"
                           percent={previewResult.quality_score_after}
                           size={80}
-                          strokeColor={previewResult.quality_score_after >= 70 ? '#52c41a' : '#faad14'}
+                          strokeColor={
+                            previewResult.quality_score_after >= 70 ? '#52c41a' : '#faad14'
+                          }
                         />
                       </div>
                     </Col>
                     <Col>
                       <Statistic
                         title="质量提升"
-                        value={previewResult.quality_score_after - previewResult.quality_score_before}
-                        prefix={previewResult.quality_score_after > previewResult.quality_score_before ? '+' : ''}
+                        value={
+                          previewResult.quality_score_after - previewResult.quality_score_before
+                        }
+                        prefix={
+                          previewResult.quality_score_after > previewResult.quality_score_before
+                            ? '+'
+                            : ''
+                        }
                         suffix="分"
                         valueStyle={{
-                          color: previewResult.quality_score_after > previewResult.quality_score_before
-                            ? '#52c41a'
-                            : previewResult.quality_score_after < previewResult.quality_score_before
-                            ? '#ff4d4f'
-                            : undefined,
+                          color:
+                            previewResult.quality_score_after > previewResult.quality_score_before
+                              ? '#52c41a'
+                              : previewResult.quality_score_after <
+                                  previewResult.quality_score_before
+                                ? '#ff4d4f'
+                                : undefined,
                         }}
                       />
                     </Col>
@@ -613,7 +568,9 @@ export default function DataCleaningModal({
                     description={
                       <Space wrap>
                         {previewResult.columns_removed.map((col) => (
-                          <Tag key={col} color="error">{col}</Tag>
+                          <Tag key={col} color="error">
+                            {col}
+                          </Tag>
                         ))}
                       </Space>
                     }
@@ -652,4 +609,3 @@ export default function DataCleaningModal({
     </Modal>
   )
 }
-

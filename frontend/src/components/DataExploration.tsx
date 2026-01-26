@@ -61,7 +61,9 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
 
   // 相关性数据
   const [correlation, setCorrelation] = useState<CorrelationResponse | null>(null)
-  const [correlationMethod, setCorrelationMethod] = useState<'pearson' | 'spearman' | 'kendall'>('pearson')
+  const [correlationMethod, setCorrelationMethod] = useState<'pearson' | 'spearman' | 'kendall'>(
+    'pearson'
+  )
 
   // 趋势数据
   const [trendColumn, setTrendColumn] = useState<string>(columns[0] || '')
@@ -132,7 +134,9 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
     if (compareColumnsList.length < 2) return
     setLoading(true)
     try {
-      const data = await compareColumns(datasetId, compareColumnsList, { normalize: normalizeCompare })
+      const data = await compareColumns(datasetId, compareColumnsList, {
+        normalize: normalizeCompare,
+      })
       setCompareData(data)
     } catch {
       message.error('加载对比数据失败')
@@ -154,7 +158,19 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
     } else if (activeTab === 'compare' && compareColumnsList.length >= 2) {
       loadCompare()
     }
-  }, [activeTab, overview, selectedColumn, correlation, trendColumn, compareColumnsList, loadOverview, loadDistribution, loadCorrelation, loadTrend, loadCompare])
+  }, [
+    activeTab,
+    overview,
+    selectedColumn,
+    correlation,
+    trendColumn,
+    compareColumnsList,
+    loadOverview,
+    loadDistribution,
+    loadCorrelation,
+    loadTrend,
+    loadCompare,
+  ])
 
   // 渲染概览
   const renderOverview = () => {
@@ -402,7 +418,19 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
         left: 'center',
         bottom: 0,
         inRange: {
-          color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026'],
+          color: [
+            '#313695',
+            '#4575b4',
+            '#74add1',
+            '#abd9e9',
+            '#e0f3f8',
+            '#ffffbf',
+            '#fee090',
+            '#fdae61',
+            '#f46d43',
+            '#d73027',
+            '#a50026',
+          ],
         },
       },
       series: [
@@ -550,10 +578,30 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
           <Table
             columns={[
               { title: '列名', dataIndex: 'column', key: 'column' },
-              { title: '最小值', dataIndex: 'min', key: 'min', render: (v: number) => v.toFixed(4) },
-              { title: '最大值', dataIndex: 'max', key: 'max', render: (v: number) => v.toFixed(4) },
-              { title: '均值', dataIndex: 'mean', key: 'mean', render: (v: number) => v.toFixed(4) },
-              { title: '标准差', dataIndex: 'std', key: 'std', render: (v: number) => v.toFixed(4) },
+              {
+                title: '最小值',
+                dataIndex: 'min',
+                key: 'min',
+                render: (v: number) => v.toFixed(4),
+              },
+              {
+                title: '最大值',
+                dataIndex: 'max',
+                key: 'max',
+                render: (v: number) => v.toFixed(4),
+              },
+              {
+                title: '均值',
+                dataIndex: 'mean',
+                key: 'mean',
+                render: (v: number) => v.toFixed(4),
+              },
+              {
+                title: '标准差',
+                dataIndex: 'std',
+                key: 'std',
+                render: (v: number) => v.toFixed(4),
+              },
               { title: '有效数', dataIndex: 'valid_count', key: 'valid_count' },
             ]}
             dataSource={compareData.stats}
@@ -570,11 +618,7 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
     {
       key: 'overview',
       label: '数据概览',
-      children: (
-        <Spin spinning={loading}>
-          {renderOverview()}
-        </Spin>
-      ),
+      children: <Spin spinning={loading}>{renderOverview()}</Spin>,
     },
     {
       key: 'distribution',
@@ -602,9 +646,7 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
             />
             <span>{histogramBins}</span>
           </Space>
-          <Spin spinning={loading}>
-            {renderDistribution()}
-          </Spin>
+          <Spin spinning={loading}>{renderDistribution()}</Spin>
         </div>
       ),
     },
@@ -629,9 +671,7 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
               ]}
             />
           </Space>
-          <Spin spinning={loading}>
-            {renderCorrelation()}
-          </Spin>
+          <Spin spinning={loading}>{renderCorrelation()}</Spin>
         </div>
       ),
     },
@@ -661,9 +701,7 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
             />
             <span>{trendWindow}</span>
           </Space>
-          <Spin spinning={loading}>
-            {renderTrend()}
-          </Spin>
+          <Spin spinning={loading}>{renderTrend()}</Spin>
         </div>
       ),
     },
@@ -696,9 +734,7 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
               }}
             />
           </Space>
-          <Spin spinning={loading}>
-            {renderCompare()}
-          </Spin>
+          <Spin spinning={loading}>{renderCompare()}</Spin>
         </div>
       ),
     },
@@ -708,7 +744,9 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
     <Card
       title={
         <Space>
-          <Title level={5} style={{ margin: 0 }}>📊 数据探索</Title>
+          <Title level={5} style={{ margin: 0 }}>
+            📊 数据探索
+          </Title>
           <Text type="secondary">{datasetName}</Text>
         </Space>
       }
@@ -718,4 +756,3 @@ export default function DataExploration({ datasetId, datasetName, columns }: Dat
     </Card>
   )
 }
-

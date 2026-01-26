@@ -64,10 +64,7 @@ export function getMetricValue(
 /**
  * 格式化指标值
  */
-export function formatMetric(
-  value: number | null,
-  type: keyof Metrics
-): string {
+export function formatMetric(value: number | null, type: keyof Metrics): string {
   if (value === null) return '-'
 
   switch (type) {
@@ -91,4 +88,3 @@ export function formatMetric(
 export function hasMetrics(metrics: Partial<Metrics> | Record<string, never>): boolean {
   return metrics && Object.keys(metrics).length > 0
 }
-

@@ -76,10 +76,7 @@ export async function getDataset(id: number): Promise<Dataset> {
 /**
  * 预览数据集
  */
-export async function previewDataset(
-  id: number,
-  rows: number = 100
-): Promise<DatasetPreview> {
+export async function previewDataset(id: number, rows: number = 100): Promise<DatasetPreview> {
   return api.get(`/datasets/${id}/preview`, {
     params: { rows },
   })
@@ -95,10 +92,7 @@ export function getDatasetDownloadPath(id: number): string {
 /**
  * 更新数据集
  */
-export async function updateDataset(
-  id: number,
-  data: DatasetUpdate
-): Promise<Dataset> {
+export async function updateDataset(id: number, data: DatasetUpdate): Promise<Dataset> {
   return api.put(`/datasets/${id}`, data)
 }
 
@@ -136,4 +130,3 @@ export async function updateDatasetSortOrder(
 ): Promise<{ message: string }> {
   return api.put('/datasets/sort-order/batch', data)
 }
-

@@ -160,14 +160,14 @@ export default function DataQualityReport({
       dataIndex: 'lower_bound',
       key: 'lower_bound',
       width: 120,
-      render: (val: number | null) => val !== null ? val.toFixed(4) : '-',
+      render: (val: number | null) => (val !== null ? val.toFixed(4) : '-'),
     },
     {
       title: '上界',
       dataIndex: 'upper_bound',
       key: 'upper_bound',
       width: 120,
-      render: (val: number | null) => val !== null ? val.toFixed(4) : '-',
+      render: (val: number | null) => (val !== null ? val.toFixed(4) : '-'),
     },
     {
       title: '范围',
@@ -202,35 +202,35 @@ export default function DataQualityReport({
       dataIndex: 'mean',
       key: 'mean',
       width: 120,
-      render: (val?: number) => val !== undefined ? val.toFixed(4) : '-',
+      render: (val?: number) => (val !== undefined ? val.toFixed(4) : '-'),
     },
     {
       title: '标准差',
       dataIndex: 'std',
       key: 'std',
       width: 120,
-      render: (val?: number) => val !== undefined ? val.toFixed(4) : '-',
+      render: (val?: number) => (val !== undefined ? val.toFixed(4) : '-'),
     },
     {
       title: '最小值',
       dataIndex: 'min',
       key: 'min',
       width: 120,
-      render: (val?: number) => val !== undefined ? val.toFixed(4) : '-',
+      render: (val?: number) => (val !== undefined ? val.toFixed(4) : '-'),
     },
     {
       title: '中位数',
       dataIndex: 'median',
       key: 'median',
       width: 120,
-      render: (val?: number) => val !== undefined ? val.toFixed(4) : '-',
+      render: (val?: number) => (val !== undefined ? val.toFixed(4) : '-'),
     },
     {
       title: '最大值',
       dataIndex: 'max',
       key: 'max',
       width: 120,
-      render: (val?: number) => val !== undefined ? val.toFixed(4) : '-',
+      render: (val?: number) => (val !== undefined ? val.toFixed(4) : '-'),
     },
   ]
 
@@ -251,7 +251,7 @@ export default function DataQualityReport({
     if (!report?.missing_stats) return {}
 
     const data = report.missing_stats
-      .filter(s => s.missing_count > 0)
+      .filter((s) => s.missing_count > 0)
       .sort((a, b) => b.missing_ratio - a.missing_ratio)
       .slice(0, 10)
 
@@ -268,25 +268,27 @@ export default function DataQualityReport({
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: {
         type: 'category',
-        data: data.map(d => d.column),
+        data: data.map((d) => d.column),
         axisLabel: { rotate: 45, fontSize: 10 },
       },
       yAxis: {
         type: 'value',
         axisLabel: { formatter: (val: number) => `${(val * 100).toFixed(0)}%` },
       },
-      series: [{
-        type: 'bar',
-        data: data.map(d => d.missing_ratio),
-        itemStyle: {
-          color: (params: any) => {
-            const ratio = params.value
-            if (ratio > 0.5) return '#ff4d4f'
-            if (ratio > 0.1) return '#faad14'
-            return '#1890ff'
+      series: [
+        {
+          type: 'bar',
+          data: data.map((d) => d.missing_ratio),
+          itemStyle: {
+            color: (params: any) => {
+              const ratio = params.value
+              if (ratio > 0.5) return '#ff4d4f'
+              if (ratio > 0.1) return '#faad14'
+              return '#1890ff'
+            },
           },
         },
-      }],
+      ],
     }
   }
 
@@ -295,7 +297,7 @@ export default function DataQualityReport({
     if (!report?.outlier_stats) return {}
 
     const data = report.outlier_stats
-      .filter(s => s.outlier_count > 0)
+      .filter((s) => s.outlier_count > 0)
       .sort((a, b) => b.outlier_ratio - a.outlier_ratio)
       .slice(0, 10)
 
@@ -312,25 +314,27 @@ export default function DataQualityReport({
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: {
         type: 'category',
-        data: data.map(d => d.column),
+        data: data.map((d) => d.column),
         axisLabel: { rotate: 45, fontSize: 10 },
       },
       yAxis: {
         type: 'value',
         axisLabel: { formatter: (val: number) => `${(val * 100).toFixed(0)}%` },
       },
-      series: [{
-        type: 'bar',
-        data: data.map(d => d.outlier_ratio),
-        itemStyle: {
-          color: (params: any) => {
-            const ratio = params.value
-            if (ratio > 0.1) return '#ff4d4f'
-            if (ratio > 0.05) return '#faad14'
-            return '#52c41a'
+      series: [
+        {
+          type: 'bar',
+          data: data.map((d) => d.outlier_ratio),
+          itemStyle: {
+            color: (params: any) => {
+              const ratio = params.value
+              if (ratio > 0.1) return '#ff4d4f'
+              if (ratio > 0.05) return '#faad14'
+              return '#52c41a'
+            },
           },
         },
-      }],
+      ],
     }
   }
 
@@ -417,7 +421,7 @@ export default function DataQualityReport({
               value={outlierMethod}
               onChange={(val) => setOutlierMethod(val)}
               style={{ width: 180 }}
-              options={OUTLIER_METHOD_OPTIONS.map(opt => ({
+              options={OUTLIER_METHOD_OPTIONS.map((opt) => ({
                 value: opt.value,
                 label: opt.label,
               }))}
@@ -433,11 +437,7 @@ export default function DataQualityReport({
             </Tooltip>
             {/* 仅管理员可执行数据清洗 */}
             {isAdmin && (
-              <Button
-                type="primary"
-                icon={<ToolOutlined />}
-                onClick={onOpenCleaning}
-              >
+              <Button type="primary" icon={<ToolOutlined />} onClick={onOpenCleaning}>
                 数据清洗
               </Button>
             )}
@@ -452,7 +452,13 @@ export default function DataQualityReport({
             {report.suggestions.slice(0, 5).map((suggestion, index) => (
               <Alert
                 key={index}
-                type={suggestion.level === 'error' ? 'error' : suggestion.level === 'warning' ? 'warning' : 'info'}
+                type={
+                  suggestion.level === 'error'
+                    ? 'error'
+                    : suggestion.level === 'warning'
+                      ? 'warning'
+                      : 'info'
+                }
                 icon={getSuggestionIcon(suggestion.level)}
                 message={
                   <Space>
@@ -500,12 +506,14 @@ export default function DataQualityReport({
                     />
                   </Col>
                   <Col xs={24} lg={12}>
-                    {report.missing_stats.some(s => s.missing_count > 0) ? (
+                    {report.missing_stats.some((s) => s.missing_count > 0) ? (
                       <ReactECharts option={getMissingChartOption()} style={{ height: 300 }} />
                     ) : (
                       <div style={{ textAlign: 'center', padding: 50 }}>
                         <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
-                        <Title level={5} style={{ marginTop: 16 }}>数据完整，无缺失值</Title>
+                        <Title level={5} style={{ marginTop: 16 }}>
+                          数据完整，无缺失值
+                        </Title>
                       </div>
                     )}
                   </Col>
@@ -537,12 +545,14 @@ export default function DataQualityReport({
                     />
                   </Col>
                   <Col xs={24} lg={10}>
-                    {report.outlier_stats.some(s => s.outlier_count > 0) ? (
+                    {report.outlier_stats.some((s) => s.outlier_count > 0) ? (
                       <ReactECharts option={getOutlierChartOption()} style={{ height: 300 }} />
                     ) : (
                       <div style={{ textAlign: 'center', padding: 50 }}>
                         <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a' }} />
-                        <Title level={5} style={{ marginTop: 16 }}>未检测到异常值</Title>
+                        <Title level={5} style={{ marginTop: 16 }}>
+                          未检测到异常值
+                        </Title>
                       </div>
                     )}
                   </Col>
@@ -561,7 +571,7 @@ export default function DataQualityReport({
                 <Table
                   columns={statsColumns}
                   dataSource={report.column_stats
-                    .filter(s => report.numeric_columns.includes(s.column))
+                    .filter((s) => report.numeric_columns.includes(s.column))
                     .map((s, i) => ({ ...s, key: i }))}
                   size="small"
                   pagination={{ pageSize: 10 }}
@@ -615,4 +625,3 @@ export default function DataQualityReport({
     </div>
   )
 }
-

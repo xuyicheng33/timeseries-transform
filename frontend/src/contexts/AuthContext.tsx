@@ -95,4 +95,3 @@ export function useAuth(): AuthContextType {
 }
 
 export default AuthContext
-

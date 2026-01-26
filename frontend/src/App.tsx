@@ -56,7 +56,11 @@ function App() {
                 >
                   <Route index element={<Navigate to="/datasets" replace />} />
                   {ROUTES.map((route) => (
-                    <Route key={route.path} path={route.path.slice(1)} element={<route.element />} />
+                    <Route
+                      key={route.path}
+                      path={route.path.slice(1)}
+                      element={<route.element />}
+                    />
                   ))}
                   {/* 404 兜底路由 */}
                   <Route path="*" element={<Navigate to="/datasets" replace />} />

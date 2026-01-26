@@ -50,4 +50,3 @@ export async function analyzeSensitivity(
 export async function getAnalyzableParameters(): Promise<ParametersResponse> {
   return request.get('/comparison/parameters')
 }
-

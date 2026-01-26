@@ -18,9 +18,7 @@ import type {
 /**
  * 对比多个结果
  */
-export async function compareResults(
-  data: CompareRequest
-): Promise<CompareResponse> {
+export async function compareResults(data: CompareRequest): Promise<CompareResponse> {
   return api.post('/visualization/compare', data)
 }
 
@@ -34,18 +32,14 @@ export async function getMetrics(id: number): Promise<Metrics> {
 /**
  * 误差分析
  */
-export async function analyzeErrors(
-  data: ErrorAnalysisRequest
-): Promise<ErrorAnalysisResponse> {
+export async function analyzeErrors(data: ErrorAnalysisRequest): Promise<ErrorAnalysisResponse> {
   return api.post('/visualization/error-analysis', data)
 }
 
 /**
  * 获取雷达图数据
  */
-export async function getRadarChart(
-  data: CompareRequest
-): Promise<RadarChartResponse> {
+export async function getRadarChart(data: CompareRequest): Promise<RadarChartResponse> {
   return api.post('/visualization/radar-chart', data)
 }
 
@@ -61,12 +55,9 @@ export async function calculateRangeMetrics(
 /**
  * 导出对比数据为 CSV
  */
-export async function exportCompareCSV(
-  data: CompareRequest
-): Promise<Blob> {
+export async function exportCompareCSV(data: CompareRequest): Promise<Blob> {
   const response = await rawRequest.post('/visualization/export-csv', data, {
     responseType: 'blob',
   })
   return response.data
 }
-

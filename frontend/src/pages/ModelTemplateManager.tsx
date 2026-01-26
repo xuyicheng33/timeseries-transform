@@ -1,7 +1,7 @@
 /**
  * 模型模板管理页面
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Card,
   Table,
@@ -23,7 +23,7 @@ import {
   Collapse,
   Badge,
   Divider,
-} from 'antd';
+} from 'antd'
 import {
   PlusOutlined,
   SearchOutlined,
@@ -37,8 +37,8 @@ import {
   CodeOutlined,
   StarFilled,
   ThunderboltOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
 import {
   getModelTemplates,
   getModelCategories,
@@ -48,7 +48,7 @@ import {
   deleteModelTemplate,
   duplicateModelTemplate,
   initPresetTemplates,
-} from '@/api/modelTemplates';
+} from '@/api/modelTemplates'
 import type {
   ModelTemplate,
   ModelTemplateCreate,
@@ -56,108 +56,110 @@ import type {
   ModelCategory,
   TaskType,
   ModelCategoryOption,
-} from '@/types/modelTemplate';
-import { MODEL_CATEGORY_CONFIG, TASK_TYPE_CONFIG } from '@/types/modelTemplate';
-import { useAuth } from '@/contexts/AuthContext';
+} from '@/types/modelTemplate'
+import { MODEL_CATEGORY_CONFIG, TASK_TYPE_CONFIG } from '@/types/modelTemplate'
+import { useAuth } from '@/contexts/AuthContext'
 
-const { TextArea } = Input;
-const { Option } = Select;
-const { Text, Paragraph } = Typography;
+const { TextArea } = Input
+const { Option } = Select
+const { Text, Paragraph } = Typography
 
 const ModelTemplateManager: React.FC = () => {
-  const { user } = useAuth();
-  
+  const { user } = useAuth()
+
   // 列表状态
-  const [templates, setTemplates] = useState<ModelTemplate[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [templates, setTemplates] = useState<ModelTemplate[]>([])
+  const [loading, setLoading] = useState(false)
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // 筛选状态
-  const [searchText, setSearchText] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<ModelCategory | undefined>();
-  const [categories, setCategories] = useState<ModelCategoryOption[]>([]);
+  const [searchText, setSearchText] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<ModelCategory | undefined>()
+  const [categories, setCategories] = useState<ModelCategoryOption[]>([])
 
   // 弹窗状态
-  const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false)
+  const [detailModalVisible, setDetailModalVisible] = useState(false)
+  const [editModalVisible, setEditModalVisible] = useState(false)
 
   // 当前操作的模板
-  const [currentTemplate, setCurrentTemplate] = useState<ModelTemplate | null>(null);
+  const [currentTemplate, setCurrentTemplate] = useState<ModelTemplate | null>(null)
 
   // 表单
-  const [createForm] = Form.useForm();
-  const [editForm] = Form.useForm();
+  const [createForm] = Form.useForm()
+  const [editForm] = Form.useForm()
 
   // 加载模板列表
   const loadTemplates = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const response = await getModelTemplates({
         page,
         page_size: pageSize,
         search: searchText || undefined,
         category: categoryFilter,
-      });
-      setTemplates(response.items);
-      setTotal(response.total);
+      })
+      setTemplates(response.items)
+      setTotal(response.total)
     } catch (error) {
-      message.error('加载模型模板列表失败');
+      message.error('加载模型模板列表失败')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [page, pageSize, searchText, categoryFilter]);
+  }, [page, pageSize, searchText, categoryFilter])
 
   // 加载类别列表
   const loadCategories = async () => {
     try {
-      const response = await getModelCategories();
-      setCategories(response);
+      const response = await getModelCategories()
+      setCategories(response)
     } catch (error) {
-      console.error('加载类别失败', error);
+      console.error('加载类别失败', error)
     }
-  };
+  }
 
   useEffect(() => {
-    loadTemplates();
-  }, [loadTemplates]);
+    loadTemplates()
+  }, [loadTemplates])
 
   useEffect(() => {
-    loadCategories();
-  }, []);
+    loadCategories()
+  }, [])
 
   // 初始化预置模板
   const handleInitPresets = async () => {
     try {
-      const result = await initPresetTemplates();
-      message.success(`${result.message}，新增 ${result.created} 个，跳过 ${result.skipped} 个`);
-      loadTemplates();
-      loadCategories();
+      const result = await initPresetTemplates()
+      message.success(`${result.message}，新增 ${result.created} 个，跳过 ${result.skipped} 个`)
+      loadTemplates()
+      loadCategories()
     } catch (error: any) {
-      message.error(error?.response?.data?.detail || '初始化失败');
+      message.error(error?.response?.data?.detail || '初始化失败')
     }
-  };
+  }
 
   // 创建模板
   const handleCreate = async (values: any) => {
     try {
       // 合并简化字段和高级 JSON 字段
-      const baseHyperparams: Record<string, any> = {};
-      if (values.hidden_size) baseHyperparams.hidden_size = values.hidden_size;
-      if (values.num_layers) baseHyperparams.num_layers = values.num_layers;
-      if (values.dropout !== undefined) baseHyperparams.dropout = values.dropout;
-      
-      const baseTrainingConfig: Record<string, any> = {};
-      if (values.learning_rate) baseTrainingConfig.learning_rate = values.learning_rate;
-      if (values.batch_size) baseTrainingConfig.batch_size = values.batch_size;
-      if (values.epochs) baseTrainingConfig.epochs = values.epochs;
-      
+      const baseHyperparams: Record<string, any> = {}
+      if (values.hidden_size) baseHyperparams.hidden_size = values.hidden_size
+      if (values.num_layers) baseHyperparams.num_layers = values.num_layers
+      if (values.dropout !== undefined) baseHyperparams.dropout = values.dropout
+
+      const baseTrainingConfig: Record<string, any> = {}
+      if (values.learning_rate) baseTrainingConfig.learning_rate = values.learning_rate
+      if (values.batch_size) baseTrainingConfig.batch_size = values.batch_size
+      if (values.epochs) baseTrainingConfig.epochs = values.epochs
+
       // 合并高级 JSON 配置
-      const advancedHyperparams = values.hyperparameters ? JSON.parse(values.hyperparameters) : {};
-      const advancedTrainingConfig = values.training_config ? JSON.parse(values.training_config) : {};
-      
+      const advancedHyperparams = values.hyperparameters ? JSON.parse(values.hyperparameters) : {}
+      const advancedTrainingConfig = values.training_config
+        ? JSON.parse(values.training_config)
+        : {}
+
       const data: ModelTemplateCreate = {
         name: values.name,
         version: values.version || '1.0',
@@ -168,43 +170,43 @@ const ModelTemplateManager: React.FC = () => {
         task_types: values.task_types || [],
         recommended_features: values.recommended_features || '',
         is_public: values.is_public || false,
-      };
-      await createModelTemplate(data);
-      message.success('创建成功');
-      setCreateModalVisible(false);
-      createForm.resetFields();
-      loadTemplates();
-      loadCategories();
+      }
+      await createModelTemplate(data)
+      message.success('创建成功')
+      setCreateModalVisible(false)
+      createForm.resetFields()
+      loadTemplates()
+      loadCategories()
     } catch (error: any) {
       if (error?.message?.includes('JSON')) {
-        message.error('JSON 格式错误，请检查超参数或训练配置');
+        message.error('JSON 格式错误，请检查超参数或训练配置')
       } else {
-        message.error('创建失败');
+        message.error('创建失败')
       }
     }
-  };
+  }
 
   // 查看详情
   const handleViewDetail = async (id: number) => {
     try {
-      const detail = await getModelTemplate(id);
-      setCurrentTemplate(detail);
-      setDetailModalVisible(true);
+      const detail = await getModelTemplate(id)
+      setCurrentTemplate(detail)
+      setDetailModalVisible(true)
     } catch (error) {
-      message.error('加载详情失败');
+      message.error('加载详情失败')
     }
-  };
+  }
 
   // 编辑模板
   const handleEdit = async (template: ModelTemplate) => {
-    setCurrentTemplate(template);
-    const hp = template.hyperparameters || {};
-    const tc = template.training_config || {};
-    
+    setCurrentTemplate(template)
+    const hp = template.hyperparameters || {}
+    const tc = template.training_config || {}
+
     // 提取常用字段
-    const { hidden_size, num_layers, dropout, ...restHp } = hp;
-    const { learning_rate, batch_size, epochs, ...restTc } = tc;
-    
+    const { hidden_size, num_layers, dropout, ...restHp } = hp
+    const { learning_rate, batch_size, epochs, ...restTc } = tc
+
     editForm.setFieldsValue({
       name: template.name,
       version: template.version,
@@ -223,28 +225,30 @@ const ModelTemplateManager: React.FC = () => {
       task_types: template.task_types,
       recommended_features: template.recommended_features,
       is_public: template.is_public,
-    });
-    setEditModalVisible(true);
-  };
+    })
+    setEditModalVisible(true)
+  }
 
   const handleEditSubmit = async (values: any) => {
-    if (!currentTemplate) return;
+    if (!currentTemplate) return
     try {
       // 合并简化字段和高级 JSON 字段
-      const baseHyperparams: Record<string, any> = {};
-      if (values.hidden_size) baseHyperparams.hidden_size = values.hidden_size;
-      if (values.num_layers) baseHyperparams.num_layers = values.num_layers;
-      if (values.dropout !== undefined) baseHyperparams.dropout = values.dropout;
-      
-      const baseTrainingConfig: Record<string, any> = {};
-      if (values.learning_rate) baseTrainingConfig.learning_rate = values.learning_rate;
-      if (values.batch_size) baseTrainingConfig.batch_size = values.batch_size;
-      if (values.epochs) baseTrainingConfig.epochs = values.epochs;
-      
+      const baseHyperparams: Record<string, any> = {}
+      if (values.hidden_size) baseHyperparams.hidden_size = values.hidden_size
+      if (values.num_layers) baseHyperparams.num_layers = values.num_layers
+      if (values.dropout !== undefined) baseHyperparams.dropout = values.dropout
+
+      const baseTrainingConfig: Record<string, any> = {}
+      if (values.learning_rate) baseTrainingConfig.learning_rate = values.learning_rate
+      if (values.batch_size) baseTrainingConfig.batch_size = values.batch_size
+      if (values.epochs) baseTrainingConfig.epochs = values.epochs
+
       // 合并高级 JSON 配置
-      const advancedHyperparams = values.hyperparameters ? JSON.parse(values.hyperparameters) : {};
-      const advancedTrainingConfig = values.training_config ? JSON.parse(values.training_config) : {};
-      
+      const advancedHyperparams = values.hyperparameters ? JSON.parse(values.hyperparameters) : {}
+      const advancedTrainingConfig = values.training_config
+        ? JSON.parse(values.training_config)
+        : {}
+
       const data: ModelTemplateUpdate = {
         name: values.name,
         version: values.version,
@@ -255,68 +259,68 @@ const ModelTemplateManager: React.FC = () => {
         task_types: values.task_types,
         recommended_features: values.recommended_features,
         is_public: values.is_public,
-      };
-      await updateModelTemplate(currentTemplate.id, data);
-      message.success('更新成功');
-      setEditModalVisible(false);
-      loadTemplates();
+      }
+      await updateModelTemplate(currentTemplate.id, data)
+      message.success('更新成功')
+      setEditModalVisible(false)
+      loadTemplates()
     } catch (error: any) {
       if (error?.message?.includes('JSON')) {
-        message.error('JSON 格式错误，请检查超参数或训练配置');
+        message.error('JSON 格式错误，请检查超参数或训练配置')
       } else {
-        message.error('更新失败');
+        message.error('更新失败')
       }
     }
-  };
+  }
 
   // 删除模板
   const handleDelete = async (id: number) => {
     try {
-      await deleteModelTemplate(id);
-      message.success('删除成功');
-      loadTemplates();
+      await deleteModelTemplate(id)
+      message.success('删除成功')
+      loadTemplates()
     } catch (error: any) {
-      message.error(error?.response?.data?.detail || '删除失败');
+      message.error(error?.response?.data?.detail || '删除失败')
     }
-  };
+  }
 
   // 复制模板
   const handleDuplicate = async (id: number) => {
     try {
-      await duplicateModelTemplate(id);
-      message.success('复制成功');
-      loadTemplates();
+      await duplicateModelTemplate(id)
+      message.success('复制成功')
+      loadTemplates()
     } catch (error) {
-      message.error('复制失败');
+      message.error('复制失败')
     }
-  };
+  }
 
   // 渲染类别标签
   const renderCategoryTag = (category: string) => {
-    const config = MODEL_CATEGORY_CONFIG[category as ModelCategory] || MODEL_CATEGORY_CONFIG.other;
+    const config = MODEL_CATEGORY_CONFIG[category as ModelCategory] || MODEL_CATEGORY_CONFIG.other
     return (
       <Tag color={config.color}>
         {config.icon} {config.label}
       </Tag>
-    );
-  };
+    )
+  }
 
   // 渲染任务类型标签
   const renderTaskTypes = (types: TaskType[]) => {
-    if (!types || types.length === 0) return <Text type="secondary">-</Text>;
+    if (!types || types.length === 0) return <Text type="secondary">-</Text>
     return (
       <Space size={[0, 4]} wrap>
         {types.map((type) => {
-          const config = TASK_TYPE_CONFIG[type];
+          const config = TASK_TYPE_CONFIG[type]
           return config ? (
             <Tag key={type} color={config.color} style={{ margin: 2 }}>
               {config.label}
             </Tag>
-          ) : null;
+          ) : null
         })}
       </Space>
-    );
-  };
+    )
+  }
 
   // 表格列定义
   const columns: ColumnsType<ModelTemplate> = [
@@ -367,9 +371,7 @@ const ModelTemplateManager: React.FC = () => {
       width: 100,
       align: 'center',
       sorter: (a, b) => a.usage_count - b.usage_count,
-      render: (count) => (
-        <Badge count={count} showZero color={count > 0 ? 'blue' : 'default'} />
-      ),
+      render: (count) => <Badge count={count} showZero color={count > 0 ? 'blue' : 'default'} />,
     },
     {
       title: '公开',
@@ -399,9 +401,9 @@ const ModelTemplateManager: React.FC = () => {
       width: 180,
       render: (_, record) => {
         // 判断是否可以编辑/删除：管理员可操作所有，普通用户只能操作自己的非系统模板
-        const canEdit = user?.is_admin || (!record.is_system && record.user_id === user?.id);
-        const canDelete = user?.is_admin || (!record.is_system && record.user_id === user?.id);
-        
+        const canEdit = user?.is_admin || (!record.is_system && record.user_id === user?.id)
+        const canDelete = user?.is_admin || (!record.is_system && record.user_id === user?.id)
+
         return (
           <Space size="small">
             <Tooltip title="查看详情">
@@ -443,10 +445,10 @@ const ModelTemplateManager: React.FC = () => {
               </Popconfirm>
             )}
           </Space>
-        );
+        )
       },
     },
-  ];
+  ]
 
   // 模板表单
   const renderTemplateForm = (form: any, _isEdit: boolean = false) => (
@@ -499,9 +501,12 @@ const ModelTemplateManager: React.FC = () => {
 
       {/* 常用超参数 - 简化输入 */}
       <Divider plain style={{ fontSize: 13 }}>
-        <Space><SettingOutlined />常用超参数</Space>
+        <Space>
+          <SettingOutlined />
+          常用超参数
+        </Space>
       </Divider>
-      
+
       <Row gutter={16}>
         <Col span={8}>
           <Form.Item name="hidden_size" label="隐藏层大小 (hidden_size)">
@@ -523,7 +528,13 @@ const ModelTemplateManager: React.FC = () => {
       <Row gutter={16}>
         <Col span={8}>
           <Form.Item name="learning_rate" label="学习率 (learning_rate)">
-            <InputNumber min={0.00001} max={1} step={0.0001} placeholder="0.001" style={{ width: '100%' }} />
+            <InputNumber
+              min={0.00001}
+              max={1}
+              step={0.0001}
+              placeholder="0.001"
+              style={{ width: '100%' }}
+            />
           </Form.Item>
         </Col>
         <Col span={8}>
@@ -555,9 +566,9 @@ const ModelTemplateManager: React.FC = () => {
                       validator: async (_, value) => {
                         if (value) {
                           try {
-                            JSON.parse(value);
+                            JSON.parse(value)
                           } catch {
-                            throw new Error('请输入有效的 JSON 格式');
+                            throw new Error('请输入有效的 JSON 格式')
                           }
                         }
                       },
@@ -579,9 +590,9 @@ const ModelTemplateManager: React.FC = () => {
                       validator: async (_, value) => {
                         if (value) {
                           try {
-                            JSON.parse(value);
+                            JSON.parse(value)
                           } catch {
-                            throw new Error('请输入有效的 JSON 格式');
+                            throw new Error('请输入有效的 JSON 格式')
                           }
                         }
                       },
@@ -611,7 +622,7 @@ const ModelTemplateManager: React.FC = () => {
         </Select>
       </Form.Item>
     </Form>
-  );
+  )
 
   return (
     <div style={{ padding: 24 }}>
@@ -632,17 +643,15 @@ const ModelTemplateManager: React.FC = () => {
                 okText="确定"
                 cancelText="取消"
               >
-                <Button icon={<ThunderboltOutlined />}>
-                  初始化预置模板
-                </Button>
+                <Button icon={<ThunderboltOutlined />}>初始化预置模板</Button>
               </Popconfirm>
             )}
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => {
-                createForm.resetFields();
-                setCreateModalVisible(true);
+                createForm.resetFields()
+                setCreateModalVisible(true)
               }}
             >
               新建模板
@@ -658,8 +667,8 @@ const ModelTemplateManager: React.FC = () => {
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             onPressEnter={() => {
-              setPage(1);
-              loadTemplates();
+              setPage(1)
+              loadTemplates()
             }}
             style={{ width: 200 }}
             allowClear
@@ -668,15 +677,16 @@ const ModelTemplateManager: React.FC = () => {
             placeholder="类别筛选"
             value={categoryFilter}
             onChange={(v) => {
-              setCategoryFilter(v);
-              setPage(1);
+              setCategoryFilter(v)
+              setPage(1)
             }}
             style={{ width: 150 }}
             allowClear
           >
             {categories.map((cat) => (
               <Option key={cat.value} value={cat.value}>
-                {MODEL_CATEGORY_CONFIG[cat.value]?.icon} {MODEL_CATEGORY_CONFIG[cat.value]?.label || cat.label} ({cat.count})
+                {MODEL_CATEGORY_CONFIG[cat.value]?.icon}{' '}
+                {MODEL_CATEGORY_CONFIG[cat.value]?.label || cat.label} ({cat.count})
               </Option>
             ))}
           </Select>
@@ -699,8 +709,8 @@ const ModelTemplateManager: React.FC = () => {
             showQuickJumper: true,
             showTotal: (t) => `共 ${t} 条`,
             onChange: (p, ps) => {
-              setPage(p);
-              setPageSize(ps);
+              setPage(p)
+              setPageSize(ps)
             },
           }}
         />
@@ -756,8 +766,8 @@ const ModelTemplateManager: React.FC = () => {
               icon={<CopyOutlined />}
               onClick={() => {
                 if (currentTemplate) {
-                  handleDuplicate(currentTemplate.id);
-                  setDetailModalVisible(false);
+                  handleDuplicate(currentTemplate.id)
+                  setDetailModalVisible(false)
                 }
               }}
             >
@@ -866,8 +876,7 @@ const ModelTemplateManager: React.FC = () => {
         )}
       </Modal>
     </div>
-  );
-};
+  )
+}
 
-export default ModelTemplateManager;
-
+export default ModelTemplateManager

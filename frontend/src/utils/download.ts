@@ -56,10 +56,7 @@ function parseFilename(disposition: string | undefined): string | null {
  * @param path 不带 /api 前缀的路径，如 '/datasets/1/download'
  * @param fallbackFilename 备用文件名
  */
-export async function downloadByBlob(
-  path: string,
-  fallbackFilename: string
-): Promise<void> {
+export async function downloadByBlob(path: string, fallbackFilename: string): Promise<void> {
   try {
     const response = await rawRequest.get(path, {
       responseType: 'blob',
@@ -105,10 +102,6 @@ export function downloadByLink(path: string): void {
  * @param path 不带 /api 前缀的路径
  * @param fallbackFilename 备用文件名
  */
-export async function download(
-  path: string,
-  fallbackFilename: string
-): Promise<void> {
+export async function download(path: string, fallbackFilename: string): Promise<void> {
   return downloadByBlob(path, fallbackFilename)
 }
-

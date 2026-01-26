@@ -39,11 +39,11 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // 记录错误信息
     this.setState({ errorInfo })
-    
+
     // 可以在这里上报错误到日志服务
     console.error('ErrorBoundary caught an error:', error)
     console.error('Error info:', errorInfo)
-    
+
     // TODO: 未来可以集成错误上报服务
     // reportErrorToService(error, errorInfo)
   }
@@ -97,9 +97,7 @@ class ErrorBoundary extends Component<Props, State> {
                 <Button icon={<HomeOutlined />} onClick={this.handleGoHome}>
                   返回首页
                 </Button>
-                <Button onClick={this.handleReset}>
-                  重试
-                </Button>
+                <Button onClick={this.handleReset}>重试</Button>
               </Space>
             }
           >
@@ -181,4 +179,3 @@ class ErrorBoundary extends Component<Props, State> {
 }
 
 export default ErrorBoundary
-

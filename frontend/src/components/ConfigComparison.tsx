@@ -41,18 +41,22 @@ import type {
   ParameterAnalysis,
   SensitivityItem,
 } from '@/types/comparison'
-import {
-  analyzeConfigurations,
-  controlledComparison,
-  analyzeSensitivity,
-} from '@/api/comparison'
+import { analyzeConfigurations, controlledComparison, analyzeSensitivity } from '@/api/comparison'
 
 const { Text } = Typography
 
 // 图表颜色
 const CHART_COLORS = [
-  '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
-  '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#48b8d0',
+  '#5470c6',
+  '#91cc75',
+  '#fac858',
+  '#ee6666',
+  '#73c0de',
+  '#3ba272',
+  '#fc8452',
+  '#9a60b4',
+  '#ea7ccc',
+  '#48b8d0',
 ]
 
 // 指标配置
@@ -72,16 +76,16 @@ interface ConfigComparisonProps {
 export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
   // ============ 状态 ============
   const [activeTab, setActiveTab] = useState('overview')
-  
+
   // 配置分析数据
   const [configData, setConfigData] = useState<ConfigCompareResponse | null>(null)
   const [configLoading, setConfigLoading] = useState(false)
-  
+
   // 控制变量对比
   const [controlledData, setControlledData] = useState<ControlledCompareResponse | null>(null)
   const [controlledLoading, setControlledLoading] = useState(false)
   const [selectedParameter, setSelectedParameter] = useState<string>('')
-  
+
   // 敏感性分析
   const [sensitivityData, setSensitivityData] = useState<SensitivityResponse | null>(null)
   const [sensitivityLoading, setSensitivityLoading] = useState(false)
@@ -99,7 +103,7 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
     try {
       const data = await analyzeConfigurations(resultIds)
       setConfigData(data)
-      
+
       // 自动选择第一个可分析的参数
       if (data.parameters.length > 0) {
         setSelectedParameter(data.parameters[0].parameter_name)
@@ -116,7 +120,7 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
       message.warning('请选择要分析的参数')
       return
     }
-    
+
     setControlledLoading(true)
     try {
       const data = await controlledComparison(resultIds, selectedParameter)
@@ -143,22 +147,22 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
   // ============ 可用参数列表 ============
   const availableParameters = useMemo(() => {
     if (!configData) return []
-    return configData.parameters.map(p => ({
+    return configData.parameters.map((p) => ({
       value: p.parameter_name,
       label: p.parameter_label,
     }))
   }, [configData])
 
   // ============ 图表配置 ============
-  
+
   // 参数敏感性柱状图
   const getSensitivityBarOption = (): EChartsOption => {
     if (!configData?.parameters.length) return {}
-    
+
     const sortedParams = [...configData.parameters].sort(
       (a, b) => b.sensitivity_score - a.sensitivity_score
     )
-    
+
     return {
       title: {
         text: '参数敏感性排名',
@@ -180,7 +184,7 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
       },
       xAxis: {
         type: 'category',
-        data: sortedParams.map(p => p.parameter_label),
+        data: sortedParams.map((p) => p.parameter_label),
         axisLabel: { rotate: 30 },
       },
       yAxis: {
@@ -191,29 +195,31 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
           formatter: (value: number) => `${(value * 100).toFixed(0)}%`,
         },
       },
-      series: [{
-        type: 'bar',
-        data: sortedParams.map((p, i) => ({
-          value: p.sensitivity_score,
-          itemStyle: {
-            color: CHART_COLORS[i % CHART_COLORS.length],
+      series: [
+        {
+          type: 'bar',
+          data: sortedParams.map((p, i) => ({
+            value: p.sensitivity_score,
+            itemStyle: {
+              color: CHART_COLORS[i % CHART_COLORS.length],
+            },
+          })),
+          label: {
+            show: true,
+            position: 'top',
+            formatter: (params: any) => `${(params.value * 100).toFixed(1)}%`,
           },
-        })),
-        label: {
-          show: true,
-          position: 'top',
-          formatter: (params: any) => `${(params.value * 100).toFixed(1)}%`,
         },
-      }],
+      ],
     }
   }
 
   // 控制变量对比图
   const getControlledChartOption = (): EChartsOption => {
     if (!controlledData?.chart_data) return {}
-    
+
     const { x_axis, series } = controlledData.chart_data
-    
+
     return {
       title: {
         text: `${controlledData.parameter_label} 对性能的影响`,
@@ -224,7 +230,7 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
       },
       legend: {
         top: 30,
-        data: series.map(s => s.name),
+        data: series.map((s) => s.name),
       },
       grid: {
         left: '3%',
@@ -255,12 +261,12 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
   // 敏感性雷达图
   const getSensitivityRadarOption = (): EChartsOption => {
     if (!sensitivityData?.sensitivities.length) return {}
-    
-    const indicators = sensitivityData.sensitivities.slice(0, 6).map(s => ({
+
+    const indicators = sensitivityData.sensitivities.slice(0, 6).map((s) => ({
       name: s.parameter_label,
       max: 1,
     }))
-    
+
     return {
       title: {
         text: '参数敏感性雷达图',
@@ -274,16 +280,20 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
         center: ['50%', '55%'],
         radius: '65%',
       },
-      series: [{
-        type: 'radar',
-        data: [{
-          value: sensitivityData.sensitivities.slice(0, 6).map(s => s.sensitivity_score),
-          name: `对 ${METRIC_OPTIONS.find(m => m.value === targetMetric)?.label} 的敏感性`,
-          areaStyle: { opacity: 0.3 },
-          lineStyle: { color: CHART_COLORS[0] },
-          itemStyle: { color: CHART_COLORS[0] },
-        }],
-      }],
+      series: [
+        {
+          type: 'radar',
+          data: [
+            {
+              value: sensitivityData.sensitivities.slice(0, 6).map((s) => s.sensitivity_score),
+              name: `对 ${METRIC_OPTIONS.find((m) => m.value === targetMetric)?.label} 的敏感性`,
+              areaStyle: { opacity: 0.3 },
+              lineStyle: { color: CHART_COLORS[0] },
+              itemStyle: { color: CHART_COLORS[0] },
+            },
+          ],
+        },
+      ],
     }
   }
 
@@ -342,7 +352,11 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
       key: 'rank',
       width: 60,
       render: (_, __, index) => (
-        <Tag color={index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'volcano' : 'default'}>
+        <Tag
+          color={
+            index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'volcano' : 'default'
+          }
+        >
           #{index + 1}
         </Tag>
       ),
@@ -388,12 +402,7 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
 
   // ============ 渲染 ============
   if (resultIds.length === 0) {
-    return (
-      <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description="请选择要分析的结果"
-      />
-    )
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="请选择要分析的结果" />
   }
 
   return (
@@ -607,7 +616,8 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
                             {
                               title: 'MAPE',
                               key: 'mape',
-                              render: (_, r) => r.metrics.mape ? `${r.metrics.mape.toFixed(2)}%` : '-',
+                              render: (_, r) =>
+                                r.metrics.mape ? `${r.metrics.mape.toFixed(2)}%` : '-',
                             },
                           ]}
                         />
@@ -695,7 +705,10 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
                               showIcon
                               icon={<BulbOutlined />}
                               message={rec}
-                              style={{ marginBottom: i < sensitivityData.recommendations.length - 1 ? 12 : 0 }}
+                              style={{
+                                marginBottom:
+                                  i < sensitivityData.recommendations.length - 1 ? 12 : 0,
+                              }}
                             />
                           ))}
                         </Card>
@@ -712,11 +725,12 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
                           style={{ marginTop: 16 }}
                         >
                           <Descriptions column={1} size="small">
-                            {sensitivityData.sensitivities.slice(0, 5).map(s => (
+                            {sensitivityData.sensitivities.slice(0, 5).map((s) => (
                               <Descriptions.Item key={s.parameter} label={s.parameter_label}>
                                 <Tag color="green">{String(s.best_value)}</Tag>
                                 <Text type="secondary" style={{ marginLeft: 8 }}>
-                                  ({METRIC_OPTIONS.find(m => m.value === targetMetric)?.label}: {s.best_metric.toFixed(4)})
+                                  ({METRIC_OPTIONS.find((m) => m.value === targetMetric)?.label}:{' '}
+                                  {s.best_metric.toFixed(4)})
                                 </Text>
                               </Descriptions.Item>
                             ))}
@@ -822,7 +836,12 @@ export default function ConfigComparison({ resultIds }: ConfigComparisonProps) {
 }
 
 // 导出 Statistic 组件（内部使用）
-function Statistic({ title, value, suffix, valueStyle }: {
+function Statistic({
+  title,
+  value,
+  suffix,
+  valueStyle,
+}: {
   title: string
   value: string | number
   suffix?: string
@@ -830,11 +849,13 @@ function Statistic({ title, value, suffix, valueStyle }: {
 }) {
   return (
     <div>
-      <Text type="secondary" style={{ fontSize: 12 }}>{title}</Text>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {title}
+      </Text>
       <div style={{ fontSize: 24, fontWeight: 600, ...valueStyle }}>
-        {value}{suffix && <span style={{ fontSize: 14, fontWeight: 400, marginLeft: 4 }}>{suffix}</span>}
+        {value}
+        {suffix && <span style={{ fontSize: 14, fontWeight: 400, marginLeft: 4 }}>{suffix}</span>}
       </div>
     </div>
   )
 }
-

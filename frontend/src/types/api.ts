@@ -32,4 +32,3 @@ export interface PaginatedResponse<T> {
   page: number
   page_size: number
 }
-

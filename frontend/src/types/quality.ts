@@ -8,27 +8,40 @@
 export type OutlierMethod = 'iqr' | 'zscore' | 'mad' | 'percentile' | 'threshold'
 
 /** 异常值处理方式 */
-export type OutlierAction = 'keep' | 'remove' | 'clip' | 'replace_mean' | 'replace_median' | 'replace_nan'
+export type OutlierAction =
+  | 'keep'
+  | 'remove'
+  | 'clip'
+  | 'replace_mean'
+  | 'replace_median'
+  | 'replace_nan'
 
 /** 缺失值处理策略 */
-export type MissingStrategy = 
-  | 'keep' 
-  | 'drop_row' 
-  | 'drop_column' 
-  | 'fill_mean' 
-  | 'fill_median' 
-  | 'fill_mode' 
-  | 'fill_forward' 
-  | 'fill_backward' 
-  | 'fill_linear' 
+export type MissingStrategy =
+  | 'keep'
+  | 'drop_row'
+  | 'drop_column'
+  | 'fill_mean'
+  | 'fill_median'
+  | 'fill_mode'
+  | 'fill_forward'
+  | 'fill_backward'
+  | 'fill_linear'
   | 'fill_value'
 
 /** 数据质量等级 */
 export type QualityLevel = 'excellent' | 'good' | 'fair' | 'poor'
 
 /** 列数据类型 */
-export type ColumnDataType = 'numeric' | 'integer' | 'float' | 'datetime' | 'categorical' | 'text' | 'boolean' | 'unknown'
-
+export type ColumnDataType =
+  | 'numeric'
+  | 'integer'
+  | 'float'
+  | 'datetime'
+  | 'categorical'
+  | 'text'
+  | 'boolean'
+  | 'unknown'
 
 // ============ 质量报告相关 ============
 
@@ -112,41 +125,41 @@ export interface DataQualityReport {
   dataset_name: string
   total_rows: number
   total_columns: number
-  
+
   // 缺失值分析
   missing_stats: ColumnMissingStats[]
   total_missing_cells: number
   total_missing_ratio: number
-  
+
   // 异常值分析
   outlier_method: string
   outlier_stats: ColumnOutlierStats[]
   total_outlier_cells: number
   total_outlier_ratio: number
-  
+
   // 列类型信息
   column_types: ColumnTypeInfo[]
   numeric_columns: string[]
   categorical_columns: string[]
   datetime_columns: string[]
-  
+
   // 列统计信息
   column_stats: ColumnBasicStats[]
-  
+
   // 时序分析
   time_analysis: TimeSeriesAnalysis | null
-  
+
   // 重复值
   duplicate_rows: number
   duplicate_ratio: number
-  
+
   // 质量评分
   quality_score: number
   quality_level: QualityLevel
-  
+
   // 建议
   suggestions: QualitySuggestion[]
-  
+
   // 生成时间
   generated_at: string
 }
@@ -158,7 +171,6 @@ export interface QualityCheckRequest {
   check_columns?: string[]
   include_suggestions?: boolean
 }
-
 
 // ============ 数据清洗相关 ============
 
@@ -178,22 +190,22 @@ export interface CleaningConfig {
   missing_strategy: MissingStrategy
   missing_fill_value?: number
   missing_drop_threshold: number
-  
+
   // 全局异常值处理
   outlier_method: OutlierMethod
   outlier_action: OutlierAction
   outlier_params: Record<string, number>
-  
+
   // 重复值处理
   drop_duplicates: boolean
   duplicate_keep: 'first' | 'last' | 'none'
-  
+
   // 列特定配置
   column_configs: ColumnCleaningConfig[]
-  
+
   // 要处理的列
   target_columns?: string[]
-  
+
   // 输出选项
   create_new_dataset: boolean
   new_dataset_suffix: string
@@ -266,7 +278,6 @@ export interface OutlierDetailsResponse {
   }
 }
 
-
 // ============ 默认配置 ============
 
 /** 默认清洗配置 */
@@ -322,4 +333,3 @@ export const QUALITY_LEVEL_CONFIG: Record<QualityLevel, { color: string; label: 
   fair: { color: '#faad14', label: '一般' },
   poor: { color: '#ff4d4f', label: '较差' },
 }
-

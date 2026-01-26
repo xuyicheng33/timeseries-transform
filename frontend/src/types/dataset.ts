@@ -14,7 +14,7 @@ export interface Dataset {
   description: string
   user_id: number | null
   folder_id: number | null
-  sort_order: number  // 排序顺序
+  sort_order: number // 排序顺序
   created_at: string
   updated_at: string
 }
@@ -40,4 +40,3 @@ export interface DatasetUpdate {
   description?: string
   folder_id?: number | null
 }
-

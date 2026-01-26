@@ -16,9 +16,7 @@ import type {
 /**
  * 创建配置
  */
-export async function createConfiguration(
-  data: ConfigurationCreate
-): Promise<Configuration> {
+export async function createConfiguration(data: ConfigurationCreate): Promise<Configuration> {
   return api.post('/configurations', data)
 }
 
@@ -32,19 +30,17 @@ export async function getConfigurations(
 ): Promise<PaginatedResponse<Configuration>> {
   const params: Record<string, number> = { page, page_size: pageSize }
   if (datasetId !== undefined) params.dataset_id = datasetId
-  
+
   return api.get('/configurations', { params })
 }
 
 /**
  * 获取所有配置（不分页，用于下拉选择等场景）
  */
-export async function getAllConfigurations(
-  datasetId?: number
-): Promise<Configuration[]> {
+export async function getAllConfigurations(datasetId?: number): Promise<Configuration[]> {
   const params: Record<string, number> = {}
   if (datasetId !== undefined) params.dataset_id = datasetId
-  
+
   return api.get('/configurations/all', { params })
 }
 
@@ -80,4 +76,3 @@ export async function generateFilename(
 ): Promise<GenerateFilenameResponse> {
   return api.post('/configurations/generate-name', data)
 }
-

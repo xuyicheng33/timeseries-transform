@@ -101,7 +101,11 @@ export default function ResultRepo() {
 
   // 预览相关
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
-  const [previewData, setPreviewData] = useState<{ columns: string[]; data: Record<string, unknown>[]; total_rows: number } | null>(null)
+  const [previewData, setPreviewData] = useState<{
+    columns: string[]
+    data: Record<string, unknown>[]
+    total_rows: number
+  } | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewResult, setPreviewResult] = useState<Result | null>(null)
 
@@ -112,7 +116,13 @@ export default function ResultRepo() {
   const fetchResults = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await getResults(filterDatasetId, filterModelName, currentPage, pageSize, filterConfigurationId)
+      const response = await getResults(
+        filterDatasetId,
+        filterModelName,
+        currentPage,
+        pageSize,
+        filterConfigurationId
+      )
       setResults(response.items)
       setTotal(response.total)
       return response.items
@@ -160,7 +170,7 @@ export default function ResultRepo() {
       const resultId = parseInt(idParam, 10)
       if (!isNaN(resultId)) {
         // 先尝试从已加载的结果中查找
-        const foundResult = results.find(r => r.id === resultId)
+        const foundResult = results.find((r) => r.id === resultId)
         if (foundResult) {
           handleShowMetrics(foundResult)
           // 清除 URL 参数
@@ -168,15 +178,18 @@ export default function ResultRepo() {
         } else {
           // 结果未在当前列表中，直接通过 API 获取
           import('@/api/results').then(({ getResult }) => {
-            getResult(resultId).then(result => {
-              if (result) {
-                handleShowMetrics(result)
-              }
-            }).catch(() => {
-              message.error('未找到指定的结果')
-            }).finally(() => {
-              setSearchParams({}, { replace: true })
-            })
+            getResult(resultId)
+              .then((result) => {
+                if (result) {
+                  handleShowMetrics(result)
+                }
+              })
+              .catch(() => {
+                message.error('未找到指定的结果')
+              })
+              .finally(() => {
+                setSearchParams({}, { replace: true })
+              })
           })
         }
       }
@@ -235,7 +248,9 @@ export default function ResultRepo() {
       setUploadFile(null)
       uploadForm.setFieldValue('name', '')
     },
-    fileList: uploadFile ? [{ uid: '-1', name: uploadFile.name, status: 'done' } as UploadFile] : [],
+    fileList: uploadFile
+      ? [{ uid: '-1', name: uploadFile.name, status: 'done' } as UploadFile]
+      : [],
   }
 
   const handleUpload = async () => {
@@ -258,7 +273,7 @@ export default function ResultRepo() {
         values.model_version,
         values.description,
         (percent) => setUploadProgress(percent),
-        values.target_column  // 新增：目标列参数
+        values.target_column // 新增：目标列参数
       )
 
       message.success('上传成功')
@@ -309,8 +324,10 @@ export default function ResultRepo() {
       const updateData: ResultUpdate = {}
       if (values.name !== editingResult.name) updateData.name = values.name
       if (values.model_name !== editingResult.model_name) updateData.model_name = values.model_name
-      if (values.model_version !== editingResult.model_version) updateData.model_version = values.model_version
-      if (values.description !== editingResult.description) updateData.description = values.description
+      if (values.model_version !== editingResult.model_version)
+        updateData.model_version = values.model_version
+      if (values.description !== editingResult.description)
+        updateData.description = values.description
 
       if (Object.keys(updateData).length === 0) {
         message.info('没有修改')
@@ -357,7 +374,7 @@ export default function ResultRepo() {
     setPreviewResult(result)
     setPreviewModalOpen(true)
     setPreviewLoading(true)
-      setPreviewData(null)
+    setPreviewData(null)
 
     try {
       const data = await previewResultApi(result.id, 100)
@@ -396,7 +413,7 @@ export default function ResultRepo() {
   // 根据指标方向判断是否为"好"值：R² 越大越好，其余越小越好
   const renderMetricsCards = (metrics: Metrics) => {
     const metricKeys: (keyof Metrics)[] = ['mse', 'rmse', 'mae', 'r2', 'mape']
-    
+
     // 判断指标是否为"好"值
     const isGoodValue = (key: keyof Metrics, value: number): boolean => {
       if (key === 'r2') {
@@ -409,7 +426,7 @@ export default function ResultRepo() {
         return value < 0.1
       }
     }
-    
+
     return (
       <Row gutter={[16, 16]}>
         {metricKeys.map((key) => (
@@ -445,7 +462,9 @@ export default function ResultRepo() {
       render: (name: string, record: Result) => (
         <Space>
           <ExperimentOutlined style={{ color: '#722ed1' }} />
-          <a onClick={() => handleShowMetrics(record)} style={{ fontWeight: 500 }}>{name}</a>
+          <a onClick={() => handleShowMetrics(record)} style={{ fontWeight: 500 }}>
+            {name}
+          </a>
         </Space>
       ),
     },
@@ -508,9 +527,7 @@ export default function ResultRepo() {
               <Tag color={getMseColor(metrics.mse)}>MSE: {formatMetric(metrics.mse, 'mse')}</Tag>
             </Tooltip>
             <Tooltip title={`R²: ${formatMetric(metrics.r2, 'r2')}`}>
-              <Tag color={getR2Color(metrics.r2)}>
-                R²: {formatMetric(metrics.r2, 'r2')}
-              </Tag>
+              <Tag color={getR2Color(metrics.r2)}>R²: {formatMetric(metrics.r2, 'r2')}</Tag>
             </Tooltip>
             <Button type="link" size="small" onClick={() => handleShowMetrics(record)}>
               详情
@@ -617,8 +634,8 @@ export default function ResultRepo() {
             value={filterDatasetId}
             onChange={(value) => {
               setFilterDatasetId(value)
-              setFilterConfigurationId(undefined)  // 切换数据集时清空配置筛选
-              setCurrentPage(1)  // 重置页码
+              setFilterConfigurationId(undefined) // 切换数据集时清空配置筛选
+              setCurrentPage(1) // 重置页码
             }}
           >
             {datasets.map((dataset) => (
@@ -634,7 +651,7 @@ export default function ResultRepo() {
             value={filterConfigurationId}
             onChange={(value) => {
               setFilterConfigurationId(value)
-              setCurrentPage(1)  // 重置页码
+              setCurrentPage(1) // 重置页码
             }}
           >
             {configurations
@@ -652,7 +669,7 @@ export default function ResultRepo() {
             value={filterModelName}
             onChange={(value) => {
               setFilterModelName(value)
-              setCurrentPage(1)  // 重置页码
+              setCurrentPage(1) // 重置页码
             }}
           >
             {modelNames.map((name) => (
@@ -717,9 +734,7 @@ export default function ResultRepo() {
                 <InboxOutlined />
               </p>
               <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
-              <p className="ant-upload-hint">
-                支持 CSV 格式，文件需包含以下列之一：
-              </p>
+              <p className="ant-upload-hint">支持 CSV 格式，文件需包含以下列之一：</p>
               <p className="ant-upload-hint" style={{ fontSize: 12, color: '#666' }}>
                 格式1: true_value + predicted_value 列（完整格式，可直接计算指标）
               </p>
@@ -787,10 +802,7 @@ export default function ResultRepo() {
             </Col>
           </Row>
 
-          <Form.Item
-            noStyle
-            shouldUpdate={(prev, curr) => prev.dataset_id !== curr.dataset_id}
-          >
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.dataset_id !== curr.dataset_id}>
             {({ getFieldValue }) => {
               const selectedDatasetId = getFieldValue('dataset_id')
               const filteredConfigs = selectedDatasetId
@@ -815,15 +827,12 @@ export default function ResultRepo() {
           </Form.Item>
 
           {/* 目标列选择（用于只上传预测值的情况） */}
-          <Form.Item
-            noStyle
-            shouldUpdate={(prev, curr) => prev.dataset_id !== curr.dataset_id}
-          >
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.dataset_id !== curr.dataset_id}>
             {({ getFieldValue }) => {
               const selectedDatasetId = getFieldValue('dataset_id')
               const selectedDataset = datasets.find((d) => d.id === selectedDatasetId)
               const columns = selectedDataset?.columns || []
-              
+
               return (
                 <Form.Item
                   name="target_column"
@@ -837,7 +846,9 @@ export default function ResultRepo() {
                   }
                 >
                   <Select
-                    placeholder={selectedDatasetId ? '仅预测值文件需要选择（可选）' : '请先选择数据集'}
+                    placeholder={
+                      selectedDatasetId ? '仅预测值文件需要选择（可选）' : '请先选择数据集'
+                    }
                     allowClear
                     disabled={uploading || !selectedDatasetId}
                     showSearch
@@ -934,9 +945,9 @@ export default function ResultRepo() {
         ]}
         width={600}
       >
-        {selectedResult && hasMetrics(selectedResult.metrics) && (
-          renderMetricsCards(selectedResult.metrics as Metrics)
-        )}
+        {selectedResult &&
+          hasMetrics(selectedResult.metrics) &&
+          renderMetricsCards(selectedResult.metrics as Metrics)}
       </Modal>
 
       {/* 预览 Modal */}
@@ -962,11 +973,20 @@ export default function ResultRepo() {
         {previewResult && (
           <div style={{ marginBottom: 16 }}>
             <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
-              <span><Text strong>模型：</Text>{previewResult.model_name}</span>
+              <span>
+                <Text strong>模型：</Text>
+                {previewResult.model_name}
+              </span>
               {previewResult.model_version && (
-                <span><Text strong>版本：</Text>{previewResult.model_version}</span>
+                <span>
+                  <Text strong>版本：</Text>
+                  {previewResult.model_version}
+                </span>
               )}
-              <span><Text strong>总行数：</Text>{previewResult.row_count?.toLocaleString()}</span>
+              <span>
+                <Text strong>总行数：</Text>
+                {previewResult.row_count?.toLocaleString()}
+              </span>
             </Space>
           </div>
         )}
@@ -997,4 +1017,3 @@ export default function ResultRepo() {
     </div>
   )
 }
-

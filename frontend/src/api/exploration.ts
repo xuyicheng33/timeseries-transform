@@ -164,7 +164,7 @@ export async function getColumnDistribution(
 ): Promise<DistributionResponse> {
   return request.get(`/exploration/${datasetId}/distribution/${encodeURIComponent(column)}`, {
     params: { bins },
-    timeout: 300000
+    timeout: 300000,
   })
 }
 
@@ -179,9 +179,9 @@ export async function getCorrelationMatrix(
   return request.get(`/exploration/${datasetId}/correlation`, {
     params: {
       columns: columns?.join(','),
-      method
+      method,
     },
-    timeout: 300000
+    timeout: 300000,
   })
 }
 
@@ -201,9 +201,9 @@ export async function getTrendAnalysis(
     params: {
       time_column: options?.time_column,
       window: options?.window || 10,
-      max_points: options?.max_points || 2000
+      max_points: options?.max_points || 2000,
     },
-    timeout: 300000
+    timeout: 300000,
   })
 }
 
@@ -222,9 +222,9 @@ export async function compareColumns(
     params: {
       columns: columns.join(','),
       normalize: options?.normalize ?? true,
-      max_points: options?.max_points || 2000
+      max_points: options?.max_points || 2000,
     },
-    timeout: 300000
+    timeout: 300000,
   })
 }
 
@@ -233,7 +233,6 @@ export async function compareColumns(
  */
 export async function getDataOverview(datasetId: number): Promise<OverviewResponse> {
   return request.get(`/exploration/${datasetId}/overview`, {
-    timeout: 300000
+    timeout: 300000,
   })
 }
-
