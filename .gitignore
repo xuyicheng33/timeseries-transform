@@ -87,4 +87,25 @@ datasets/prepared/
 # ===========================
 user
 data_for_platform/  
-test/ 
+test/
+
+# ===========================
+# 误提交文件防护
+# ===========================
+ktopplatform*
+*ktopplatform*
+
+# 测试数据库（仅排除 test_ 开头的）
+backend/test_*.db
+
+# Python 编译文件
+*.pyc
+*.pyo
+
+# Ruff 和 MyPy 缓存
+.ruff_cache/
+.mypy_cache/
+
+# 数据库日志文件
+*.db-journal
+*.db-wal 
